@@ -221,6 +221,94 @@
   loadAck().catch(err => {
     statusEl.textContent = "Setup error: " + err.message;
   });
+  const viewForm = document.getElementById('viewForm');
+const viewBtn = document.getElementById('viewBtn');
+const viewStatus = document.getElementById('viewStatus');
+const viewRequest = document.getElementById('viewRequest');
+const viewOffers = document.getElementById('viewOffers');
+const viewHistory = document.getElementById('viewHistory');
+
+function senderHeaders(senderToken) {
+  // Most common pattern: backend reads token from this header.
+  // If your backend uses a different header name, change it here.
+  return {
+    "X-Role": "sender",
+    "X-Sender-Token": senderToken
+  };
+}
+
+async function safeJson(resp) {
+  try { return await resp.json(); }
+  catch (_) { return { ok: false, error: "Non-JSON response", status: resp.status }; }
+}
+
+viewForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  viewStatus.textContent = "";
+  viewRequest.textContent = "{}";
+  viewOffers.textContent = "[]";
+  viewHistory.textContent = "[]";
+
+  const id = String(document.getElementById('view_request_id').value || '').trim();
+  const token = String(document.getElementById('view_sender_token').value || '').trim();
+
+  if (!id || !token) {
+    viewStatus.textContent = "Please enter both Request ID and Sender token.";
+    return;
+  }
+
+  viewBtn.disabled = true;
+  viewStatus.textContent = "Loading…";
+
+  try {
+    // 1) Request details
+    const r1 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id), {
+      method: "GET",
+      headers: {
+        ...senderHeaders(token)
+      }
+    });
+    const j1 = await safeJson(r1);
+    viewRequest.textContent = JSON.stringify(j1, null, 2);
+
+    if (!j1.ok) {
+      viewStatus.textContent = "Failed to load request ❌ " + (j1.error || "Unknown error");
+      return;
+    }
+
+    // 2) Offers list (usually public, but we include sender headers anyway)
+    const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", {
+      method: "GET",
+      headers: {
+        ...senderHeaders(token)
+      }
+    });
+    const j2 = await safeJson(r2);
+    viewOffers.textContent = JSON.stringify(j2, null, 2);
+
+    // 3) History (optional endpoint; ignore if 404)
+    const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", {
+      method: "GET",
+      headers: {
+        ...senderHeaders(token)
+      }
+    });
+
+    if (r3.status === 404) {
+      viewHistory.textContent = JSON.stringify({ ok: false, error: "History endpoint not enabled (/requests/:id/history)" }, null, 2);
+    } else {
+      const j3 = await safeJson(r3);
+      viewHistory.textContent = JSON.stringify(j3, null, 2);
+    }
+
+    viewStatus.textContent = "Loaded ✅";
+  } catch (err) {
+    viewStatus.textContent = "Network error ❌ " + err.message;
+  } finally {
+    viewBtn.disabled = false;
+  }
+});
+
 </script>
 </body>
 </html>
