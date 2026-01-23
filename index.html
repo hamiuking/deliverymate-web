@@ -92,6 +92,35 @@
       <pre id="out">{}</pre>
     </div>
   </div>
+<div class="card">
+  <h2>View my request</h2>
+  <p class="muted">Enter your Request ID and Sender Token to view the request and offers.</p>
+
+  <form id="viewForm">
+    <div class="row">
+      <div>
+        <label>Request ID *</label>
+        <input id="view_request_id" required placeholder="e.g. 123" />
+      </div>
+      <div>
+        <label>Sender token *</label>
+        <input id="view_sender_token" required placeholder="paste sender_token" />
+      </div>
+    </div>
+
+    <button class="btn" id="viewBtn" type="submit">Load</button>
+    <div class="muted" id="viewStatus" style="margin-top:10px;"></div>
+  </form>
+
+  <h3 style="margin-top:16px;">Request</h3>
+  <pre id="viewRequest">{}</pre>
+
+  <h3>Offers</h3>
+  <pre id="viewOffers">[]</pre>
+
+  <h3>History (if enabled)</h3>
+  <pre id="viewHistory">[]</pre>
+</div>
 
 <script>
   // ✅ Set your backend base URL here
