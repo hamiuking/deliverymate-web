@@ -109,6 +109,26 @@
         <div class="muted" id="copyStatus"></div>
       </div>
 
+      <!-- Fund escrow / Pay now (Stripe Checkout) -->
+      <div class="card">
+        <h3>Fund escrow (Pay now)</h3>
+        <p class="muted">After accepting an offer, fund escrow via Stripe Checkout. Required before release.</p>
+
+        <div class="row">
+          <div>
+            <label>Amount (NZD)</label>
+            <input id="fund_amount_nzd" type="number" step="0.01" min="0" placeholder="auto-filled after accept (if available)" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button class="btn" id="fundBtn" type="button">Pay now (Stripe Checkout)</button>
+          </div>
+        </div>
+
+        <div class="muted" id="fundStatus" style="margin-top:10px;"></div>
+        <pre id="fundOut">{}</pre>
+      </div>
+
       <!-- Confirm delivery / release escrow (Option A) -->
       <div class="card">
         <h3>Confirm delivery (release escrow)</h3>
@@ -226,7 +246,13 @@
   const copyDriverTokenBtn = document.getElementById('copyDriverTokenBtn');
   const copyStatus = document.getElementById('copyStatus');
 
-  // NEW: release escrow elements
+  // Fund escrow elements
+  const fundAmount = document.getElementById('fund_amount_nzd');
+  const fundBtn = document.getElementById('fundBtn');
+  const fundStatus = document.getElementById('fundStatus');
+  const fundOut = document.getElementById('fundOut');
+
+  // Release escrow elements
   const releaseBtn = document.getElementById('releaseBtn');
   const releaseStatus = document.getElementById('releaseStatus');
   const releaseOut = document.getElementById('releaseOut');
@@ -350,7 +376,9 @@
     viewOffers.textContent = "[]";
     viewHistory.textContent = "[]";
 
-    // keep release outputs clean between loads
+    // keep outputs clean between loads
+    if (fundStatus) fundStatus.textContent = "";
+    if (fundOut) fundOut.textContent = "{}";
     if (releaseStatus) releaseStatus.textContent = "";
     if (releaseOut) releaseOut.textContent = "{}";
 
@@ -389,6 +417,67 @@
       viewBtn.disabled = false;
     }
   });
+
+  // ===== Sender fund escrow (Stripe Checkout) =====
+  async function fundEscrowNow() {
+    fundStatus.textContent = "";
+    fundOut.textContent = "{}";
+
+    const requestId = String(viewRequestId.value || '').trim();
+    const senderToken = String(viewSenderToken.value || '').trim();
+    const amountStr = String((fundAmount && fundAmount.value) || '').trim();
+
+    if (!requestId || !senderToken) {
+      fundStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
+      return;
+    }
+    if (!amountStr) {
+      fundStatus.textContent = "Amount is required.";
+      return;
+    }
+
+    fundBtn.disabled = true;
+    fundStatus.textContent = "Creating Stripe Checkout…";
+
+    try {
+      const r = await fetch(
+        API_BASE + "/requests/" + encodeURIComponent(requestId) + "/escrow/fund",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": uuid(),
+            "X-Role": "sender",
+            "X-Sender-Token": senderToken
+          },
+          body: JSON.stringify({ amount_nzd: amountStr })
+        }
+      );
+
+      const j = await safeJson(r);
+      fundOut.textContent = JSON.stringify(j, null, 2);
+
+      if (!j.ok) {
+        fundStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+        return;
+      }
+
+      fundStatus.textContent = "Redirecting to Stripe Checkout…";
+      if (j.checkout_url) {
+        window.location.href = j.checkout_url;
+      } else {
+        fundStatus.textContent = "Created ✅ (no checkout_url returned)";
+      }
+    } catch (err) {
+      fundStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      fundBtn.disabled = false;
+    }
+  }
+
+  if (fundBtn) {
+    fundBtn.addEventListener('click', fundEscrowNow);
+  }
 
   // ===== Sender accept offer (FIXED) =====
   function setDriverToken(token) {
@@ -444,7 +533,24 @@
 
       acceptStatus.textContent = "Accepted ✅";
       if (j.driver_token) setDriverToken(j.driver_token);
-      else acceptStatus.textContent = "Accepted ✅ (no driver_token returned)";
+
+      // Try to auto-fill amount from response (best-effort)
+      try {
+        const amt =
+          (j.request && j.request.agreed_price_nzd) ||
+          (j.request && j.request.price_nzd) ||
+          (j.offer && j.offer.price_nzd) ||
+          null;
+        if (fundAmount && amt != null) fundAmount.value = String(amt);
+      } catch (_) {}
+
+      // Your requested behaviour: accept -> pay now
+      // Only auto-start if we have an amount to send.
+      if (fundAmount && String(fundAmount.value || '').trim()) {
+        await fundEscrowNow();
+      } else {
+        fundStatus.textContent = "Accepted ✅ Now enter amount and click Pay now.";
+      }
     } catch (err) {
       acceptStatus.textContent = "Network error ❌ " + err.message;
     }
@@ -461,7 +567,7 @@
     }
   });
 
-  // ===== Sender confirm delivery / release escrow (Option A) =====
+  // ===== Sender confirm delivery / release escrow =====
   if (releaseBtn) {
     releaseBtn.addEventListener('click', async () => {
       releaseStatus.textContent = "";
