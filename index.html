@@ -93,7 +93,7 @@
 
       <h3>Offers</h3><pre id="viewOffers">[]</pre>
 
-      <!-- NEW: Offers list (one-click accept) -->
+      <!-- Offers list (one-click accept) -->
       <div class="card" style="margin-top:12px;">
         <h3 style="margin-top:0;">Offers list (one-click)</h3>
         <div class="muted">Click “Accept this offer” to auto-fill Offer ID, auto-fill amount (if available), then proceed.</div>
@@ -138,7 +138,7 @@
         <pre id="fundOut">{}</pre>
       </div>
 
-      <!-- Confirm delivery / release escrow (Option A) -->
+      <!-- Confirm delivery / release escrow -->
       <div class="card">
         <h3>Confirm delivery (release escrow)</h3>
         <p class="muted">
@@ -159,6 +159,25 @@
 
   <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
+
+    <!-- View my job (driver) -->
+    <div class="card">
+      <h2>View my job</h2>
+      <form id="driverViewForm">
+        <div class="row">
+          <div><label>Request ID *</label><input id="dv_request_id" required /></div>
+          <div><label>Driver token *</label><input id="dv_driver_token" required /></div>
+        </div>
+        <button class="btn">Load job</button>
+        <div class="muted" id="dvStatus"></div>
+      </form>
+
+      <h3>Job details</h3>
+      <pre id="dvRequest">{}</pre>
+
+      <h3>History</h3>
+      <pre id="dvHistory">[]</pre>
+    </div>
 
     <div class="card">
       <h2>Make offer</h2>
@@ -285,11 +304,21 @@
   const dsDriverName = document.getElementById('ds_driver_name');
   const dsDriverToken = document.getElementById('ds_driver_token');
 
+  const driverViewForm = document.getElementById('driverViewForm');
+  const dvStatus = document.getElementById('dvStatus');
+  const dvRequest = document.getElementById('dvRequest');
+  const dvHistory = document.getElementById('dvHistory');
+  const dvRequestId = document.getElementById('dv_request_id');
+  const dvDriverToken = document.getElementById('dv_driver_token');
+
   function senderHeaders(senderToken) {
     return { "X-Role": "sender", "X-Sender-Token": senderToken };
   }
   function driverHeaders() {
     return { "X-Role": "driver" };
+  }
+  function driverAuthHeaders(driverToken) {
+    return { "X-Role": "driver", "X-Driver-Token": driverToken };
   }
 
   // ===== Role switch =====
@@ -377,7 +406,7 @@
     }
   });
 
-  // ===== Offer list rendering (NEW) =====
+  // ===== Offer list rendering =====
   function getOffersArray(payload) {
     if (!payload) return [];
     if (Array.isArray(payload)) return payload;
@@ -386,12 +415,10 @@
     if (payload.ok && Array.isArray(payload.data)) return payload.data;
     return [];
   }
-
   function fmtMoney(x) {
     if (x === null || x === undefined || x === "") return "";
     return String(x);
   }
-
   function renderOffersList(offersPayload) {
     const box = document.getElementById('offersList');
     if (!box) return;
@@ -432,15 +459,10 @@
 
       const btn = row.querySelector('button[data-offer-id]');
       btn.addEventListener('click', async () => {
-        // Auto-fill Offer ID input
         if (acceptOfferId) acceptOfferId.value = String(offerId);
-
-        // Best-effort auto-fill fund amount from offer price (if present)
         if (fundAmount && price !== "" && price !== null && price !== undefined) {
           fundAmount.value = String(price);
         }
-
-        // Trigger the same accept flow
         await acceptOfferById(String(offerId));
       });
 
@@ -456,7 +478,6 @@
     viewOffers.textContent = "[]";
     viewHistory.textContent = "[]";
 
-    // keep outputs clean between loads
     if (fundStatus) fundStatus.textContent = "";
     if (fundOut) fundOut.textContent = "{}";
     if (releaseStatus) releaseStatus.textContent = "";
@@ -464,7 +485,6 @@
     if (acceptStatus) acceptStatus.textContent = "";
     if (acceptOut) acceptOut.textContent = "{}";
 
-    // clear offers list
     renderOffersList([]);
 
     const id = String(viewRequestId.value || '').trim();
@@ -490,8 +510,6 @@
       const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", { headers: senderHeaders(token) });
       const j2 = await safeJson(r2);
       viewOffers.textContent = JSON.stringify(j2, null, 2);
-
-      // NEW: render list
       renderOffersList(j2);
 
       const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", { headers: senderHeaders(token) });
@@ -506,7 +524,7 @@
     }
   });
 
-  // ===== Sender fund escrow (Stripe Checkout) =====
+  // ===== Sender fund escrow =====
   async function fundEscrowNow() {
     fundStatus.textContent = "";
     fundOut.textContent = "{}";
@@ -567,11 +585,11 @@
     fundBtn.addEventListener('click', fundEscrowNow);
   }
 
-  // ===== Sender accept offer (shared function; NEW) =====
+  // ===== Sender accept offer (shared) =====
   function setDriverToken(token) {
     const t = String(token || '').trim();
     driverTokenBox.value = t;
-    if (t) dsDriverToken.value = t; // convenience: prefill driver token field
+    if (t) dsDriverToken.value = t;
   }
 
   async function acceptOfferById(offerId) {
@@ -619,7 +637,6 @@
       acceptStatus.textContent = "Accepted ✅";
       if (j.driver_token) setDriverToken(j.driver_token);
 
-      // Try to auto-fill amount from response (best-effort)
       try {
         const amt =
           (j.request && j.request.agreed_price_nzd) ||
@@ -629,7 +646,6 @@
         if (fundAmount && amt != null) fundAmount.value = String(amt);
       } catch (_) {}
 
-      // Your requested behaviour: accept -> pay now
       if (fundAmount && String(fundAmount.value || '').trim()) {
         await fundEscrowNow();
       } else {
@@ -640,7 +656,6 @@
     }
   }
 
-  // Manual accept form now delegates to acceptOfferById (NEW)
   acceptOfferForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const offerId = String(acceptOfferId.value || '').trim();
@@ -658,7 +673,7 @@
     }
   });
 
-  // ===== Sender confirm delivery / release escrow =====
+  // ===== Sender release escrow =====
   if (releaseBtn) {
     releaseBtn.addEventListener('click', async () => {
       releaseStatus.textContent = "";
@@ -699,6 +714,48 @@
         releaseStatus.textContent = "Network error ❌ " + err.message;
       } finally {
         releaseBtn.disabled = false;
+      }
+    });
+  }
+
+  // ===== Driver view my job =====
+  if (driverViewForm) {
+    driverViewForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      dvStatus.textContent = "";
+      dvRequest.textContent = "{}";
+      dvHistory.textContent = "[]";
+
+      const id = String(dvRequestId.value || '').trim();
+      const token = String(dvDriverToken.value || '').trim();
+
+      if (!id || !token) {
+        dvStatus.textContent = "Please enter both Request ID and Driver token.";
+        return;
+      }
+
+      dvStatus.textContent = "Loading…";
+
+      try {
+        const r1 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id), {
+          headers: driverAuthHeaders(token)
+        });
+        const j1 = await safeJson(r1);
+        dvRequest.textContent = JSON.stringify(j1, null, 2);
+        if (!j1.ok) {
+          dvStatus.textContent = "Failed ❌ " + (j1.error || "Unknown error");
+          return;
+        }
+
+        const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", {
+          headers: driverAuthHeaders(token)
+        });
+        const j2 = await safeJson(r2);
+        dvHistory.textContent = JSON.stringify(j2, null, 2);
+
+        dvStatus.textContent = "Loaded ✅";
+      } catch (err) {
+        dvStatus.textContent = "Network error ❌ " + err.message;
       }
     });
   }
