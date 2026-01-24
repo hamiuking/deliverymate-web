@@ -122,6 +122,91 @@
   <pre id="viewHistory">[]</pre>
 </div>
 
+  <div class="card">
+  <h2>Driver — Make offer</h2>
+  <p class="muted">Submit an offer for an open request. Requires driver acknowledgement.</p>
+
+  <form id="driverOfferForm">
+    <div class="row">
+      <div>
+        <label>Request ID *</label>
+        <input id="offer_request_id" required placeholder="e.g. 123" />
+      </div>
+      <div>
+        <label>Offer price (NZD)</label>
+        <input id="offer_price_nzd" type="number" step="0.01" min="0" max="100000" placeholder="optional" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Driver name *</label>
+        <input id="offer_driver_name" required maxlength="80" placeholder="e.g. Alex" />
+      </div>
+      <div>
+        <label>Driver phone</label>
+        <input id="offer_driver_phone" maxlength="40" placeholder="optional" />
+      </div>
+    </div>
+
+    <label>Note</label>
+    <textarea id="offer_note" maxlength="300" placeholder="optional"></textarea>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="muted" style="margin-bottom:8px;"><strong>Driver acknowledgement</strong></div>
+      <div id="driverAckText" class="muted" style="white-space:pre-wrap;"></div>
+      <label style="margin-top:10px;">
+        <input type="checkbox" id="driverAckBox" />
+        I agree to the acknowledgement above.
+      </label>
+    </div>
+
+    <button class="btn" id="offerBtn" type="submit" disabled>Submit offer</button>
+    <div class="muted" id="offerStatus" style="margin-top:10px;"></div>
+  </form>
+
+  <h3 style="margin-top:16px;">Result</h3>
+  <pre id="offerOut">{}</pre>
+</div>
+
+<div class="card">
+  <h2>Driver — Update status</h2>
+  <p class="muted">Update your assigned request status (picked_up → delivered). Requires driver token.</p>
+
+  <form id="driverStatusForm">
+    <div class="row">
+      <div>
+        <label>Request ID *</label>
+        <input id="ds_request_id" required placeholder="e.g. 123" />
+      </div>
+      <div>
+        <label>New status *</label>
+        <select id="ds_status" required>
+          <option value="picked_up">picked_up</option>
+          <option value="delivered">delivered</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Driver name *</label>
+        <input id="ds_driver_name" required maxlength="80" placeholder="must match assigned driver" />
+      </div>
+      <div>
+        <label>Driver token *</label>
+        <input id="ds_driver_token" required placeholder="paste driver_token" />
+      </div>
+    </div>
+
+    <button class="btn" id="dsBtn" type="submit">Update status</button>
+    <div class="muted" id="dsStatus" style="margin-top:10px;"></div>
+  </form>
+
+  <h3 style="margin-top:16px;">Result</h3>
+  <pre id="dsOut">{}</pre>
+</div>
+
 <script>
   // ✅ Set your backend base URL here
   const API_BASE = "https://deliverymate.onrender.com";
@@ -142,6 +227,7 @@
   }
 
   let SENDER_ACK_VERSION = null;
+  let DRIVER_ACK_VERSION = null;
 
   async function loadAck() {
     // versions
@@ -149,6 +235,8 @@
     const vj = await v.json();
     if (!vj.ok) throw new Error("Failed to load /ack/versions");
     SENDER_ACK_VERSION = vj.sender_ack_version;
+    DRIVER_ACK_VERSION = vj.driver_ack_version;
+
 
     // sender text
     const a = await fetch(API_BASE + "/ack/sender");
@@ -156,6 +244,14 @@
     if (!aj.ok) throw new Error("Failed to load /ack/sender");
     senderAckText.textContent = aj.text;
 
+        // driver text
+    const d = await fetch(API_BASE + "/ack/driver");
+    const dj = await d.json();
+    if (!dj.ok) throw new Error("Failed to load /ack/driver");
+    const driverAckTextEl = document.getElementById('driverAckText');
+    if (driverAckTextEl) driverAckTextEl.textContent = dj.text;
+
+  
     ackInfo.textContent = `Sender ack version: ${vj.sender_ack_version} · Driver ack version: ${vj.driver_ack_version} · Build: ${vj.build_id}`;
   }
 
@@ -308,6 +404,144 @@ viewForm.addEventListener('submit', async (e) => {
     viewBtn.disabled = false;
   }
 });
+// ======================
+// Driver — Make Offer
+// ======================
+const driverOfferForm = document.getElementById('driverOfferForm');
+const offerBtn = document.getElementById('offerBtn');
+const offerStatus = document.getElementById('offerStatus');
+const offerOut = document.getElementById('offerOut');
+const driverAckBox = document.getElementById('driverAckBox');
+
+function driverHeaders() {
+  return { "X-Role": "driver" };
+}
+
+if (driverAckBox && offerBtn) {
+  driverAckBox.addEventListener('change', () => {
+    offerBtn.disabled = !driverAckBox.checked;
+  });
+}
+
+if (driverOfferForm) {
+  driverOfferForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    offerStatus.textContent = "";
+    offerOut.textContent = "{}";
+
+    if (!DRIVER_ACK_VERSION) {
+      offerStatus.textContent = "Driver ack version not loaded yet. Refresh and try again.";
+      return;
+    }
+    if (!driverAckBox.checked) {
+      offerStatus.textContent = "Please tick the driver acknowledgement checkbox.";
+      return;
+    }
+
+    const requestId = String(document.getElementById('offer_request_id').value || '').trim();
+    const driver_name = String(document.getElementById('offer_driver_name').value || '').trim();
+    const driver_phone = String(document.getElementById('offer_driver_phone').value || '').trim();
+    const note = String(document.getElementById('offer_note').value || '').trim();
+
+    const priceStr = String(document.getElementById('offer_price_nzd').value || '').trim();
+
+    if (!requestId || !driver_name) {
+      offerStatus.textContent = "Request ID and Driver name are required.";
+      return;
+    }
+
+    const body = {
+      driver_name,
+      driver_ack_version: DRIVER_ACK_VERSION
+    };
+    if (driver_phone) body.driver_phone = driver_phone;
+    if (note) body.note = note;
+    if (priceStr !== "") body.price_nzd = Number(priceStr);
+
+    const idemKey = uuid();
+    offerBtn.disabled = true;
+    offerStatus.textContent = "Submitting offer…";
+
+    try {
+      const r = await fetch(API_BASE + "/requests/" + encodeURIComponent(requestId) + "/offers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idemKey,
+          ...driverHeaders()
+        },
+        body: JSON.stringify(body)
+      });
+
+      const j = await safeJson(r);
+      offerOut.textContent = JSON.stringify(j, null, 2);
+
+      if (j.ok) offerStatus.textContent = "Offer submitted ✅";
+      else offerStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+    } catch (err) {
+      offerStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      offerBtn.disabled = !driverAckBox.checked;
+    }
+  });
+}
+
+// ======================
+// Driver — Update Status
+// ======================
+const driverStatusForm = document.getElementById('driverStatusForm');
+const dsBtn = document.getElementById('dsBtn');
+const dsStatus = document.getElementById('dsStatus');
+const dsOut = document.getElementById('dsOut');
+
+if (driverStatusForm) {
+  driverStatusForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    dsStatus.textContent = "";
+    dsOut.textContent = "{}";
+
+    const requestId = String(document.getElementById('ds_request_id').value || '').trim();
+    const status = String(document.getElementById('ds_status').value || '').trim();
+    const driver_name = String(document.getElementById('ds_driver_name').value || '').trim();
+    const driver_token = String(document.getElementById('ds_driver_token').value || '').trim();
+
+    if (!requestId || !status || !driver_name || !driver_token) {
+      dsStatus.textContent = "Request ID, status, driver name, and driver token are required.";
+      return;
+    }
+
+    const idemKey = uuid();
+    dsBtn.disabled = true;
+    dsStatus.textContent = "Updating…";
+
+    try {
+      const r = await fetch(API_BASE + "/requests/" + encodeURIComponent(requestId) + "/status", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idemKey,
+          "X-Driver-Token": driver_token,
+          ...driverHeaders()
+        },
+        body: JSON.stringify({
+          status,
+          driver_name,
+          driver_token
+        })
+      });
+
+      const j = await safeJson(r);
+      dsOut.textContent = JSON.stringify(j, null, 2);
+
+      if (j.ok) dsStatus.textContent = "Updated ✅";
+      else dsStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+    } catch (err) {
+      dsStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      dsBtn.disabled = false;
+    }
+  });
+}
 
 </script>
 </body>
