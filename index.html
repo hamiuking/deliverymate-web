@@ -165,112 +165,360 @@
 </div>
 
 <script>
-const API_BASE = "https://deliverymate.onrender.com";
-document.getElementById('apiBasePill').textContent = API_BASE;
+  // Production backend base (confirmed)
+  const API_BASE = "https://deliverymate.onrender.com";
+  document.getElementById('apiBasePill').textContent = API_BASE;
 
-function uuid(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();}
-async function safeJson(r){try{return await r.json()}catch{return{ok:false,error:"non-json"}}}
+  function uuid() {
+    return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random());
+  }
+  async function safeJson(resp) {
+    try { return await resp.json(); }
+    catch (_) { return { ok: false, error: "Non-JSON response", status: resp.status }; }
+  }
 
-let SENDER_ACK_VERSION=null, DRIVER_ACK_VERSION=null;
+  let SENDER_ACK_VERSION = null;
+  let DRIVER_ACK_VERSION = null;
 
-// Load acknowledgements
-(async()=>{
-  const v=await fetch(API_BASE+"/ack/versions").then(r=>r.json());
-  SENDER_ACK_VERSION=v.sender_ack_version;
-  DRIVER_ACK_VERSION=v.driver_ack_version;
-  document.getElementById('ackInfo').textContent=`Sender ack: ${v.sender_ack_version} · Driver ack: ${v.driver_ack_version}`;
-  document.getElementById('senderAckText').textContent=(await fetch(API_BASE+"/ack/sender").then(r=>r.json())).text;
-  document.getElementById('driverAckText').textContent=(await fetch(API_BASE+"/ack/driver").then(r=>r.json())).text;
-})();
+  // ===== Elements =====
+  const senderSection = document.getElementById('senderSection');
+  const driverSection = document.getElementById('driverSection');
 
-// Role switch
-document.querySelectorAll('input[name="roleSwitch"]').forEach(r=>{
-  r.addEventListener('change',()=>{
-    senderSection.style.display=r.value==="sender"?"":"none";
-    driverSection.style.display=r.value==="driver"?"":"none";
+  const ackInfo = document.getElementById('ackInfo');
+  const senderAckText = document.getElementById('senderAckText');
+  const driverAckText = document.getElementById('driverAckText');
+
+  const ackBox = document.getElementById('ackBox');
+  const createBtn = document.getElementById('createBtn');
+  const statusEl = document.getElementById('status');
+  const out = document.getElementById('out');
+  const createForm = document.getElementById('createForm');
+
+  const viewForm = document.getElementById('viewForm');
+  const viewBtn = document.getElementById('viewBtn');
+  const viewStatus = document.getElementById('viewStatus');
+  const viewRequest = document.getElementById('viewRequest');
+  const viewOffers = document.getElementById('viewOffers');
+  const viewHistory = document.getElementById('viewHistory');
+  const viewRequestId = document.getElementById('view_request_id');
+  const viewSenderToken = document.getElementById('view_sender_token');
+
+  const acceptOfferForm = document.getElementById('acceptOfferForm');
+  const acceptOfferId = document.getElementById('accept_offer_id');
+  const acceptStatus = document.getElementById('acceptStatus');
+  const acceptOut = document.getElementById('acceptOut');
+  const driverTokenBox = document.getElementById('driverTokenBox');
+  const copyDriverTokenBtn = document.getElementById('copyDriverTokenBtn');
+  const copyStatus = document.getElementById('copyStatus');
+
+  const driverAckBox = document.getElementById('driverAckBox');
+  const offerBtn = document.getElementById('offerBtn');
+  const offerStatus = document.getElementById('offerStatus');
+  const offerOut = document.getElementById('offerOut');
+  const driverOfferForm = document.getElementById('driverOfferForm');
+  const offerRequestId = document.getElementById('offer_request_id');
+  const offerPrice = document.getElementById('offer_price_nzd');
+  const offerDriverName = document.getElementById('offer_driver_name');
+  const offerDriverPhone = document.getElementById('offer_driver_phone');
+  const offerNote = document.getElementById('offer_note');
+
+  const driverStatusForm = document.getElementById('driverStatusForm');
+  const dsStatus = document.getElementById('dsStatus');
+  const dsOut = document.getElementById('dsOut');
+  const dsRequestId = document.getElementById('ds_request_id');
+  const dsNewStatus = document.getElementById('ds_status');
+  const dsDriverName = document.getElementById('ds_driver_name');
+  const dsDriverToken = document.getElementById('ds_driver_token');
+
+  function senderHeaders(senderToken) {
+    return { "X-Role": "sender", "X-Sender-Token": senderToken };
+  }
+  function driverHeaders() {
+    return { "X-Role": "driver" };
+  }
+
+  // ===== Role switch =====
+  document.querySelectorAll('input[name="roleSwitch"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.value === 'driver' && radio.checked) {
+        senderSection.style.display = 'none';
+        driverSection.style.display = '';
+      }
+      if (radio.value === 'sender' && radio.checked) {
+        senderSection.style.display = '';
+        driverSection.style.display = 'none';
+      }
+    });
   });
-});
 
-// Sender create
-ackBox.onchange=()=>createBtn.disabled=!ackBox.checked;
-createForm.onsubmit=async e=>{
-  e.preventDefault();
-  const data=Object.fromEntries(new FormData(createForm));
-  data.sender_ack_version=SENDER_ACK_VERSION;
-  const r=await fetch(API_BASE+"/requests",{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":uuid()},body:JSON.stringify(data)});
-  out.textContent=JSON.stringify(await r.json(),null,2);
-};
+  // ===== Load acknowledgements =====
+  async function loadAck() {
+    const v = await fetch(API_BASE + "/ack/versions");
+    const vj = await v.json();
+    if (!vj.ok) throw new Error("Failed to load /ack/versions");
 
-// View
-viewForm.onsubmit=async e=>{
-  e.preventDefault();
-  const id=view_request_id.value, tok=view_sender_token.value;
-  viewRequest.textContent=JSON.stringify(await fetch(API_BASE+"/requests/"+id,{headers:{"X-Role":"sender","X-Sender-Token":tok}}).then(r=>r.json()),null,2);
-  viewOffers.textContent=JSON.stringify(await fetch(API_BASE+"/requests/"+id+"/offers",{headers:{"X-Role":"sender","X-Sender-Token":tok}}).then(r=>r.json()),null,2);
-  viewHistory.textContent=JSON.stringify(await fetch(API_BASE+"/requests/"+id+"/history",{headers:{"X-Role":"sender","X-Sender-Token":tok}}).then(r=>r.json()),null,2);
-};
+    SENDER_ACK_VERSION = vj.sender_ack_version;
+    DRIVER_ACK_VERSION = vj.driver_ack_version;
 
-// Accept offer
-acceptOfferForm.onsubmit=async e=>{
-  e.preventDefault();
-  const r=await fetch(`${API_BASE}/requests/${view_request_id.value}/offers/${accept_offer_id.value}/accept`,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Idempotency-Key":uuid(),
-      "X-Role":"sender",
-      "X-Sender-Token":view_sender_token.value
+    const a = await fetch(API_BASE + "/ack/sender");
+    const aj = await a.json();
+    if (!aj.ok) throw new Error("Failed to load /ack/sender");
+    senderAckText.textContent = aj.text;
+
+    const d = await fetch(API_BASE + "/ack/driver");
+    const dj = await d.json();
+    if (!dj.ok) throw new Error("Failed to load /ack/driver");
+    driverAckText.textContent = dj.text;
+
+    ackInfo.textContent = `Sender ack: ${vj.sender_ack_version} · Driver ack: ${vj.driver_ack_version} · Build: ${vj.build_id}`;
+  }
+
+  loadAck().catch(err => {
+    statusEl.textContent = "Setup error: " + err.message;
+    if (offerStatus) offerStatus.textContent = "Setup error: " + err.message;
+  });
+
+  // ===== Sender create =====
+  ackBox.addEventListener('change', () => {
+    createBtn.disabled = !ackBox.checked;
+  });
+
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    statusEl.textContent = "";
+    out.textContent = "{}";
+
+    if (!SENDER_ACK_VERSION) {
+      statusEl.textContent = "Ack version not loaded yet. Refresh and try again.";
+      return;
+    }
+    if (!ackBox.checked) {
+      statusEl.textContent = "Please tick the acknowledgement checkbox.";
+      return;
+    }
+
+    const data = Object.fromEntries(new FormData(createForm).entries());
+    if (data.weight_kg === "") delete data.weight_kg;
+    if (data.suggested_price_nzd === "") delete data.suggested_price_nzd;
+
+    data.sender_ack_version = SENDER_ACK_VERSION;
+
+    createBtn.disabled = true;
+    statusEl.textContent = "Creating request…";
+
+    try {
+      const r = await fetch(API_BASE + "/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": uuid() },
+        body: JSON.stringify(data)
+      });
+      const j = await safeJson(r);
+      out.textContent = JSON.stringify(j, null, 2);
+      statusEl.textContent = j.ok ? "Created ✅" : ("Failed ❌ " + (j.error || "Unknown error"));
+    } catch (err) {
+      statusEl.textContent = "Network error ❌ " + err.message;
+    } finally {
+      createBtn.disabled = !ackBox.checked;
     }
   });
-  const j=await r.json();
-  acceptOut.textContent=JSON.stringify(j,null,2);
-  if(j.driver_token) driverTokenBox.value=j.driver_token;
-};
 
-// Copy token
-copyDriverTokenBtn.onclick=async()=>{
-  await navigator.clipboard.writeText(driverTokenBox.value);
-  copyStatus.textContent="Copied ✅";
-};
+  // ===== Sender view =====
+  viewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    viewStatus.textContent = "";
+    viewRequest.textContent = "{}";
+    viewOffers.textContent = "[]";
+    viewHistory.textContent = "[]";
 
-// Driver offer
-driverAckBox.onchange=()=>offerBtn.disabled=!driverAckBox.checked;
-driverOfferForm.onsubmit=async e=>{
-  e.preventDefault();
-  const body={
-    driver_name:offer_driver_name.value,
-    driver_ack_version:DRIVER_ACK_VERSION,
-    price_nzd:offer_price_nzd.value||undefined,
-    driver_phone:offer_driver_phone.value||undefined,
-    note:offer_note.value||undefined
-  };
-  const r=await fetch(`${API_BASE}/requests/${offer_request_id.value}/offers`,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "Idempotency-Key":uuid(),
-      "X-Role":"driver"
-    },
-    body:JSON.stringify(body)
+    const id = String(viewRequestId.value || '').trim();
+    const token = String(viewSenderToken.value || '').trim();
+
+    if (!id || !token) {
+      viewStatus.textContent = "Please enter both Request ID and Sender token.";
+      return;
+    }
+
+    viewBtn.disabled = true;
+    viewStatus.textContent = "Loading…";
+
+    try {
+      const r1 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id), { headers: senderHeaders(token) });
+      const j1 = await safeJson(r1);
+      viewRequest.textContent = JSON.stringify(j1, null, 2);
+      if (!j1.ok) {
+        viewStatus.textContent = "Failed ❌ " + (j1.error || "Unknown error");
+        return;
+      }
+
+      const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", { headers: senderHeaders(token) });
+      const j2 = await safeJson(r2);
+      viewOffers.textContent = JSON.stringify(j2, null, 2);
+
+      const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", { headers: senderHeaders(token) });
+      const j3 = await safeJson(r3);
+      viewHistory.textContent = JSON.stringify(j3, null, 2);
+
+      viewStatus.textContent = "Loaded ✅";
+    } catch (err) {
+      viewStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      viewBtn.disabled = false;
+    }
   });
-  offerOut.textContent=JSON.stringify(await r.json(),null,2);
-};
 
-// Driver status
-driverStatusForm.onsubmit=async e=>{
-  e.preventDefault();
-  const r=await fetch(`${API_BASE}/requests/${ds_request_id.value}/status`,{
-    method:"PATCH",
-    headers:{
-      "Content-Type":"application/json",
-      "Idempotency-Key":uuid(),
-      "X-Role":"driver",
-      "X-Driver-Token":ds_driver_token.value
-    },
-    body:JSON.stringify({status:ds_status.value,driver_name:ds_driver_name.value,driver_token:ds_driver_token.value})
+  // ===== Sender accept offer (FIXED) =====
+  function setDriverToken(token) {
+    const t = String(token || '').trim();
+    driverTokenBox.value = t;
+    // convenience: prefill driver token field
+    if (t) dsDriverToken.value = t;
+  }
+
+  acceptOfferForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    acceptStatus.textContent = "";
+    acceptOut.textContent = "{}";
+    setDriverToken("");
+
+    const requestId = String(viewRequestId.value || '').trim();
+    const senderToken = String(viewSenderToken.value || '').trim();
+    const offerId = String(acceptOfferId.value || '').trim();
+
+    if (!requestId || !senderToken) {
+      acceptStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
+      return;
+    }
+    if (!offerId) {
+      acceptStatus.textContent = "Please enter an Offer ID.";
+      return;
+    }
+
+    acceptStatus.textContent = "Accepting…";
+
+    try {
+      const r = await fetch(
+        API_BASE + "/requests/" + encodeURIComponent(requestId) + "/offers/" + encodeURIComponent(offerId) + "/accept",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": uuid(),
+            "X-Role": "sender",
+            "X-Sender-Token": senderToken
+          },
+          body: JSON.stringify({})
+        }
+      );
+
+      const j = await safeJson(r);
+      acceptOut.textContent = JSON.stringify(j, null, 2);
+
+      if (!j.ok) {
+        acceptStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+        return;
+      }
+
+      acceptStatus.textContent = "Accepted ✅";
+      if (j.driver_token) setDriverToken(j.driver_token);
+      else acceptStatus.textContent = "Accepted ✅ (no driver_token returned)";
+    } catch (err) {
+      acceptStatus.textContent = "Network error ❌ " + err.message;
+    }
   });
-  dsOut.textContent=JSON.stringify(await r.json(),null,2);
-};
+
+  copyDriverTokenBtn.addEventListener('click', async () => {
+    const t = String(driverTokenBox.value || '').trim();
+    if (!t) { copyStatus.textContent = "No driver token to copy yet."; return; }
+    try {
+      await navigator.clipboard.writeText(t);
+      copyStatus.textContent = "Copied ✅";
+    } catch {
+      copyStatus.textContent = "Copy failed ❌ Please copy manually.";
+    }
+  });
+
+  // ===== Driver make offer =====
+  driverAckBox.addEventListener('change', () => {
+    offerBtn.disabled = !driverAckBox.checked;
+  });
+
+  driverOfferForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    offerStatus.textContent = "";
+    offerOut.textContent = "{}";
+
+    if (!DRIVER_ACK_VERSION) { offerStatus.textContent = "Driver ack not loaded yet."; return; }
+    if (!driverAckBox.checked) { offerStatus.textContent = "Please tick driver acknowledgement."; return; }
+
+    const requestId = String(offerRequestId.value || '').trim();
+    const driver_name = String(offerDriverName.value || '').trim();
+    const driver_phone = String(offerDriverPhone.value || '').trim();
+    const note = String(offerNote.value || '').trim();
+    const priceStr = String(offerPrice.value || '').trim();
+
+    if (!requestId || !driver_name) { offerStatus.textContent = "Request ID and driver name are required."; return; }
+
+    const body = { driver_name, driver_ack_version: DRIVER_ACK_VERSION };
+    if (driver_phone) body.driver_phone = driver_phone;
+    if (note) body.note = note;
+    if (priceStr !== "") body.price_nzd = Number(priceStr);
+
+    offerBtn.disabled = true;
+    offerStatus.textContent = "Submitting…";
+
+    try {
+      const r = await fetch(API_BASE + "/requests/" + encodeURIComponent(requestId) + "/offers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": uuid(), ...driverHeaders() },
+        body: JSON.stringify(body)
+      });
+      const j = await safeJson(r);
+      offerOut.textContent = JSON.stringify(j, null, 2);
+      offerStatus.textContent = j.ok ? "Offer submitted ✅" : ("Failed ❌ " + (j.error || "Unknown error"));
+    } catch (err) {
+      offerStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      offerBtn.disabled = !driverAckBox.checked;
+    }
+  });
+
+  // ===== Driver update status =====
+  driverStatusForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    dsStatus.textContent = "";
+    dsOut.textContent = "{}";
+
+    const requestId = String(dsRequestId.value || '').trim();
+    const status = String(dsNewStatus.value || '').trim();
+    const driver_name = String(dsDriverName.value || '').trim();
+    const driver_token = String(dsDriverToken.value || '').trim();
+
+    if (!requestId || !status || !driver_name || !driver_token) {
+      dsStatus.textContent = "All fields are required.";
+      return;
+    }
+
+    dsStatus.textContent = "Updating…";
+
+    try {
+      const r = await fetch(API_BASE + "/requests/" + encodeURIComponent(requestId) + "/status", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": uuid(),
+          "X-Driver-Token": driver_token,
+          ...driverHeaders()
+        },
+        body: JSON.stringify({ status, driver_name, driver_token })
+      });
+      const j = await safeJson(r);
+      dsOut.textContent = JSON.stringify(j, null, 2);
+      dsStatus.textContent = j.ok ? "Updated ✅" : ("Failed ❌ " + (j.error || "Unknown error"));
+    } catch (err) {
+      dsStatus.textContent = "Network error ❌ " + err.message;
+    }
+  });
 </script>
+
 </body>
 </html>
