@@ -109,6 +109,21 @@
         <div class="muted" id="copyStatus"></div>
       </div>
 
+      <!-- Confirm delivery / release escrow (Option A) -->
+      <div class="card">
+        <h3>Confirm delivery (release escrow)</h3>
+        <p class="muted">
+          Use this after the driver marks the request as <code>delivered</code>.
+          This releases escrow immediately. If you do nothing, escrow auto-releases after 24 hours.
+        </p>
+
+        <button class="btn" id="releaseBtn" type="button">Confirm delivery &amp; release payment</button>
+        <div class="muted" id="releaseStatus" style="margin-top:10px;"></div>
+
+        <h4 style="margin-top:16px;">Result</h4>
+        <pre id="releaseOut">{}</pre>
+      </div>
+
       <h3>History</h3><pre id="viewHistory">[]</pre>
     </div>
   </div>
@@ -210,6 +225,11 @@
   const driverTokenBox = document.getElementById('driverTokenBox');
   const copyDriverTokenBtn = document.getElementById('copyDriverTokenBtn');
   const copyStatus = document.getElementById('copyStatus');
+
+  // NEW: release escrow elements
+  const releaseBtn = document.getElementById('releaseBtn');
+  const releaseStatus = document.getElementById('releaseStatus');
+  const releaseOut = document.getElementById('releaseOut');
 
   const driverAckBox = document.getElementById('driverAckBox');
   const offerBtn = document.getElementById('offerBtn');
@@ -330,6 +350,10 @@
     viewOffers.textContent = "[]";
     viewHistory.textContent = "[]";
 
+    // keep release outputs clean between loads
+    if (releaseStatus) releaseStatus.textContent = "";
+    if (releaseOut) releaseOut.textContent = "{}";
+
     const id = String(viewRequestId.value || '').trim();
     const token = String(viewSenderToken.value || '').trim();
 
@@ -436,6 +460,51 @@
       copyStatus.textContent = "Copy failed ❌ Please copy manually.";
     }
   });
+
+  // ===== Sender confirm delivery / release escrow (Option A) =====
+  if (releaseBtn) {
+    releaseBtn.addEventListener('click', async () => {
+      releaseStatus.textContent = "";
+      releaseOut.textContent = "{}";
+
+      const requestId = String(viewRequestId.value || '').trim();
+      const senderToken = String(viewSenderToken.value || '').trim();
+
+      if (!requestId || !senderToken) {
+        releaseStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
+        return;
+      }
+
+      releaseBtn.disabled = true;
+      releaseStatus.textContent = "Releasing escrow…";
+
+      try {
+        const r = await fetch(
+          API_BASE + "/requests/" + encodeURIComponent(requestId) + "/escrow/release",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": uuid(),
+              "X-Role": "sender",
+              "X-Sender-Token": senderToken
+            },
+            body: JSON.stringify({})
+          }
+        );
+
+        const j = await safeJson(r);
+        releaseOut.textContent = JSON.stringify(j, null, 2);
+
+        if (j.ok) releaseStatus.textContent = "Released ✅";
+        else releaseStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+      } catch (err) {
+        releaseStatus.textContent = "Network error ❌ " + err.message;
+      } finally {
+        releaseBtn.disabled = false;
+      }
+    });
+  }
 
   // ===== Driver make offer =====
   driverAckBox.addEventListener('change', () => {
