@@ -17,6 +17,7 @@
     .muted { color:#666; font-size:13px; }
     pre { background:#0b0b0b; color:#eaeaea; padding:12px; border-radius:10px; overflow:auto; }
     .pill { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; background:#f7f7f7; }
+    code { background:#f3f3f3; padding:1px 6px; border-radius:6px; }
   </style>
 </head>
 <body>
@@ -89,7 +90,15 @@
       </form>
 
       <h3>Request</h3><pre id="viewRequest">{}</pre>
+
       <h3>Offers</h3><pre id="viewOffers">[]</pre>
+
+      <!-- NEW: Offers list (one-click accept) -->
+      <div class="card" style="margin-top:12px;">
+        <h3 style="margin-top:0;">Offers list (one-click)</h3>
+        <div class="muted">Click “Accept this offer” to auto-fill Offer ID, auto-fill amount (if available), then proceed.</div>
+        <div id="offersList" style="margin-top:10px;"></div>
+      </div>
 
       <!-- Accept offer -->
       <div class="card">
@@ -368,6 +377,77 @@
     }
   });
 
+  // ===== Offer list rendering (NEW) =====
+  function getOffersArray(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload.offers)) return payload.offers;
+    if (Array.isArray(payload.rows)) return payload.rows;
+    if (payload.ok && Array.isArray(payload.data)) return payload.data;
+    return [];
+  }
+
+  function fmtMoney(x) {
+    if (x === null || x === undefined || x === "") return "";
+    return String(x);
+  }
+
+  function renderOffersList(offersPayload) {
+    const box = document.getElementById('offersList');
+    if (!box) return;
+
+    box.innerHTML = "";
+    const offers = getOffersArray(offersPayload);
+
+    if (!offers.length) {
+      box.innerHTML = `<div class="muted">No offers yet.</div>`;
+      return;
+    }
+
+    offers.forEach((o) => {
+      const offerId = (o && (o.id ?? o.offer_id)) ?? "";
+      const driverName = (o && o.driver_name) ?? "";
+      const price = (o && (o.price_nzd ?? o.price ?? o.offer_price_nzd)) ?? "";
+      const note = (o && o.note) ?? "";
+
+      const row = document.createElement('div');
+      row.className = 'card';
+      row.style.margin = '10px 0';
+
+      row.innerHTML = `
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+          <div style="flex:1;">
+            <div><strong>Offer #${offerId}</strong></div>
+            <div class="muted">
+              Driver: ${driverName || "(not provided)"}
+              ${price !== "" ? " · Price: " + fmtMoney(price) + " NZD" : ""}
+            </div>
+            ${note ? `<div class="muted" style="margin-top:6px; white-space:pre-wrap;">Note: ${note}</div>` : ""}
+          </div>
+          <div style="min-width:170px;">
+            <button class="btn" type="button" data-offer-id="${offerId}">Accept this offer</button>
+          </div>
+        </div>
+      `;
+
+      const btn = row.querySelector('button[data-offer-id]');
+      btn.addEventListener('click', async () => {
+        // Auto-fill Offer ID input
+        if (acceptOfferId) acceptOfferId.value = String(offerId);
+
+        // Best-effort auto-fill fund amount from offer price (if present)
+        if (fundAmount && price !== "" && price !== null && price !== undefined) {
+          fundAmount.value = String(price);
+        }
+
+        // Trigger the same accept flow
+        await acceptOfferById(String(offerId));
+      });
+
+      box.appendChild(row);
+    });
+  }
+
   // ===== Sender view =====
   viewForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -381,6 +461,11 @@
     if (fundOut) fundOut.textContent = "{}";
     if (releaseStatus) releaseStatus.textContent = "";
     if (releaseOut) releaseOut.textContent = "{}";
+    if (acceptStatus) acceptStatus.textContent = "";
+    if (acceptOut) acceptOut.textContent = "{}";
+
+    // clear offers list
+    renderOffersList([]);
 
     const id = String(viewRequestId.value || '').trim();
     const token = String(viewSenderToken.value || '').trim();
@@ -405,6 +490,9 @@
       const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", { headers: senderHeaders(token) });
       const j2 = await safeJson(r2);
       viewOffers.textContent = JSON.stringify(j2, null, 2);
+
+      // NEW: render list
+      renderOffersList(j2);
 
       const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", { headers: senderHeaders(token) });
       const j3 = await safeJson(r3);
@@ -479,30 +567,27 @@
     fundBtn.addEventListener('click', fundEscrowNow);
   }
 
-  // ===== Sender accept offer (FIXED) =====
+  // ===== Sender accept offer (shared function; NEW) =====
   function setDriverToken(token) {
     const t = String(token || '').trim();
     driverTokenBox.value = t;
-    // convenience: prefill driver token field
-    if (t) dsDriverToken.value = t;
+    if (t) dsDriverToken.value = t; // convenience: prefill driver token field
   }
 
-  acceptOfferForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  async function acceptOfferById(offerId) {
     acceptStatus.textContent = "";
     acceptOut.textContent = "{}";
     setDriverToken("");
 
     const requestId = String(viewRequestId.value || '').trim();
     const senderToken = String(viewSenderToken.value || '').trim();
-    const offerId = String(acceptOfferId.value || '').trim();
 
     if (!requestId || !senderToken) {
       acceptStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
       return;
     }
     if (!offerId) {
-      acceptStatus.textContent = "Please enter an Offer ID.";
+      acceptStatus.textContent = "Offer ID is required.";
       return;
     }
 
@@ -545,7 +630,6 @@
       } catch (_) {}
 
       // Your requested behaviour: accept -> pay now
-      // Only auto-start if we have an amount to send.
       if (fundAmount && String(fundAmount.value || '').trim()) {
         await fundEscrowNow();
       } else {
@@ -554,6 +638,13 @@
     } catch (err) {
       acceptStatus.textContent = "Network error ❌ " + err.message;
     }
+  }
+
+  // Manual accept form now delegates to acceptOfferById (NEW)
+  acceptOfferForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const offerId = String(acceptOfferId.value || '').trim();
+    await acceptOfferById(offerId);
   });
 
   copyDriverTokenBtn.addEventListener('click', async () => {
