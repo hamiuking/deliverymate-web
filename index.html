@@ -87,6 +87,13 @@
         </div>
         <button class="btn" id="viewBtn">Load</button>
         <div class="muted" id="viewStatus"></div>
+
+        <!-- NEW: auto-refresh -->
+        <label class="muted" style="margin-top:10px;">
+          <input type="checkbox" id="senderAutoRefresh" />
+          Auto-refresh every 10s
+        </label>
+        <div class="muted" id="senderAutoStatus"></div>
       </form>
 
       <h3>Request</h3><pre id="viewRequest">{}</pre>
@@ -119,7 +126,7 @@
         </div>
         <div class="muted" id="copyStatus"></div>
 
-        <!-- NEW: Driver deep-link -->
+        <!-- Driver deep-link -->
         <div class="row" style="margin-top:10px;">
           <input id="driverLinkBox" readonly placeholder="driver link appears here" />
           <button class="btn" id="copyDriverLinkBtn" type="button">Copy driver link</button>
@@ -179,6 +186,13 @@
         </div>
         <button class="btn" id="dvLoadBtn">Load job</button>
         <div class="muted" id="dvStatus"></div>
+
+        <!-- NEW: auto-refresh -->
+        <label class="muted" style="margin-top:10px;">
+          <input type="checkbox" id="driverAutoRefresh" />
+          Auto-refresh every 10s
+        </label>
+        <div class="muted" id="driverAutoStatus"></div>
       </form>
 
       <h3>Job details</h3>
@@ -275,6 +289,9 @@
   const viewRequestId = document.getElementById('view_request_id');
   const viewSenderToken = document.getElementById('view_sender_token');
 
+  const senderAutoRefresh = document.getElementById('senderAutoRefresh');
+  const senderAutoStatus = document.getElementById('senderAutoStatus');
+
   const acceptOfferForm = document.getElementById('acceptOfferForm');
   const acceptOfferId = document.getElementById('accept_offer_id');
   const acceptBtn = document.getElementById('acceptBtn');
@@ -284,18 +301,15 @@
   const copyDriverTokenBtn = document.getElementById('copyDriverTokenBtn');
   const copyStatus = document.getElementById('copyStatus');
 
-  // NEW deep-link elements
   const driverLinkBox = document.getElementById('driverLinkBox');
   const copyDriverLinkBtn = document.getElementById('copyDriverLinkBtn');
   const copyLinkStatus = document.getElementById('copyLinkStatus');
 
-  // Fund escrow elements
   const fundAmount = document.getElementById('fund_amount_nzd');
   const fundBtn = document.getElementById('fundBtn');
   const fundStatus = document.getElementById('fundStatus');
   const fundOut = document.getElementById('fundOut');
 
-  // Release escrow elements
   const releaseBtn = document.getElementById('releaseBtn');
   const releaseStatus = document.getElementById('releaseStatus');
   const releaseOut = document.getElementById('releaseOut');
@@ -328,6 +342,9 @@
   const dvRequestId = document.getElementById('dv_request_id');
   const dvDriverToken = document.getElementById('dv_driver_token');
 
+  const driverAutoRefresh = document.getElementById('driverAutoRefresh');
+  const driverAutoStatus = document.getElementById('driverAutoStatus');
+
   // Track last loaded request snapshots (for guardrails)
   let lastSenderReq = null;
   let lastDriverReq = null;
@@ -344,7 +361,6 @@
 
   // ===== Role switch (helper) =====
   function setRole(role) {
-    // Update radio UI
     const senderRadio = document.querySelector('input[name="roleSwitch"][value="sender"]');
     const driverRadio = document.querySelector('input[name="roleSwitch"][value="driver"]');
     if (role === 'driver') {
@@ -358,7 +374,6 @@
     }
   }
 
-  // ===== Role switch events =====
   document.querySelectorAll('input[name="roleSwitch"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.value === 'driver' && radio.checked) setRole('driver');
@@ -366,7 +381,7 @@
     });
   });
 
-  // ===== Deep-link helpers (NEW) =====
+  // ===== Deep-link helpers =====
   function buildDriverLink(requestId, driverToken) {
     const base = window.location.origin + window.location.pathname;
     const h = `#driver=1&rid=${encodeURIComponent(String(requestId || ''))}&dtok=${encodeURIComponent(String(driverToken || ''))}`;
@@ -396,16 +411,14 @@
       dvRequestId.value = rid;
       dvDriverToken.value = dtok;
 
-      // Convenience: also prefill update status form fields
       dsRequestId.value = rid;
       dsDriverToken.value = dtok;
 
-      // Auto-load job
       try { await loadDriverJob(rid, dtok); } catch (_) {}
     }
   }
 
-  // ===== Guardrails helpers (NEW, best-effort) =====
+  // ===== Guardrails helpers (best-effort) =====
   function extractReq(payload) {
     if (!payload) return null;
     if (payload.request && typeof payload.request === 'object') return payload.request;
@@ -417,8 +430,12 @@
     return String(s || '').trim();
   }
 
+  function isTerminalStatus(st) {
+    const s = String(st || '').toLowerCase();
+    return s === 'delivered' || s === 'cancelled' || s === 'canceled';
+  }
+
   function getEscrowStatus(req) {
-    // best-effort across possible shapes
     const es =
       (req && (req.escrow_status || req.escrow_state || req.escrowStatus)) ||
       (req && req.escrow && (req.escrow.status || req.escrow.state)) ||
@@ -429,12 +446,8 @@
   function isEscrowFunded(req) {
     const es = getEscrowStatus(req).toLowerCase();
     if (['funded','held','pending_release','released','paid','payout_pending','payout_completed'].includes(es)) return true;
-
-    // sometimes request may carry fields like escrow_funded / funded_at / escrow_funded_at
     if (req && (req.escrow_funded === true)) return true;
     if (req && (req.escrow_funded_at || req.funded_at || req.escrowFundedAt)) return true;
-
-    // if we see an agreed price and a "funded" boolean in meta
     return false;
   }
 
@@ -456,24 +469,16 @@
     const released = isEscrowReleased(req);
     const pendingRel = isPendingRelease(req);
 
-    // Accept only when open (best-effort)
     const acceptAllowed = (st === 'open' || st === '');
-
-    // Fund allowed after accept (or anytime, but disable if already funded/released)
     const fundAllowed = !funded && !released;
-
-    // Release allowed only if delivered (or pending_release)
     const releaseAllowed = (st === 'delivered' || pendingRel) && funded && !released;
 
-    // Apply
     if (acceptBtn) acceptBtn.disabled = !acceptAllowed;
-    // also disable offer-list accept buttons
     document.querySelectorAll('#offersList button[data-offer-id]').forEach(b => { b.disabled = !acceptAllowed; });
 
     if (fundBtn) fundBtn.disabled = !fundAllowed;
     if (releaseBtn) releaseBtn.disabled = !releaseAllowed;
 
-    // Optional helpful hints (non-blocking)
     if (!acceptAllowed && acceptStatus && acceptStatus.textContent === "") {
       acceptStatus.textContent = "Accept disabled: request is not open.";
     }
@@ -488,22 +493,16 @@
   function driverGuardrails(req) {
     const st = getStatus(req).toLowerCase();
 
-    // Default: allow picked_up, allow delivered only after picked_up
-    const canPickUp = (st === 'accepted' || st === 'picked_up' || st === 'open'); // best-effort
+    const canPickUp = (st === 'accepted' || st === 'picked_up' || st === 'open');
     const canDeliver = (st === 'picked_up');
-
-    // If already delivered/cancelled, disable updates
     const terminal = (st === 'delivered' || st === 'cancelled' || st === 'canceled');
 
-    // Apply
     const optPicked = Array.from(dsNewStatus.options).find(o => o.value === 'picked_up');
     const optDelivered = Array.from(dsNewStatus.options).find(o => o.value === 'delivered');
     if (optPicked) optPicked.disabled = !canPickUp || terminal;
     if (optDelivered) optDelivered.disabled = !canDeliver || terminal;
 
-    // If delivered is selected but not allowed, force picked_up
     if (dsNewStatus.value === 'delivered' && (!canDeliver || terminal)) dsNewStatus.value = 'picked_up';
-
     if (dsUpdateBtn) dsUpdateBtn.disabled = terminal;
 
     if (terminal && dsStatus && dsStatus.textContent === "") {
@@ -645,29 +644,168 @@
       box.appendChild(row);
     });
 
-    // Apply guardrails to newly rendered buttons if we already have a request loaded
     if (lastSenderReq) senderGuardrails(lastSenderReq);
   }
 
-  // ===== Sender view =====
+  // ===== Auto-refresh state (NEW) =====
+  let senderAutoTimer = null;
+  let senderAutoCtx = null; // {id, token}
+  let senderAutoFail = 0;
+
+  let driverAutoTimer = null;
+  let driverAutoCtx = null; // {id, token}
+  let driverAutoFail = 0;
+
+  function nowTime() {
+    try { return new Date().toLocaleTimeString(); } catch { return ""; }
+  }
+
+  function stopSenderAuto(msg) {
+    if (senderAutoTimer) { clearInterval(senderAutoTimer); senderAutoTimer = null; }
+    senderAutoFail = 0;
+    senderAutoCtx = null;
+    if (senderAutoRefresh) senderAutoRefresh.checked = false;
+    senderAutoStatus.textContent = msg || "";
+  }
+
+  function stopDriverAuto(msg) {
+    if (driverAutoTimer) { clearInterval(driverAutoTimer); driverAutoTimer = null; }
+    driverAutoFail = 0;
+    driverAutoCtx = null;
+    if (driverAutoRefresh) driverAutoRefresh.checked = false;
+    driverAutoStatus.textContent = msg || "";
+  }
+
+  async function refreshSenderViewTick() {
+    if (!senderAutoCtx) return stopSenderAuto("");
+    const curId = String(viewRequestId.value || "").trim();
+    const curTok = String(viewSenderToken.value || "").trim();
+    if (curId !== senderAutoCtx.id || curTok !== senderAutoCtx.token) {
+      return stopSenderAuto("Auto-refresh stopped (ID/token changed).");
+    }
+
+    // stop if terminal
+    if (lastSenderReq && isTerminalStatus(getStatus(lastSenderReq))) {
+      return stopSenderAuto("Auto-refresh stopped (terminal status).");
+    }
+
+    try {
+      await loadSenderView(senderAutoCtx.id, senderAutoCtx.token, true);
+      senderAutoFail = 0;
+      senderAutoStatus.textContent = "Auto-refreshed ✅ " + nowTime();
+      if (lastSenderReq && isTerminalStatus(getStatus(lastSenderReq))) {
+        stopSenderAuto("Auto-refresh stopped (terminal status).");
+      }
+    } catch (e) {
+      senderAutoFail += 1;
+      senderAutoStatus.textContent = "Auto-refresh failed ❌ (" + senderAutoFail + ")";
+      if (senderAutoFail >= 2) stopSenderAuto("Auto-refresh stopped after repeated failures.");
+    }
+  }
+
+  async function refreshDriverViewTick() {
+    if (!driverAutoCtx) return stopDriverAuto("");
+    const curId = String(dvRequestId.value || "").trim();
+    const curTok = String(dvDriverToken.value || "").trim();
+    if (curId !== driverAutoCtx.id || curTok !== driverAutoCtx.token) {
+      return stopDriverAuto("Auto-refresh stopped (ID/token changed).");
+    }
+
+    if (lastDriverReq && isTerminalStatus(getStatus(lastDriverReq))) {
+      return stopDriverAuto("Auto-refresh stopped (terminal status).");
+    }
+
+    try {
+      await loadDriverJob(driverAutoCtx.id, driverAutoCtx.token, true);
+      driverAutoFail = 0;
+      driverAutoStatus.textContent = "Auto-refreshed ✅ " + nowTime();
+      if (lastDriverReq && isTerminalStatus(getStatus(lastDriverReq))) {
+        stopDriverAuto("Auto-refresh stopped (terminal status).");
+      }
+    } catch (e) {
+      driverAutoFail += 1;
+      driverAutoStatus.textContent = "Auto-refresh failed ❌ (" + driverAutoFail + ")";
+      if (driverAutoFail >= 2) stopDriverAuto("Auto-refresh stopped after repeated failures.");
+    }
+  }
+
+  senderAutoRefresh.addEventListener('change', () => {
+    if (!senderAutoRefresh.checked) {
+      stopSenderAuto("");
+      return;
+    }
+    if (!senderAutoCtx) {
+      senderAutoRefresh.checked = false;
+      senderAutoStatus.textContent = "Load a request first, then enable auto-refresh.";
+      return;
+    }
+    if (senderAutoTimer) clearInterval(senderAutoTimer);
+    senderAutoFail = 0;
+    senderAutoStatus.textContent = "Auto-refresh enabled.";
+    senderAutoTimer = setInterval(refreshSenderViewTick, 10000);
+  });
+
+  driverAutoRefresh.addEventListener('change', () => {
+    if (!driverAutoRefresh.checked) {
+      stopDriverAuto("");
+      return;
+    }
+    if (!driverAutoCtx) {
+      driverAutoRefresh.checked = false;
+      driverAutoStatus.textContent = "Load a job first, then enable auto-refresh.";
+      return;
+    }
+    if (driverAutoTimer) clearInterval(driverAutoTimer);
+    driverAutoFail = 0;
+    driverAutoStatus.textContent = "Auto-refresh enabled.";
+    driverAutoTimer = setInterval(refreshDriverViewTick, 10000);
+  });
+
+  // ===== Sender view (extracted so auto-refresh can reuse) =====
+  async function loadSenderView(id, token, isAuto) {
+    // For auto refresh, don't wipe user outputs like accept/fund/release; just refresh view JSON + list.
+    if (!isAuto) {
+      viewStatus.textContent = "";
+      viewRequest.textContent = "{}";
+      viewOffers.textContent = "[]";
+      viewHistory.textContent = "[]";
+
+      fundStatus.textContent = "";
+      fundOut.textContent = "{}";
+      releaseStatus.textContent = "";
+      releaseOut.textContent = "{}";
+      acceptStatus.textContent = "";
+      acceptOut.textContent = "{}";
+
+      renderOffersList([]);
+      lastSenderReq = null;
+      driverLinkBox.value = "";
+      copyLinkStatus.textContent = "";
+      senderAutoStatus.textContent = "";
+    }
+
+    const r1 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id), { headers: senderHeaders(token) });
+    const j1 = await safeJson(r1);
+    viewRequest.textContent = JSON.stringify(j1, null, 2);
+    if (!j1.ok) throw new Error(j1.error || "Failed");
+
+    lastSenderReq = extractReq(j1);
+
+    const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", { headers: senderHeaders(token) });
+    const j2 = await safeJson(r2);
+    viewOffers.textContent = JSON.stringify(j2, null, 2);
+    renderOffersList(j2);
+
+    const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", { headers: senderHeaders(token) });
+    const j3 = await safeJson(r3);
+    viewHistory.textContent = JSON.stringify(j3, null, 2);
+
+    senderGuardrails(lastSenderReq);
+    return true;
+  }
+
   viewForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    viewStatus.textContent = "";
-    viewRequest.textContent = "{}";
-    viewOffers.textContent = "[]";
-    viewHistory.textContent = "[]";
-
-    if (fundStatus) fundStatus.textContent = "";
-    if (fundOut) fundOut.textContent = "{}";
-    if (releaseStatus) releaseStatus.textContent = "";
-    if (releaseOut) releaseOut.textContent = "{}";
-    if (acceptStatus) acceptStatus.textContent = "";
-    if (acceptOut) acceptOut.textContent = "{}";
-
-    renderOffersList([]);
-    lastSenderReq = null;
-    driverLinkBox.value = "";
-    copyLinkStatus.textContent = "";
 
     const id = String(viewRequestId.value || '').trim();
     const token = String(viewSenderToken.value || '').trim();
@@ -677,35 +815,21 @@
       return;
     }
 
+    // Manual load resets sender auto context and timer
+    stopSenderAuto("");
     viewBtn.disabled = true;
     viewStatus.textContent = "Loading…";
 
     try {
-      const r1 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id), { headers: senderHeaders(token) });
-      const j1 = await safeJson(r1);
-      viewRequest.textContent = JSON.stringify(j1, null, 2);
-      if (!j1.ok) {
-        viewStatus.textContent = "Failed ❌ " + (j1.error || "Unknown error");
-        return;
-      }
-
-      lastSenderReq = extractReq(j1);
-
-      const r2 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/offers", { headers: senderHeaders(token) });
-      const j2 = await safeJson(r2);
-      viewOffers.textContent = JSON.stringify(j2, null, 2);
-      renderOffersList(j2);
-
-      const r3 = await fetch(API_BASE + "/requests/" + encodeURIComponent(id) + "/history", { headers: senderHeaders(token) });
-      const j3 = await safeJson(r3);
-      viewHistory.textContent = JSON.stringify(j3, null, 2);
-
-      // Guardrails based on current request state
-      senderGuardrails(lastSenderReq);
-
+      await loadSenderView(id, token, false);
       viewStatus.textContent = "Loaded ✅";
+
+      // Set auto context (eligible to enable checkbox)
+      senderAutoCtx = { id, token };
+      senderAutoStatus.textContent = "Tip: enable auto-refresh if you want.";
+
     } catch (err) {
-      viewStatus.textContent = "Network error ❌ " + err.message;
+      viewStatus.textContent = "Failed ❌ " + (err.message || "Unknown error");
     } finally {
       viewBtn.disabled = false;
     }
@@ -768,23 +892,17 @@
     }
   }
 
-  if (fundBtn) {
-    fundBtn.addEventListener('click', fundEscrowNow);
-  }
+  fundBtn.addEventListener('click', fundEscrowNow);
 
-  // ===== Sender accept offer (shared) =====
+  // ===== Sender accept offer =====
   function setDriverToken(token) {
     const t = String(token || '').trim();
     driverTokenBox.value = t;
     if (t) dsDriverToken.value = t;
 
-    // NEW: build and show driver link
     const rid = String(viewRequestId.value || '').trim();
-    if (rid && t) {
-      driverLinkBox.value = buildDriverLink(rid, t);
-    } else {
-      driverLinkBox.value = "";
-    }
+    if (rid && t) driverLinkBox.value = buildDriverLink(rid, t);
+    else driverLinkBox.value = "";
   }
 
   async function acceptOfferById(offerId) {
@@ -805,7 +923,6 @@
       return;
     }
 
-    // Guardrail: if we have a loaded request and it isn't open, block accept locally
     if (lastSenderReq) {
       const st = getStatus(lastSenderReq).toLowerCase();
       if (st && st !== 'open') {
@@ -843,7 +960,6 @@
       acceptStatus.textContent = "Accepted ✅";
       if (j.driver_token) setDriverToken(j.driver_token);
 
-      // Update guardrails with freshest request if present
       if (j.request) lastSenderReq = extractReq(j);
       if (lastSenderReq) senderGuardrails(lastSenderReq);
 
@@ -856,7 +972,6 @@
         if (fundAmount && amt != null) fundAmount.value = String(amt);
       } catch (_) {}
 
-      // Guardrail: if already funded, don't auto-pay
       if (lastSenderReq && isEscrowFunded(lastSenderReq)) {
         fundStatus.textContent = "Escrow already funded ✅";
         senderGuardrails(lastSenderReq);
@@ -882,99 +997,89 @@
   copyDriverTokenBtn.addEventListener('click', async () => {
     const t = String(driverTokenBox.value || '').trim();
     if (!t) { copyStatus.textContent = "No driver token to copy yet."; return; }
-    try {
-      await navigator.clipboard.writeText(t);
-      copyStatus.textContent = "Copied ✅";
-    } catch {
-      copyStatus.textContent = "Copy failed ❌ Please copy manually.";
-    }
+    try { await navigator.clipboard.writeText(t); copyStatus.textContent = "Copied ✅"; }
+    catch { copyStatus.textContent = "Copy failed ❌ Please copy manually."; }
   });
 
-  // NEW: copy driver link
   copyDriverLinkBtn.addEventListener('click', async () => {
     const link = String(driverLinkBox.value || '').trim();
     if (!link) { copyLinkStatus.textContent = "No driver link yet. Accept an offer first."; return; }
-    try {
-      await navigator.clipboard.writeText(link);
-      copyLinkStatus.textContent = "Driver link copied ✅";
-    } catch {
-      copyLinkStatus.textContent = "Copy failed ❌ Please copy manually.";
-    }
+    try { await navigator.clipboard.writeText(link); copyLinkStatus.textContent = "Driver link copied ✅"; }
+    catch { copyLinkStatus.textContent = "Copy failed ❌ Please copy manually."; }
   });
 
   // ===== Sender release escrow =====
-  if (releaseBtn) {
-    releaseBtn.addEventListener('click', async () => {
-      releaseStatus.textContent = "";
-      releaseOut.textContent = "{}";
+  releaseBtn.addEventListener('click', async () => {
+    releaseStatus.textContent = "";
+    releaseOut.textContent = "{}";
 
-      const requestId = String(viewRequestId.value || '').trim();
-      const senderToken = String(viewSenderToken.value || '').trim();
+    const requestId = String(viewRequestId.value || '').trim();
+    const senderToken = String(viewSenderToken.value || '').trim();
 
-      if (!requestId || !senderToken) {
-        releaseStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
-        return;
-      }
-
-      // Guardrail: only allow release if delivered/pending_release & funded
-      if (lastSenderReq) {
-        senderGuardrails(lastSenderReq);
-        if (releaseBtn.disabled) {
-          releaseStatus.textContent = releaseStatus.textContent || "Release is not allowed yet.";
-          return;
-        }
-      }
-
-      releaseBtn.disabled = true;
-      releaseStatus.textContent = "Releasing escrow…";
-
-      try {
-        const r = await fetch(
-          API_BASE + "/requests/" + encodeURIComponent(requestId) + "/escrow/release",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Idempotency-Key": uuid(),
-              "X-Role": "sender",
-              "X-Sender-Token": senderToken
-            },
-            body: JSON.stringify({})
-          }
-        );
-
-        const j = await safeJson(r);
-        releaseOut.textContent = JSON.stringify(j, null, 2);
-
-        if (j.ok) {
-          releaseStatus.textContent = "Released ✅";
-          // Update guardrails if server returned request
-          if (j.request) lastSenderReq = extractReq(j);
-        } else {
-          releaseStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
-        }
-
-        if (lastSenderReq) senderGuardrails(lastSenderReq);
-      } catch (err) {
-        releaseStatus.textContent = "Network error ❌ " + err.message;
-      } finally {
-        releaseBtn.disabled = false;
-      }
-    });
-  }
-
-  // ===== Driver: load job (extracted so deep-link can call it) =====
-  async function loadDriverJob(id, token) {
-    dvStatus.textContent = "";
-    dvRequest.textContent = "{}";
-    dvHistory.textContent = "[]";
-
-    if (!id || !token) {
-      dvStatus.textContent = "Please enter both Request ID and Driver token.";
+    if (!requestId || !senderToken) {
+      releaseStatus.textContent = "Please enter Request ID + Sender token above, then click Load.";
       return;
     }
 
-    dvStatus.textContent = "Loading…";
+    if (lastSenderReq) {
+      senderGuardrails(lastSenderReq);
+      if (releaseBtn.disabled) {
+        releaseStatus.textContent = releaseStatus.textContent || "Release is not allowed yet.";
+        return;
+      }
+    }
+
+    releaseBtn.disabled = true;
+    releaseStatus.textContent = "Releasing escrow…";
+
+    try {
+      const r = await fetch(
+        API_BASE + "/requests/" + encodeURIComponent(requestId) + "/escrow/release",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": uuid(),
+            "X-Role": "sender",
+            "X-Sender-Token": senderToken
+          },
+          body: JSON.stringify({})
+        }
+      );
+
+      const j = await safeJson(r);
+      releaseOut.textContent = JSON.stringify(j, null, 2);
+
+      if (j.ok) {
+        releaseStatus.textContent = "Released ✅";
+        if (j.request) lastSenderReq = extractReq(j);
+      } else {
+        releaseStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+      }
+
+      if (lastSenderReq) senderGuardrails(lastSenderReq);
+    } catch (err) {
+      releaseStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      releaseBtn.disabled = false;
+    }
+  });
+
+  // ===== Driver: load job (supports auto refresh) =====
+  async function loadDriverJob(id, token, isAuto) {
+    if (!isAuto) {
+      dvStatus.textContent = "";
+      dvRequest.textContent = "{}";
+      dvHistory.textContent = "[]";
+      driverAutoStatus.textContent = "";
+    }
+
+    if (!id || !token) {
+      dvStatus.textContent = "Please enter both Request ID and Driver token.";
+      throw new Error("Missing fields");
+    }
+
+    if (!isAuto) dvStatus.textContent = "Loading…";
     if (dvLoadBtn) dvLoadBtn.disabled = true;
 
     try {
@@ -983,10 +1088,7 @@
       });
       const j1 = await safeJson(r1);
       dvRequest.textContent = JSON.stringify(j1, null, 2);
-      if (!j1.ok) {
-        dvStatus.textContent = "Failed ❌ " + (j1.error || "Unknown error");
-        return;
-      }
+      if (!j1.ok) throw new Error(j1.error || "Failed");
 
       lastDriverReq = extractReq(j1);
 
@@ -996,31 +1098,38 @@
       const j2 = await safeJson(r2);
       dvHistory.textContent = JSON.stringify(j2, null, 2);
 
-      // Apply driver guardrails
       driverGuardrails(lastDriverReq);
 
-      dvStatus.textContent = "Loaded ✅";
-    } catch (err) {
-      dvStatus.textContent = "Network error ❌ " + err.message;
+      if (!isAuto) dvStatus.textContent = "Loaded ✅";
+      return true;
     } finally {
       if (dvLoadBtn) dvLoadBtn.disabled = false;
     }
   }
 
-  // ===== Driver view my job =====
-  if (driverViewForm) {
-    driverViewForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = String(dvRequestId.value || '').trim();
-      const token = String(dvDriverToken.value || '').trim();
+  driverViewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      // Convenience: prefill update status form fields
+    const id = String(dvRequestId.value || '').trim();
+    const token = String(dvDriverToken.value || '').trim();
+
+    stopDriverAuto("");
+    dvStatus.textContent = "Loading…";
+
+    try {
+      // Convenience: prefill update status fields
       dsRequestId.value = id;
       dsDriverToken.value = token;
 
-      await loadDriverJob(id, token);
-    });
-  }
+      await loadDriverJob(id, token, false);
+
+      // Enable auto context
+      driverAutoCtx = { id, token };
+      driverAutoStatus.textContent = "Tip: enable auto-refresh if you want.";
+    } catch (err) {
+      dvStatus.textContent = "Failed ❌ " + (err.message || "Unknown error");
+    }
+  });
 
   // ===== Driver make offer =====
   driverAckBox.addEventListener('change', () => {
@@ -1083,7 +1192,6 @@
       return;
     }
 
-    // Guardrail: enforce delivered only after picked_up when we have a loaded request
     if (lastDriverReq) {
       driverGuardrails(lastDriverReq);
       const st = getStatus(lastDriverReq).toLowerCase();
@@ -1115,9 +1223,13 @@
 
       if (j.ok) {
         dsStatus.textContent = "Updated ✅";
-        // Update loaded request snapshot if server returned it
         if (j.request) lastDriverReq = extractReq(j);
         if (lastDriverReq) driverGuardrails(lastDriverReq);
+
+        // If driver has auto-refresh enabled, let next tick pick it up
+        if (lastDriverReq && isTerminalStatus(getStatus(lastDriverReq))) {
+          stopDriverAuto("Auto-refresh stopped (terminal status).");
+        }
       } else {
         dsStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
       }
@@ -1126,9 +1238,8 @@
     }
   });
 
-  // ===== On page load: try deep-link autofill (NEW) =====
+  // ===== On page load: deep-link autofill =====
   window.addEventListener('DOMContentLoaded', () => {
-    // Keep your default role as sender unless hash says driver
     maybeAutofillFromHash();
   });
 </script>
