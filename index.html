@@ -174,6 +174,37 @@
   <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
+<!-- Driver registration (pilot; manual verification) -->
+<div class="card" id="driverRegCard">
+  <h2>Driver registration (pilot)</h2>
+  <p class="muted">
+    Pilot onboarding is invite-only. Document upload is not enabled yet — verification is manual.
+    After you register, your status will be <code>pending_review</code> until approved by admin.
+  </p>
+  <form id="driverRegForm">
+    <div class="row">
+      <div><label>Invite code *</label><input id="dr_invite_code" required /></div>
+      <div><label>Full name *</label><input id="dr_full_name" required /></div>
+    </div>
+    <div class="row">
+      <div><label>Phone *</label><input id="dr_phone" required /></div>
+      <div><label>Email</label><input id="dr_email" /></div>
+    </div>
+    <div class="row">
+      <div><label>Vehicle plate</label><input id="dr_plate" /></div>
+      <div><label>Licence last 6 (optional)</label><input id="dr_lic_last6" /></div>
+    </div>
+    <div class="row">
+      <div><label>WOF expiry (optional)</label><input id="dr_wof_expiry" placeholder="YYYY-MM-DD" /></div>
+      <div><label>&nbsp;</label><button class="btn" id="drRegBtn">Submit registration</button></div>
+    </div>
+    <div class="muted" id="drRegStatus"></div>
+  </form>
+  <pre id="drRegOut">{}</pre>
+</div>
+
+
+
     <!-- View my job (driver) -->
     <div class="card">
       <h2>View my job</h2>
@@ -202,7 +233,7 @@
         </div>
         <div class="row">
           <div><label>Driver name *</label><input id="offer_driver_name" required /></div>
-          <div><label>Phone</label><input id="offer_driver_phone" /></div>
+          <div><label>Phone * (pilot)</label><input id="offer_driver_phone" required /></div>
         </div>
         <label>Note</label><textarea id="offer_note"></textarea>
         <div class="card">
@@ -458,6 +489,20 @@
   const dsDriverToken = document.getElementById('ds_driver_token');
   const dsUpdateBtn = document.getElementById('dsUpdateBtn');
 
+
+// Driver registration (pilot)
+const driverRegForm = document.getElementById('driverRegForm');
+const drInviteCode = document.getElementById('dr_invite_code');
+const drFullName = document.getElementById('dr_full_name');
+const drPhone = document.getElementById('dr_phone');
+const drEmail = document.getElementById('dr_email');
+const drPlate = document.getElementById('dr_plate');
+const drLicLast6 = document.getElementById('dr_lic_last6');
+const drWofExpiry = document.getElementById('dr_wof_expiry');
+const drRegBtn = document.getElementById('drRegBtn');
+const drRegStatus = document.getElementById('drRegStatus');
+const drRegOut = document.getElementById('drRegOut');
+
   const driverViewForm = document.getElementById('driverViewForm');
   const dvLoadBtn = document.getElementById('dvLoadBtn');
   const dvStatus = document.getElementById('dvStatus');
@@ -705,6 +750,70 @@
     statusEl.textContent = "Setup error: " + err.message;
     if (offerStatus) offerStatus.textContent = "Setup error: " + err.message;
   });
+
+  // ===== Sender create =====
+// ===== Driver registration (pilot) =====
+if (driverRegForm) {
+  driverRegForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (onCooldown(drRegBtn, drRegStatus, "Please wait…")) return;
+    setCooldown(drRegBtn, 5000, () => true);
+
+    setText(drRegStatus, "");
+    if (drRegOut) drRegOut.textContent = "{}";
+
+    const invite_code = String(drInviteCode.value || '').trim();
+    const full_name = String(drFullName.value || '').trim();
+    const phone = String(drPhone.value || '').trim();
+    const email = String(drEmail.value || '').trim();
+    const vehicle_plate = String(drPlate.value || '').trim();
+    const licence_last6 = String(drLicLast6.value || '').trim();
+    const wof_expiry = String(drWofExpiry.value || '').trim();
+
+    if (!invite_code || !full_name || !phone) {
+      setText(drRegStatus, "Invite code, full name and phone are required.");
+      return;
+    }
+
+    // Convenience: store phone and prefill offer form after registration
+    try { localStorage.setItem('dm_driver_phone', phone); } catch (_) {}
+
+    setText(drRegStatus, "Submitting registration…");
+
+    try {
+      const r = await fetch(API_BASE + "/drivers/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invite_code,
+          full_name,
+          phone,
+          email: email || undefined,
+          vehicle_plate: vehicle_plate || undefined,
+          licence_last6: licence_last6 || undefined,
+          wof_expiry: wof_expiry || undefined,
+        })
+      });
+
+      const j = await safeJson(r);
+      if (drRegOut) drRegOut.textContent = JSON.stringify(j, null, 2);
+
+      if (j.ok) {
+        setText(drRegStatus, (j.message || "Registered ✅"));
+        // Autofill offer phone if present
+        if (offerDriverPhone && phone && !String(offerDriverPhone.value || '').trim()) {
+          offerDriverPhone.value = phone;
+        }
+      } else {
+        setText(drRegStatus, "Failed ❌ " + describeError(j, r));
+      }
+    } catch (err) {
+      setText(drRegStatus, "Network error ❌ " + (err && err.message ? err.message : err));
+    } finally {
+      if (drRegBtn && !cooldownActive(drRegBtn)) drRegBtn.disabled = false;
+    }
+  });
+}
 
   // ===== Sender create =====
   ackBox.addEventListener('change', () => {
@@ -1329,7 +1438,12 @@
   // ===== On page load: try deep-link autofill (NEW) =====
   window.addEventListener('DOMContentLoaded', () => {
     // Keep your default role as sender unless hash says driver
-    maybeAutofillFromHash();
+    try {
+      const p = localStorage.getItem('dm_driver_phone');
+      if (p && offerDriverPhone && !String(offerDriverPhone.value||'').trim()) offerDriverPhone.value = p;
+    } catch (_) {}
+
+        maybeAutofillFromHash();
   });
 </script>
 
