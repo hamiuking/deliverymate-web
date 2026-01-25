@@ -42,6 +42,44 @@
     <div class="muted" id="ackInfo"></div>
   </div>
 
+  
+  <!-- Account registration (pilot; required for sender + optional driver capability) -->
+  <div class="card" id="userRegCard">
+    <h2>Account registration (pilot)</h2>
+    <p class="muted">
+      Pilot stage is invite-only. You must register before creating requests or making offers.
+      If you apply as a driver, you will still be able to act as a sender automatically.
+    </p>
+    <form id="userRegForm">
+      <div class="row">
+        <div><label>Invite code *</label><input id="u_invite_code" required /></div>
+        <div><label>Full name</label><input id="u_full_name" /></div>
+      </div>
+      <div class="row">
+        <div><label>Phone *</label><input id="u_phone" required /></div>
+        <div><label>Email</label><input id="u_email" /></div>
+      </div>
+
+      <label style="margin-top:8px;"><input type="checkbox" id="u_apply_driver" /> Also apply as driver (optional)</label>
+
+      <div id="u_driver_fields" style="display:none; margin-top:10px;">
+        <div class="row">
+          <div><label>Driver invite code *</label><input id="u_driver_invite_code" placeholder="can be same as invite code" /></div>
+          <div><label>Vehicle plate</label><input id="u_plate" /></div>
+        </div>
+        <div class="row">
+          <div><label>Licence last 6 (optional)</label><input id="u_lic_last6" /></div>
+          <div><label>WOF expiry (optional)</label><input id="u_wof_expiry" placeholder="YYYY-MM-DD" /></div>
+        </div>
+      </div>
+
+      <button class="btn" id="uRegBtn">Register / Update</button>
+      <div class="muted" id="uRegStatus"></div>
+    </form>
+    <pre id="uRegOut">{}</pre>
+  </div>
+
+
   <!-- ================= SENDER ================= -->
   <div id="senderSection">
 
@@ -174,68 +212,6 @@
   <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
-<!-- Driver registration (pilot; manual verification) -->
-<div class="card" id="driverRegCard">
-  <h2>Driver registration (pilot)</h2>
-  <p class="muted">
-    Pilot onboarding is invite-only. Document upload is not enabled yet — verification is manual.
-    After you register, your status will be <code>pending_review</code> until approved by admin.
-  </p>
-  <form id="driverRegForm">
-    <div class="row">
-      <div><label>Invite code *</label><input id="dr_invite_code" required /></div>
-      <div><label>Full name *</label><input id="dr_full_name" required /></div>
-    </div>
-    <div class="row">
-      <div><label>Phone *</label><input id="dr_phone" required /></div>
-      <div><label>Email</label><input id="dr_email" /></div>
-    </div>
-    <div class="row">
-      <div><label>Vehicle plate</label><input id="dr_plate" /></div>
-      <div><label>Licence last 6 (optional)</label><input id="dr_lic_last6" /></div>
-    </div>
-    <div class="row">
-      <div><label>WOF expiry (optional)</label><input id="dr_wof_expiry" placeholder="YYYY-MM-DD" /></div>
-      <div><label>&nbsp;</label><button class="btn" id="drRegBtn">Submit registration</button></div>
-    </div>
-    <div class="muted" id="drRegStatus"></div>
-  </form>
-  <pre id="drRegOut">{}</pre>
-</div>
-
-
-
-
-<!-- Admin (pilot) — driver approvals -->
-<div class="card" id="adminDriverCard">
-  <details>
-    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
-    <p class="muted">
-      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
-    </p>
-    <div class="row">
-      <div style="flex:2;">
-        <label>Admin token *</label>
-        <input id="admin_token" placeholder="X-Admin-Token" />
-      </div>
-      <div style="align-self:flex-end;">
-        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <button class="btn" id="adminLoadPendingDriversBtn" type="button">Load pending drivers</button>
-      </div>
-      <div class="muted" id="adminDriversStatus"></div>
-    </div>
-
-    <div id="adminDriversWrap"></div>
-    <pre id="adminDriversOut">{}</pre>
-  </details>
-</div>
-
-
     <!-- View my job (driver) -->
     <div class="card">
       <h2>View my job</h2>
@@ -264,7 +240,7 @@
         </div>
         <div class="row">
           <div><label>Driver name *</label><input id="offer_driver_name" required /></div>
-          <div><label>Phone * (pilot)</label><input id="offer_driver_phone" required /></div>
+          <div><label>Phone</label><input id="offer_driver_phone" /></div>
         </div>
         <label>Note</label><textarea id="offer_note"></textarea>
         <div class="card">
@@ -448,6 +424,23 @@
   const senderSection = document.getElementById('senderSection');
   const driverSection = document.getElementById('driverSection');
 
+  // Account registration (pilot)
+  const userRegForm = document.getElementById('userRegForm');
+  const uInviteCode = document.getElementById('u_invite_code');
+  const uFullName = document.getElementById('u_full_name');
+  const uPhone = document.getElementById('u_phone');
+  const uEmail = document.getElementById('u_email');
+  const uApplyDriver = document.getElementById('u_apply_driver');
+  const uDriverFields = document.getElementById('u_driver_fields');
+  const uDriverInviteCode = document.getElementById('u_driver_invite_code');
+  const uPlate = document.getElementById('u_plate');
+  const uLicLast6 = document.getElementById('u_lic_last6');
+  const uWofExpiry = document.getElementById('u_wof_expiry');
+  const uRegBtn = document.getElementById('uRegBtn');
+  const uRegStatus = document.getElementById('uRegStatus');
+  const uRegOut = document.getElementById('uRegOut');
+
+
   const ackInfo = document.getElementById('ackInfo');
   const senderAckText = document.getElementById('senderAckText');
   const driverAckText = document.getElementById('driverAckText');
@@ -519,37 +512,6 @@
   const dsDriverName = document.getElementById('ds_driver_name');
   const dsDriverToken = document.getElementById('ds_driver_token');
   const dsUpdateBtn = document.getElementById('dsUpdateBtn');
-
-
-// Driver registration (pilot)
-const driverRegForm = document.getElementById('driverRegForm');
-const drInviteCode = document.getElementById('dr_invite_code');
-const drFullName = document.getElementById('dr_full_name');
-const drPhone = document.getElementById('dr_phone');
-const drEmail = document.getElementById('dr_email');
-const drPlate = document.getElementById('dr_plate');
-const drLicLast6 = document.getElementById('dr_lic_last6');
-const drWofExpiry = document.getElementById('dr_wof_expiry');
-const drRegBtn = document.getElementById('drRegBtn');
-const drRegStatus = document.getElementById('drRegStatus');
-const drRegOut = document.getElementById('drRegOut');
-
-
-// Admin (pilot): driver approvals
-const adminTokenInput = document.getElementById('admin_token');
-const adminSaveTokenBtn = document.getElementById('adminSaveTokenBtn');
-const adminLoadPendingDriversBtn = document.getElementById('adminLoadPendingDriversBtn');
-const adminDriversStatus = document.getElementById('adminDriversStatus');
-const adminDriversWrap = document.getElementById('adminDriversWrap');
-const adminDriversOut = document.getElementById('adminDriversOut');
-
-(function restoreAdminToken(){
-  try {
-    const t = localStorage.getItem('dm_admin_token');
-    if (adminTokenInput && t) adminTokenInput.value = t;
-  } catch (_) {}
-})();
-
 
   const driverViewForm = document.getElementById('driverViewForm');
   const dvLoadBtn = document.getElementById('dvLoadBtn');
@@ -799,193 +761,129 @@ const adminDriversOut = document.getElementById('adminDriversOut');
     if (offerStatus) offerStatus.textContent = "Setup error: " + err.message;
   });
 
-  // ===== Sender create =====
-// ===== Driver registration (pilot) =====
-if (driverRegForm) {
-  driverRegForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (onCooldown(drRegBtn, drRegStatus, "Please wait…")) return;
-    setCooldown(drRegBtn, 5000, () => true);
-
-    setText(drRegStatus, "");
-    if (drRegOut) drRegOut.textContent = "{}";
-
-    const invite_code = String(drInviteCode.value || '').trim();
-    const full_name = String(drFullName.value || '').trim();
-    const phone = String(drPhone.value || '').trim();
-    const email = String(drEmail.value || '').trim();
-    const vehicle_plate = String(drPlate.value || '').trim();
-    const licence_last6 = String(drLicLast6.value || '').trim();
-    const wof_expiry = String(drWofExpiry.value || '').trim();
-
-    if (!invite_code || !full_name || !phone) {
-      setText(drRegStatus, "Invite code, full name and phone are required.");
-      return;
-    }
-
-    // Convenience: store phone and prefill offer form after registration
-    try { localStorage.setItem('dm_driver_phone', phone); } catch (_) {}
-
-    setText(drRegStatus, "Submitting registration…");
-
+  // ===== Account registration (pilot) =====
+  function fillFromUserLocal() {
     try {
-      const r = await fetch(API_BASE + "/drivers/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invite_code,
-          full_name,
-          phone,
-          email: email || undefined,
-          vehicle_plate: vehicle_plate || undefined,
-          licence_last6: licence_last6 || undefined,
-          wof_expiry: wof_expiry || undefined,
-        })
-      });
+      const phone = localStorage.getItem('dm_user_phone') || '';
+      const name = localStorage.getItem('dm_user_name') || '';
+      const email = localStorage.getItem('dm_user_email') || '';
+      const invite = localStorage.getItem('dm_user_invite') || '';
 
-      const j = await safeJson(r);
-      if (drRegOut) drRegOut.textContent = JSON.stringify(j, null, 2);
+      if (uPhone && phone) uPhone.value = phone;
+      if (uFullName && name) uFullName.value = name;
+      if (uEmail && email) uEmail.value = email;
+      if (uInviteCode && invite) uInviteCode.value = invite;
 
-      if (j.ok) {
-        setText(drRegStatus, (j.message || "Registered ✅"));
-        // Autofill offer phone if present
-        if (offerDriverPhone && phone && !String(offerDriverPhone.value || '').trim()) {
-          offerDriverPhone.value = phone;
+      // sender form convenience
+      const sn = document.querySelector('input[name="sender_name"]');
+      const sp = document.querySelector('input[name="sender_phone"]');
+      if (sn && name && !String(sn.value||'').trim()) sn.value = name;
+      if (sp && phone && !String(sp.value||'').trim()) sp.value = phone;
+
+      // driver offer convenience
+      if (offerDriverName && name && !String(offerDriverName.value||'').trim()) offerDriverName.value = name;
+      if (offerDriverPhone && phone && !String(offerDriverPhone.value||'').trim()) offerDriverPhone.value = phone;
+    } catch (_) {}
+  }
+
+  if (uApplyDriver && uDriverFields) {
+    uApplyDriver.addEventListener('change', () => {
+      uDriverFields.style.display = uApplyDriver.checked ? '' : 'none';
+      if (uApplyDriver.checked) {
+        if (uDriverInviteCode && !String(uDriverInviteCode.value||'').trim() && uInviteCode) {
+          uDriverInviteCode.value = String(uInviteCode.value||'').trim();
         }
-      } else {
-        setText(drRegStatus, "Failed ❌ " + describeError(j, r));
       }
-    } catch (err) {
-      setText(drRegStatus, "Network error ❌ " + (err && err.message ? err.message : err));
-    } finally {
-      if (drRegBtn && !cooldownActive(drRegBtn)) drRegBtn.disabled = false;
-    }
-  });
-
-// ===== Admin (pilot): driver approvals =====
-function getAdminToken() {
-  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
-  return t;
-}
-function setAdminStatus(msg) {
-  if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
-}
-function renderDriversTable(drivers) {
-  if (!adminDriversWrap) return;
-  if (!Array.isArray(drivers) || drivers.length === 0) {
-    adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
-    return;
+    });
   }
 
-  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  let html = '<table style="width:100%; border-collapse:collapse;">' +
-             '<thead><tr>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
-             '</tr></thead><tbody>';
+  if (userRegForm) {
+    userRegForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (onCooldown(uRegBtn, uRegStatus, "Please wait…")) return;
+      setCooldown(uRegBtn, 6000, () => true);
 
-  for (const d of drivers) {
-    html += '<tr>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name) + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone) + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status) + '</code></td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
-        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
-        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
-      '</td>' +
-    '</tr>';
-  }
-  html += '</tbody></table>';
-  adminDriversWrap.innerHTML = html;
+      setText(uRegStatus, "");
+      if (uRegOut) uRegOut.textContent = "{}";
 
-  // Wire buttons (event delegation)
-  adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const action = btn.getAttribute('data-admin-action');
-      const id = btn.getAttribute('data-driver-id');
-      if (!action || !id) return;
+      const invite_code = String(uInviteCode.value || '').trim();
+      const full_name = String(uFullName.value || '').trim();
+      const phone = String(uPhone.value || '').trim();
+      const email = String(uEmail.value || '').trim();
 
-      const token = getAdminToken();
-      if (!token) { setAdminStatus("Missing admin token."); return; }
+      if (!invite_code || !phone) {
+        setText(uRegStatus, "Invite code and phone are required.");
+        return;
+      }
 
-      // small cooldown per button
-      if (onCooldown(btn, adminDriversStatus, "Please wait…")) return;
-      setCooldown(btn, 3000, () => true);
+      setText(uRegStatus, "Registering…");
 
-      setAdminStatus((action === 'approve' ? "Approving" : "Disabling") + " driver #" + id + "…");
       try {
-        const r = await fetch(API_BASE + "/admin/drivers/" + encodeURIComponent(id) + "/" + action, {
+        const r = await fetch(API_BASE + "/users/register", {
           method: "POST",
-          headers: { "X-Admin-Token": token }
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invite_code, full_name: full_name || undefined, phone, email: email || undefined })
         });
         const j = await safeJson(r);
-        if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
-        if (j.ok) {
-          setAdminStatus("Done ✅");
-          // reload pending list
-          await adminLoadPendingDrivers();
+        if (uRegOut) uRegOut.textContent = JSON.stringify(j, null, 2);
+        if (!j.ok) {
+          setText(uRegStatus, "Failed ❌ " + describeError(j, r));
+          return;
+        }
+
+        // Persist
+        try {
+          localStorage.setItem('dm_user_invite', invite_code);
+          localStorage.setItem('dm_user_phone', phone);
+          if (full_name) localStorage.setItem('dm_user_name', full_name);
+          if (email) localStorage.setItem('dm_user_email', email);
+        } catch (_) {}
+
+        fillFromUserLocal();
+
+        // Optional driver apply
+        if (uApplyDriver && uApplyDriver.checked) {
+          const dinvite = String((uDriverInviteCode && uDriverInviteCode.value) || '').trim();
+          if (!dinvite) {
+            setText(uRegStatus, "Registered ✅ (driver apply skipped: driver invite code required)");
+            return;
+          }
+          setText(uRegStatus, "Registered ✅ Applying as driver…");
+
+          const vehicle_plate = String((uPlate && uPlate.value) || '').trim();
+          const licence_last6 = String((uLicLast6 && uLicLast6.value) || '').trim();
+          const wof_expiry = String((uWofExpiry && uWofExpiry.value) || '').trim();
+
+          const r2 = await fetch(API_BASE + "/users/driver/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              invite_code: dinvite,
+              full_name: full_name || undefined,
+              phone,
+              email: email || undefined,
+              vehicle_plate: vehicle_plate || undefined,
+              licence_last6: licence_last6 || undefined,
+              wof_expiry: wof_expiry || undefined,
+            })
+          });
+          const j2 = await safeJson(r2);
+          if (uRegOut) uRegOut.textContent = JSON.stringify({ register: j, driver_apply: j2 }, null, 2);
+          if (j2.ok) setText(uRegStatus, "Registered ✅ Driver application submitted ✅ (pending review)");
+          else setText(uRegStatus, "Registered ✅ Driver apply failed ❌ " + describeError(j2, r2));
         } else {
-          setAdminStatus("Failed ❌ " + describeError(j, r));
+          setText(uRegStatus, "Registered ✅");
         }
       } catch (err) {
-        setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
+        setText(uRegStatus, "Network error ❌ " + (err && err.message ? err.message : err));
       } finally {
-        if (btn && !cooldownActive(btn)) btn.disabled = false;
+        if (uRegBtn && !cooldownActive(uRegBtn)) uRegBtn.disabled = false;
       }
     });
-  });
-}
-
-async function adminLoadPendingDrivers() {
-  const token = getAdminToken();
-  if (!token) { setAdminStatus("Missing admin token."); return; }
-  setAdminStatus("Loading pending drivers…");
-  if (adminDriversOut) adminDriversOut.textContent = "{}";
-  try {
-    const r = await fetch(API_BASE + "/admin/drivers?status=pending_review", {
-      headers: { "X-Admin-Token": token }
-    });
-    const j = await safeJson(r);
-    if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
-    if (j.ok) {
-      renderDriversTable(j.drivers || []);
-      setAdminStatus("Loaded ✅");
-    } else {
-      setAdminStatus("Failed ❌ " + describeError(j, r));
-    }
-  } catch (err) {
-    setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
-  } finally {
-    if (adminLoadPendingDriversBtn && !cooldownActive(adminLoadPendingDriversBtn)) adminLoadPendingDriversBtn.disabled = false;
   }
-}
 
-if (adminSaveTokenBtn && adminTokenInput) {
-  adminSaveTokenBtn.addEventListener('click', () => {
-    const t = getAdminToken();
-    if (!t) { setAdminStatus("Missing admin token."); return; }
-    try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
-    setAdminStatus("Saved ✅");
-  });
-}
-
-if (adminLoadPendingDriversBtn) {
-  adminLoadPendingDriversBtn.addEventListener('click', async () => {
-    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, "Please wait…")) return;
-    setCooldown(adminLoadPendingDriversBtn, 4000, () => true);
-    await adminLoadPendingDrivers();
-  });
-}
-
-}
+  // best-effort restore on load
+  fillFromUserLocal();
 
   // ===== Sender create =====
   ackBox.addEventListener('change', () => {
@@ -1013,6 +911,21 @@ if (adminLoadPendingDriversBtn) {
     if (data.suggested_price_nzd === "") delete data.suggested_price_nzd;
 
     data.sender_ack_version = SENDER_ACK_VERSION;
+
+    // Pilot: require account registration before creating requests (best-effort UX; backend enforces too)
+    try {
+      const regPhone = localStorage.getItem('dm_user_phone') || '';
+      if (!regPhone) {
+        statusEl.textContent = 'Pilot: please register your account above before creating a request.';
+        return;
+      }
+      if (data.sender_phone && String(data.sender_phone).trim() && String(data.sender_phone).trim() !== String(regPhone).trim()) {
+        statusEl.textContent = 'Pilot: sender_phone must match your registered phone.';
+        return;
+      }
+      // Auto-fill sender_phone if blank
+      if (!data.sender_phone) data.sender_phone = regPhone;
+    } catch (_) {}
 
     createBtn.disabled = true;
     statusEl.textContent = "Creating request…";
@@ -1610,12 +1523,7 @@ if (adminLoadPendingDriversBtn) {
   // ===== On page load: try deep-link autofill (NEW) =====
   window.addEventListener('DOMContentLoaded', () => {
     // Keep your default role as sender unless hash says driver
-    try {
-      const p = localStorage.getItem('dm_driver_phone');
-      if (p && offerDriverPhone && !String(offerDriverPhone.value||'').trim()) offerDriverPhone.value = p;
-    } catch (_) {}
-
-        maybeAutofillFromHash();
+    maybeAutofillFromHash();
   });
 </script>
 
