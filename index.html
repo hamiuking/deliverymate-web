@@ -205,6 +205,37 @@
 
 
 
+
+<!-- Admin (pilot) — driver approvals -->
+<div class="card" id="adminDriverCard">
+  <details>
+    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
+    <p class="muted">
+      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
+    </p>
+    <div class="row">
+      <div style="flex:2;">
+        <label>Admin token *</label>
+        <input id="admin_token" placeholder="X-Admin-Token" />
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <button class="btn" id="adminLoadPendingDriversBtn" type="button">Load pending drivers</button>
+      </div>
+      <div class="muted" id="adminDriversStatus"></div>
+    </div>
+
+    <div id="adminDriversWrap"></div>
+    <pre id="adminDriversOut">{}</pre>
+  </details>
+</div>
+
+
     <!-- View my job (driver) -->
     <div class="card">
       <h2>View my job</h2>
@@ -502,6 +533,23 @@ const drWofExpiry = document.getElementById('dr_wof_expiry');
 const drRegBtn = document.getElementById('drRegBtn');
 const drRegStatus = document.getElementById('drRegStatus');
 const drRegOut = document.getElementById('drRegOut');
+
+
+// Admin (pilot): driver approvals
+const adminTokenInput = document.getElementById('admin_token');
+const adminSaveTokenBtn = document.getElementById('adminSaveTokenBtn');
+const adminLoadPendingDriversBtn = document.getElementById('adminLoadPendingDriversBtn');
+const adminDriversStatus = document.getElementById('adminDriversStatus');
+const adminDriversWrap = document.getElementById('adminDriversWrap');
+const adminDriversOut = document.getElementById('adminDriversOut');
+
+(function restoreAdminToken(){
+  try {
+    const t = localStorage.getItem('dm_admin_token');
+    if (adminTokenInput && t) adminTokenInput.value = t;
+  } catch (_) {}
+})();
+
 
   const driverViewForm = document.getElementById('driverViewForm');
   const dvLoadBtn = document.getElementById('dvLoadBtn');
@@ -813,6 +861,130 @@ if (driverRegForm) {
       if (drRegBtn && !cooldownActive(drRegBtn)) drRegBtn.disabled = false;
     }
   });
+
+// ===== Admin (pilot): driver approvals =====
+function getAdminToken() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  return t;
+}
+function setAdminStatus(msg) {
+  if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
+}
+function renderDriversTable(drivers) {
+  if (!adminDriversWrap) return;
+  if (!Array.isArray(drivers) || drivers.length === 0) {
+    adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
+    return;
+  }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let html = '<table style="width:100%; border-collapse:collapse;">' +
+             '<thead><tr>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
+             '</tr></thead><tbody>';
+
+  for (const d of drivers) {
+    html += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name) + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone) + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
+        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  html += '</tbody></table>';
+  adminDriversWrap.innerHTML = html;
+
+  // Wire buttons (event delegation)
+  adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-admin-action');
+      const id = btn.getAttribute('data-driver-id');
+      if (!action || !id) return;
+
+      const token = getAdminToken();
+      if (!token) { setAdminStatus("Missing admin token."); return; }
+
+      // small cooldown per button
+      if (onCooldown(btn, adminDriversStatus, "Please wait…")) return;
+      setCooldown(btn, 3000, () => true);
+
+      setAdminStatus((action === 'approve' ? "Approving" : "Disabling") + " driver #" + id + "…");
+      try {
+        const r = await fetch(API_BASE + "/admin/drivers/" + encodeURIComponent(id) + "/" + action, {
+          method: "POST",
+          headers: { "X-Admin-Token": token }
+        });
+        const j = await safeJson(r);
+        if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
+        if (j.ok) {
+          setAdminStatus("Done ✅");
+          // reload pending list
+          await adminLoadPendingDrivers();
+        } else {
+          setAdminStatus("Failed ❌ " + describeError(j, r));
+        }
+      } catch (err) {
+        setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
+      } finally {
+        if (btn && !cooldownActive(btn)) btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function adminLoadPendingDrivers() {
+  const token = getAdminToken();
+  if (!token) { setAdminStatus("Missing admin token."); return; }
+  setAdminStatus("Loading pending drivers…");
+  if (adminDriversOut) adminDriversOut.textContent = "{}";
+  try {
+    const r = await fetch(API_BASE + "/admin/drivers?status=pending_review", {
+      headers: { "X-Admin-Token": token }
+    });
+    const j = await safeJson(r);
+    if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
+    if (j.ok) {
+      renderDriversTable(j.drivers || []);
+      setAdminStatus("Loaded ✅");
+    } else {
+      setAdminStatus("Failed ❌ " + describeError(j, r));
+    }
+  } catch (err) {
+    setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
+  } finally {
+    if (adminLoadPendingDriversBtn && !cooldownActive(adminLoadPendingDriversBtn)) adminLoadPendingDriversBtn.disabled = false;
+  }
+}
+
+if (adminSaveTokenBtn && adminTokenInput) {
+  adminSaveTokenBtn.addEventListener('click', () => {
+    const t = getAdminToken();
+    if (!t) { setAdminStatus("Missing admin token."); return; }
+    try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
+    setAdminStatus("Saved ✅");
+  });
+}
+
+if (adminLoadPendingDriversBtn) {
+  adminLoadPendingDriversBtn.addEventListener('click', async () => {
+    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, "Please wait…")) return;
+    setCooldown(adminLoadPendingDriversBtn, 4000, () => true);
+    await adminLoadPendingDrivers();
+  });
+}
+
 }
 
   // ===== Sender create =====
