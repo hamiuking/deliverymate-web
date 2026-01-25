@@ -252,7 +252,8 @@
   async function safeJson(resp) {
     try { return await resp.json(); }
     catch (_) { return { ok: false, error: "Non-JSON response", status: resp.status }; }
-  
+  }
+
   const UI_ESCROW_CONFIRM_WINDOW_HOURS = 24; // display-only; backend is source of truth
 
   function setText(el, txt) {
@@ -346,8 +347,37 @@
     cardEl.style.display = show ? "" : "none";
   }
 
-
+  // ===== Frontend-only cooldown (anti spam/double-click) =====
+  function cooldownActive(btn) {
+    const until = Number(btn && btn.dataset ? (btn.dataset.cooldownUntil || "0") : "0");
+    return Date.now() < until;
   }
+  function setCooldown(btn, ms, canEnableFn) {
+    if (!btn) return;
+    const until = Date.now() + (ms || 0);
+    btn.dataset.cooldownUntil = String(until);
+    btn.disabled = true;
+
+    const tick = () => {
+      const u = Number(btn.dataset.cooldownUntil || "0");
+      if (Date.now() >= u) {
+        btn.dataset.cooldownUntil = "0";
+        // Re-enable only if allowed by canEnableFn (if provided)
+        if (typeof canEnableFn === 'function') btn.disabled = !canEnableFn();
+        else btn.disabled = false;
+        return;
+      }
+      setTimeout(tick, 250);
+    };
+    setTimeout(tick, 250);
+  }
+  function onCooldown(btn, statusEl, msg) {
+    if (!btn) return false;
+    if (!cooldownActive(btn)) return false;
+    if (statusEl) statusEl.textContent = msg || "Please wait a moment and try again.";
+    return true;
+  }
+
 
   let SENDER_ACK_VERSION = null;
   let DRIVER_ACK_VERSION = null;
@@ -683,6 +713,8 @@
 
   createForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (onCooldown(createBtn, statusEl, "Please wait…")) return;
+    setCooldown(createBtn, 8000, () => ackBox.checked);
     statusEl.textContent = "";
     out.textContent = "{}";
 
@@ -716,7 +748,7 @@
     } catch (err) {
       statusEl.textContent = "Network error ❌ " + err.message;
     } finally {
-      createBtn.disabled = !ackBox.checked;
+      if (!cooldownActive(createBtn)) createBtn.disabled = !ackBox.checked;
     }
   });
 
@@ -790,6 +822,8 @@
   // ===== Sender view =====
   viewForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (onCooldown(viewBtn, viewStatus, "Please wait…")) return;
+    setCooldown(viewBtn, 4000, () => true);
     viewStatus.textContent = "";
     viewRequest.textContent = "{}";
     viewOffers.textContent = "[]";
@@ -853,12 +887,14 @@
       viewStatus.textContent = "Network error ❌";
       if (viewStatusDetails) viewStatusDetails.textContent = String(err && err.message ? err.message : err);
     } finally {
-      viewBtn.disabled = false;
+      if (!cooldownActive(viewBtn)) viewBtn.disabled = false;
     }
   });
 
   // ===== Sender fund escrow =====
   async function fundEscrowNow() {
+    if (onCooldown(fundBtn, fundStatus, "Please wait…")) return;
+    setCooldown(fundBtn, 8000, () => true);
     fundStatus.textContent = "";
     fundOut.textContent = "{}";
 
@@ -910,7 +946,7 @@
     } catch (err) {
       fundStatus.textContent = "Network error ❌ " + err.message;
     } finally {
-      fundBtn.disabled = false;
+      if (!cooldownActive(fundBtn)) fundBtn.disabled = false;
     }
   }
 
@@ -1021,8 +1057,15 @@
 
   acceptOfferForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const offerId = String(acceptOfferId.value || '').trim();
-    await acceptOfferById(offerId);
+    if (onCooldown(acceptBtn, acceptStatus, "Please wait…")) return;
+    setCooldown(acceptBtn, 6000, () => true);
+    acceptBtn.disabled = true;
+    try {
+      const offerId = String(acceptOfferId.value || '').trim();
+      await acceptOfferById(offerId);
+    } finally {
+      if (!cooldownActive(acceptBtn)) acceptBtn.disabled = false;
+    }
   });
 
   copyDriverTokenBtn.addEventListener('click', async () => {
@@ -1051,6 +1094,8 @@
   // ===== Sender release escrow =====
   if (releaseBtn) {
     releaseBtn.addEventListener('click', async () => {
+      if (onCooldown(releaseBtn, releaseStatus, "Please wait…")) return;
+      setCooldown(releaseBtn, 8000, () => true);
       releaseStatus.textContent = "";
       releaseOut.textContent = "{}";
 
@@ -1104,7 +1149,7 @@
       } catch (err) {
         releaseStatus.textContent = "Network error ❌ " + err.message;
       } finally {
-        releaseBtn.disabled = false;
+        if (!cooldownActive(releaseBtn)) releaseBtn.disabled = false;
       }
     });
   }
@@ -1120,6 +1165,8 @@
       return;
     }
 
+    if (dvLoadBtn && onCooldown(dvLoadBtn, dvStatus, "Please wait…")) return;
+    if (dvLoadBtn) setCooldown(dvLoadBtn, 3000, () => true);
     dvStatus.textContent = "Loading…";
     if (dvLoadBtn) dvLoadBtn.disabled = true;
 
@@ -1149,7 +1196,7 @@
     } catch (err) {
       dvStatus.textContent = "Network error ❌ " + err.message;
     } finally {
-      if (dvLoadBtn) dvLoadBtn.disabled = false;
+      if (dvLoadBtn && !cooldownActive(dvLoadBtn)) dvLoadBtn.disabled = false;
     }
   }
 
@@ -1175,6 +1222,8 @@
 
   driverOfferForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (onCooldown(offerBtn, offerStatus, "Please wait…")) return;
+    setCooldown(offerBtn, 5000, () => driverAckBox.checked);
     offerStatus.textContent = "";
     offerOut.textContent = "{}";
 
@@ -1209,13 +1258,16 @@
     } catch (err) {
       offerStatus.textContent = "Network error ❌ " + err.message;
     } finally {
-      offerBtn.disabled = !driverAckBox.checked;
+      if (!cooldownActive(offerBtn)) offerBtn.disabled = !driverAckBox.checked;
     }
   });
 
   // ===== Driver update status =====
   driverStatusForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (onCooldown(dsUpdateBtn, dsStatus, "Please wait…")) return;
+    setCooldown(dsUpdateBtn, 5000, () => true);
+    if (dsUpdateBtn) dsUpdateBtn.disabled = true;
     dsStatus.textContent = "";
     dsOut.textContent = "{}";
 
@@ -1269,6 +1321,8 @@
       }
     } catch (err) {
       dsStatus.textContent = "Network error ❌ " + err.message;
+    } finally {
+      if (dsUpdateBtn && !cooldownActive(dsUpdateBtn)) dsUpdateBtn.disabled = false;
     }
   });
 
