@@ -222,6 +222,58 @@
   </div>
 
 
+
+  <!-- Account registration (pilot; required for sender + optional driver capability) -->
+  <div class="card" id="userRegCard">
+    <div class="section-head">
+      <h2>Account registration (pilot)</h2>
+      <div class="pill">Invite-only</div>
+    </div>
+
+    <p style="margin:6px 0 10px; font-size:13px; color:#666;">
+      <strong>Invite-only pilot.</strong> Ask the platform for a code.
+    </p>
+
+    <p class="muted">
+      Register once to use the platform. Approved drivers automatically have sender capability.
+      You can also register as a sender first, then optionally apply as a driver.
+    </p>
+
+    <form id="userRegForm">
+      <div class="row">
+        <div><label>Invite code *</label><input id="u_invite_code" required /></div>
+        <div><label>Full name</label><input id="u_full_name" /></div>
+      </div>
+      <div class="row">
+        <div><label>Phone *</label><input id="u_phone" required /></div>
+        <div><label>Email</label><input id="u_email" /></div>
+      </div>
+
+      <label style="margin-top:8px;">
+        <input type="checkbox" id="u_apply_driver" /> Also apply as driver (optional)
+      </label>
+
+      <div id="u_driver_fields" style="display:none; margin-top:10px;">
+        <div class="row">
+          <div><label>Driver invite code *</label><input id="u_driver_invite_code" placeholder="can be same as invite code" /></div>
+          <div><label>Vehicle plate</label><input id="u_plate" /></div>
+        </div>
+        <div class="row">
+          <div><label>Licence / last 6 (optional)</label><input id="u_lic_last6" /></div>
+          <div><label>WOF expiry (optional)</label><input id="u_wof_expiry" placeholder="YYYY-MM-DD" /></div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn" id="uRegBtn" type="submit">Register / Update</button>
+        <span class="muted" id="uRegStatus"></span>
+      </div>
+    </form>
+
+    <pre id="uRegOut">{}</pre>
+  </div>
+
+
   <!-- Role switch -->
   <div class="card">
     <strong>I am a:</strong>
@@ -371,38 +423,6 @@
   <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
-<!-- Driver registration (pilot; manual verification) -->
-<div class="card" id="driverRegCard">
-  <h2>Driver registration (pilot)</h2>
-  <p class="muted">
-    Pilot onboarding is invite-only. Document upload is not enabled yet — verification is manual.
-    After you register, your status will be <code>pending_review</code> until approved by admin.
-  </p>
-  <form id="driverRegForm">
-    <div class="row">
-      <div><label>Invite code *</label><input id="dr_invite_code" required /></div>
-      <div><label>Full name *</label><input id="dr_full_name" required /></div>
-    </div>
-    <div class="row">
-      <div><label>Phone *</label><input id="dr_phone" required /></div>
-      <div><label>Email</label><input id="dr_email" /></div>
-    </div>
-    <div class="row">
-      <div><label>Vehicle plate</label><input id="dr_plate" /></div>
-      <div><label>Licence last 6 (optional)</label><input id="dr_lic_last6" /></div>
-    </div>
-    <div class="row">
-      <div><label>WOF expiry (optional)</label><input id="dr_wof_expiry" placeholder="YYYY-MM-DD" /></div>
-      <div><label>&nbsp;</label><button class="btn" id="drRegBtn">Submit registration</button></div>
-    </div>
-    <div class="muted" id="drRegStatus"></div>
-  </form>
-  <pre id="drRegOut">{}</pre>
-</div>
-
-
-
-
 <!-- Admin (pilot) — driver approvals -->
 <div class="card" id="adminDriverCard">
   <details>
@@ -504,6 +524,161 @@
   // Production backend base (confirmed)
   const API_BASE = "https://deliverymate.onrender.com";
   document.getElementById('apiBasePill').textContent = API_BASE;
+  const apiHero = document.getElementById('apiBasePillHero');
+  if (apiHero) apiHero.textContent = API_BASE;
+
+  // ===== Account registration (pilot) =====
+  const userRegForm = document.getElementById('userRegForm');
+  const uInvite = document.getElementById('u_invite_code');
+  const uName = document.getElementById('u_full_name');
+  const uPhone = document.getElementById('u_phone');
+  const uEmail = document.getElementById('u_email');
+  const uApplyDriver = document.getElementById('u_apply_driver');
+  const uDriverFields = document.getElementById('u_driver_fields');
+  const uDriverInvite = document.getElementById('u_driver_invite_code');
+  const uPlate = document.getElementById('u_plate');
+  const uLicLast6 = document.getElementById('u_lic_last6');
+  const uWofExpiry = document.getElementById('u_wof_expiry');
+  const uRegBtn = document.getElementById('uRegBtn');
+  const uRegStatus = document.getElementById('uRegStatus');
+  const uRegOut = document.getElementById('uRegOut');
+
+  function prefillFromStorage() {
+    try {
+      const p = localStorage.getItem('dm_user_phone');
+      const e = localStorage.getItem('dm_user_email');
+      const n = localStorage.getItem('dm_user_name');
+      if (p && uPhone && !String(uPhone.value||'').trim()) uPhone.value = p;
+      if (e && uEmail && !String(uEmail.value||'').trim()) uEmail.value = e;
+      if (n && uName && !String(uName.value||'').trim()) uName.value = n;
+
+      const senderPhoneInput = document.querySelector('input[name="sender_phone"]');
+      if (senderPhoneInput && p && !String(senderPhoneInput.value||'').trim()) senderPhoneInput.value = p;
+
+      // offerDriverPhone/offerDriverName/dsDriverName are declared later, so guard with try
+      try {
+        if (window.offerDriverPhone && p && !String(window.offerDriverPhone.value||'').trim()) window.offerDriverPhone.value = p;
+        if (window.offerDriverName && n && !String(window.offerDriverName.value||'').trim()) window.offerDriverName.value = n;
+        if (window.dsDriverName && n && !String(window.dsDriverName.value||'').trim()) window.dsDriverName.value = n;
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  if (uApplyDriver && uDriverFields) {
+    uApplyDriver.addEventListener('change', () => {
+      const on = !!uApplyDriver.checked;
+      uDriverFields.style.display = on ? '' : 'none';
+      if (on && uDriverInvite && !String(uDriverInvite.value||'').trim() && uInvite) {
+        uDriverInvite.value = String(uInvite.value||'').trim();
+      }
+    });
+  }
+  if (uInvite && uDriverInvite) {
+    uInvite.addEventListener('input', () => {
+      if (uApplyDriver && uApplyDriver.checked) {
+        if (!String(uDriverInvite.value||'').trim()) uDriverInvite.value = String(uInvite.value||'').trim();
+      }
+    });
+  }
+
+  async function registerUserAndMaybeApplyDriver(payload) {
+    const r1 = await fetch(API_BASE + "/users/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invite_code: payload.invite_code,
+        full_name: payload.full_name || undefined,
+        phone: payload.phone,
+        email: payload.email || undefined
+      })
+    });
+    const j1 = await safeJson(r1);
+    if (!j1.ok) return { ok:false, step:"register", resp_status:r1.status, json:j1 };
+
+    if (payload.apply_driver) {
+      const r2 = await fetch(API_BASE + "/users/driver/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invite_code: payload.driver_invite_code || payload.invite_code,
+          phone: payload.phone,
+          vehicle_plate: payload.vehicle_plate || undefined,
+          license_number: payload.license_number || undefined,
+          licence_last6: payload.license_number || undefined,
+          wof_expiry: payload.wof_expiry || undefined
+        })
+      });
+      const j2 = await safeJson(r2);
+      if (!j2.ok) return { ok:false, step:"driver_apply", resp_status:r2.status, json:j2, register:j1 };
+      return { ok:true, register:j1, driver_apply:j2 };
+    }
+
+    return { ok:true, register:j1 };
+  }
+
+  if (userRegForm) {
+    userRegForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (onCooldown(uRegBtn, uRegStatus, "Please wait…")) return;
+      setCooldown(uRegBtn, 5000, () => true);
+
+      if (uRegOut) uRegOut.textContent = "{}";
+      if (uRegStatus) uRegStatus.textContent = "Submitting…";
+
+      const invite_code = String(uInvite?.value || '').trim();
+      const full_name = String(uName?.value || '').trim();
+      const phone = String(uPhone?.value || '').trim();
+      const email = String(uEmail?.value || '').trim();
+
+      const apply_driver = !!(uApplyDriver && uApplyDriver.checked);
+      const driver_invite_code = String(uDriverInvite?.value || '').trim();
+      const vehicle_plate = String(uPlate?.value || '').trim();
+      const license_number = String(uLicLast6?.value || '').trim();
+      const wof_expiry = String(uWofExpiry?.value || '').trim();
+
+      if (!invite_code || !phone) {
+        if (uRegStatus) uRegStatus.textContent = "Invite code and phone are required.";
+        return;
+      }
+      if (apply_driver && !driver_invite_code) {
+        if (uRegStatus) uRegStatus.textContent = "Driver invite code is required when applying as driver.";
+        return;
+      }
+
+      try {
+        localStorage.setItem('dm_user_phone', phone);
+        if (email) localStorage.setItem('dm_user_email', email);
+        if (full_name) localStorage.setItem('dm_user_name', full_name);
+      } catch (_) {}
+
+      try {
+        const result = await registerUserAndMaybeApplyDriver({
+          invite_code, full_name, phone, email,
+          apply_driver, driver_invite_code,
+          vehicle_plate, license_number, wof_expiry
+        });
+
+        if (uRegOut) uRegOut.textContent = JSON.stringify(result, null, 2);
+
+        if (result.ok) {
+          const ds = (result.driver_apply && result.driver_apply.user && result.driver_apply.user.driver_status)
+            ? result.driver_apply.user.driver_status
+            : null;
+          if (uRegStatus) uRegStatus.textContent = ds ? ("Saved ✅ Driver status: " + ds) : "Saved ✅";
+          prefillFromStorage();
+        } else {
+          if (uRegStatus) uRegStatus.textContent = "Failed ❌ " + (result.json && (result.json.error || result.json.message) ? (result.json.error || result.json.message) : "Unknown error");
+        }
+      } catch (err) {
+        if (uRegStatus) uRegStatus.textContent = "Network error ❌ " + (err && err.message ? err.message : err);
+      } finally {
+        if (uRegBtn && !cooldownActive(uRegBtn)) uRegBtn.disabled = false;
+      }
+    });
+  }
+
+  prefillFromStorage();
+
 
   function uuid() {
     return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random());
