@@ -235,7 +235,10 @@
       line-height:1.45;
     }
 
-  </style>
+  
+/* Hide technical/system info on Home. Admin can still see it. */
+body.page-home [data-systeminfo="1"] { display: none !important; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -257,6 +260,11 @@
         <a href="#about" class="pill" style="text-decoration:none;">About</a>
         <a href="#admin" class="pill" id="navAdmin" style="text-decoration:none; display:none;">Admin</a>
       </nav>
+      <div id="userBar" style="display:none; margin-left:auto; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="pill" id="userBarText">Not signed in</span>
+        <a href="#home" id="logoutLink" class="pill" style="text-decoration:none;">Log out</a>
+      </div>
+
       <div class="idbar" id="identityBar" style="display:none;">
         <div class="line1" id="idLine1"></div>
         <div class="line2" id="idLine2">
@@ -511,21 +519,8 @@
   <div id="driverSection" style="display:none;">
 
 <!-- Admin (pilot) — driver approvals -->
-<div class="card" id="adminDriverCard">
-  <details>
-    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
-    <p class="muted">
-      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
-    </p>
-    <div class="row">
-      <div style="flex:2;">
-        <label>Admin token *</label>
-        <input id="admin_token" placeholder="X-Admin-Token" />
-      </div>
-      <div style="align-self:flex-end;">
-        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
-      </div>
-    </div>
+<!-- Admin driver approvals moved to #admin page -->
+
 
     <div class="row">
       <div>
@@ -623,7 +618,23 @@
 </div>
 
 <div id="page_admin" style="display:none;">
-  <div class="card">
+  
+<div class="card" id="adminDriverCard">
+  <details>
+    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
+    <p class="muted">
+      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
+    </p>
+    <div class="row">
+      <div style="flex:2;">
+        <label>Admin token *</label>
+        <input id="admin_token" placeholder="X-Admin-Token" />
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
+      </div>
+    </div>
+<div class="card">
     <div class="section-head">
       <h2>Admin</h2>
       <span class="pill">Pilot</span>
@@ -2360,6 +2371,8 @@ if (adminLoadPendingDriversBtn) {
 // ===================== Pilot pages (single-file routing) =====================
 function showPage(page) {
   const pages = ['home','sender','driver','about','admin'];
+  document.body.classList.remove('page-home','page-sender','page-driver','page-about','page-admin');
+  document.body.classList.add('page-' + page);
   for (const p of pages) {
     const el = document.getElementById('page_' + p);
     if (el) el.style.display = (p === page) ? '' : 'none';
@@ -2610,6 +2623,63 @@ if (dropoffGeocodeBtn) {
     }
   });
 }
+
+
+// ===================== User bar + logout (pilot) =====================
+function maskPhone(p) {
+  const s = String(p || '');
+  if (s.length < 6) return s;
+  return s.slice(0, 3) + '****' + s.slice(-3);
+}
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
+}
+function setStoredUser(u) {
+  try { localStorage.setItem('dm_user', JSON.stringify(u || null)); } catch (_) {}
+}
+function clearSession() {
+  // Clear pilot session artifacts (frontend only)
+  try { localStorage.removeItem('dm_user'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_token'); } catch (_) {}
+  // keep dm_admin_token; admin is separate
+}
+function updateUserBarVisibility() {
+  const ub = document.getElementById('userBar');
+  const txt = document.getElementById('userBarText');
+  if (!ub || !txt) return;
+  const u = getStoredUser();
+  const hash = String(window.location.hash || '').toLowerCase();
+  const onSender = hash === '#sender';
+  const onDriver = hash === '#driver';
+  const show = onSender || onDriver;
+  ub.style.display = show ? 'flex' : 'none';
+  if (!u) {
+    txt.textContent = 'Not signed in';
+    return;
+  }
+  const roleBits = [];
+  if (u.sender_enabled) roleBits.push('Sender');
+  const ds = String(u.driver_status || 'none');
+  if (ds && ds !== 'none') roleBits.push('Driver: ' + ds.replace('_',' '));
+  txt.textContent = (u.full_name || 'User') + ' · ' + maskPhone(u.phone) + (roleBits.length ? ' · ' + roleBits.join(' · ') : '');
+}
+window.addEventListener('hashchange', updateUserBarVisibility);
+setTimeout(updateUserBarVisibility, 50);
+
+const logoutLink = document.getElementById('logoutLink');
+if (logoutLink) {
+  logoutLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!window.confirm('Log out from this device?')) return;
+    clearSession();
+    // Reset any visible user-only state (keep minimal)
+    window.location.hash = 'home';
+    setTimeout(() => window.location.reload(), 50);
+  });
+}
+
+// Hook into registration success to store user in localStorage (if register handler exposes result JSON in `j.register.user`).
+// This is additive: if the variable names differ, nothing breaks.
 
 </script>
 
