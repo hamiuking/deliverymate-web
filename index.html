@@ -177,6 +177,51 @@
       line-height:1.35;
     }
 
+
+    .alert{
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.85);
+      color: var(--text);
+      font-size: 13px;
+      line-height:1.35;
+    }
+    .alert .title{ font-weight:800; margin-right:8px; }
+    .alert.error{
+      border-color: rgba(239,68,68,.25);
+      background: rgba(239,68,68,.06);
+    }
+    .alert.success{
+      border-color: rgba(34,197,94,.20);
+      background: rgba(34,197,94,.06);
+    }
+    .alert .details{
+      margin-top:6px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    .how{
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height:1.45;
+    }
+    .how li{ margin: 6px 0; }
+
+    .idbar{
+      display:flex; flex-direction:column; align-items:flex-end; gap:4px;
+      text-align:right;
+    }
+    .idbar .line1{ font-size:12.5px; color: var(--muted); }
+    .idbar .line2{ font-size:12.5px; color: var(--muted); }
+    .idbar a{ color: var(--primary); text-decoration:none; border-bottom:1px solid rgba(15,23,42,.15); }
+    .idbar a:hover{ border-bottom-color: rgba(15,23,42,.35); }
+
+
     footer{
       margin-top: 22px;
       padding-top: 18px;
@@ -200,6 +245,12 @@
           <p class="subtitle">Peer-to-peer delivery marketplace (NZ)</p>
         </div>
       </div>
+      <div class="idbar" id="identityBar" style="display:none;">
+        <div class="line1" id="idLine1"></div>
+        <div class="line2" id="idLine2">
+          <a href="#senderSection" id="idLinkSender">Sender</a> · <a href="#driverSection" id="idLinkDriver">Driver</a>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -215,6 +266,22 @@
     </div>
   </div>
 
+
+
+
+  <div class="card compact" id="howItWorksCard">
+    <div class="section-head">
+      <h2>How it works (pilot)</h2>
+      <span class="pill">Invite-only</span>
+    </div>
+    <ul class="how">
+      <li><strong>DeliveryMate is a facilitator only.</strong> Drivers and senders interact directly and are responsible for their own arrangements.</li>
+      <li><strong>Drivers are independent participants</strong> (not employees, contractors, or agents of the platform).</li>
+      <li><strong>Escrow release:</strong> driver marks <code>delivered</code> → sender confirms to release immediately, or it auto-releases after 24 hours.</li>
+      <li><strong>No disputes or refunds</strong> after release. The platform does not judge delivery quality or responsibility.</li>
+    </ul>
+    <div class="notice">If you don’t have an invite code, ask the pilot organiser for access.</div>
+  </div>
 
 
   <!-- Account registration (pilot; required for sender + optional driver capability) -->
@@ -337,6 +404,7 @@
       <h3>Escrow</h3>
       <div class="muted" id="escrowLine">—</div>
       <div class="muted" id="escrowEta"></div>
+      <div class="muted" id="escrowExplain"></div>
 
       <h3>Offers</h3><pre id="viewOffers">[]</pre>
 
@@ -616,7 +684,7 @@
       setCooldown(uRegBtn, 5000, () => true);
 
       if (uRegOut) uRegOut.textContent = "{}";
-      if (uRegStatus) uRegStatus.textContent = "Submitting…";
+      if (uRegStatus) { clearNotice(uRegStatus); setText(uRegStatus, "Submitting…"); }
 
       const invite_code = String(uInvite?.value || '').trim();
       const full_name = String(uName?.value || '').trim();
@@ -657,13 +725,16 @@
           const ds = (result.driver_apply && result.driver_apply.user && result.driver_apply.user.driver_status)
             ? result.driver_apply.user.driver_status
             : null;
-          if (uRegStatus) uRegStatus.textContent = ds ? ("Saved ✅ Driver status: " + ds) : "Saved ✅";
+          try { if (ds) localStorage.setItem('dm_driver_status', String(ds)); } catch (_) {}
+
+          if (uRegStatus) setNotice(uRegStatus, 'success', 'Saved', ds ? ('Driver status: ' + ds) : 'Account updated.');
           prefillFromStorage();
+  refreshIdentityBar();
         } else {
-          if (uRegStatus) uRegStatus.textContent = "Failed ❌ " + (result.json && (result.json.error || result.json.message) ? (result.json.error || result.json.message) : "Unknown error");
+          if (uRegStatus) setNotice(uRegStatus, 'error', 'Registration failed', (result.json && (result.json.error || result.json.message) ? (result.json.error || result.json.message) : 'Unknown error'));
         }
       } catch (err) {
-        if (uRegStatus) uRegStatus.textContent = "Network error ❌ " + (err && err.message ? err.message : err);
+        if (uRegStatus) setNotice(uRegStatus, 'error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
       } finally {
         if (uRegBtn && !cooldownActive(uRegBtn)) uRegBtn.disabled = false;
       }
@@ -687,6 +758,78 @@
     if (!el) return;
     el.textContent = (txt == null ? "" : String(txt));
   }
+
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function setNotice(el, kind, title, msg, details) {
+    if (!el) return;
+    const k = (kind === 'success') ? 'success' : (kind === 'error' ? 'error' : '');
+    const t = title ? ('<span class="title">' + escapeHtml(title) + '</span>') : '';
+    const m = msg ? escapeHtml(msg) : '';
+    const d = details ? ('<div class="details">' + escapeHtml(details) + '</div>') : '';
+    el.innerHTML = '<div class="alert ' + k + '">' + t + m + d + '</div>';
+  }
+
+  function clearNotice(el) {
+    if (!el) return;
+    el.innerHTML = '';
+    el.textContent = '';
+  }
+
+  function maskPhone(p) {
+    const s = String(p || '').trim();
+    if (s.length < 6) return s;
+    return s.slice(0, 3) + "****" + s.slice(-3);
+  }
+
+  function refreshIdentityBar(extra) {
+    const bar = document.getElementById('identityBar');
+    const l1 = document.getElementById('idLine1');
+    const l2 = document.getElementById('idLine2');
+    if (!bar || !l1 || !l2) return;
+
+    let phone = null, name = null;
+    try {
+      phone = localStorage.getItem('dm_user_phone');
+      name = localStorage.getItem('dm_user_name');
+    } catch (_) {}
+
+    const p = maskPhone(phone);
+    const n = String(name || '').trim();
+    const parts = [];
+    if (n) parts.push(n);
+    if (p) parts.push(p);
+
+    if (!parts.length) {
+      bar.style.display = 'none';
+      return;
+    }
+
+    bar.style.display = '';
+    l1.textContent = "Logged in as: " + parts.join(" · ");
+
+    const role = (extra && extra.role) ? String(extra.role) : null;
+    const driverStatus = (extra && extra.driver_status) ? String(extra.driver_status) : null;
+
+    let s2 = "";
+    if (role) s2 += "Mode: " + role;
+    if (driverStatus) s2 += (s2 ? " · " : "") + "Driver: " + driverStatus;
+    if (!s2) s2 = "Pilot account";
+
+    // Keep the role links visible
+    // (line2 already contains links, so prepend status text if present)
+    const linksHtml = '<a href="#senderSection" id="idLinkSender">Sender</a> · <a href="#driverSection" id="idLinkDriver">Driver</a>';
+    l2.innerHTML = escapeHtml(s2) + ' · ' + linksHtml;
+  }
+
 
   function describeError(json, resp) {
     const parts = [];
@@ -743,6 +886,7 @@
 
   function renderEscrowReadOnly(req, history) {
     if (!escrowLine || !escrowEta) return;
+    if (escrowExplain) setText(escrowExplain, "");
     const funded = isEscrowFunded(req);
     const released = isEscrowReleased(req);
     const pendingRel = isPendingRelease(req);
@@ -756,6 +900,7 @@
     setText(escrowLine, line);
 
     if (pendingRel) {
+      if (escrowExplain) setText(escrowExplain, "Pending release: sender confirms to release immediately, or it auto-releases after 24 hours.");
       const started = bestEffortPendingReleaseAt(req, history);
       if (started) {
         const deadline = started + UI_ESCROW_CONFIRM_WINDOW_HOURS * 3600 * 1000;
@@ -829,6 +974,7 @@
   const viewStatusDetails = document.getElementById('viewStatusDetails');
   const escrowLine = document.getElementById('escrowLine');
   const escrowEta = document.getElementById('escrowEta');
+  const escrowExplain = document.getElementById('escrowExplain');
   const offersListCard = document.getElementById('offersListCard');
   const acceptOfferCard = document.getElementById('acceptOfferCard');
   const fundEscrowCard = document.getElementById('fundEscrowCard');
@@ -952,6 +1098,12 @@ const adminDriversOut = document.getElementById('adminDriversOut');
       if (senderRadio) senderRadio.checked = true;
       senderSection.style.display = '';
       driverSection.style.display = 'none';
+    }
+    try {
+      const ds = localStorage.getItem('dm_driver_status');
+      refreshIdentityBar({ role: role, driver_status: ds || null });
+    } catch (_) {
+      refreshIdentityBar({ role: role });
     }
   }
 
@@ -1218,10 +1370,10 @@ if (driverRegForm) {
           offerDriverPhone.value = phone;
         }
       } else {
-        setText(drRegStatus, "Failed ❌ " + describeError(j, r));
+        setNotice(drRegStatus, 'error', 'Request failed', describeError(j, r));
       }
     } catch (err) {
-      setText(drRegStatus, "Network error ❌ " + (err && err.message ? err.message : err));
+      setNotice(drRegStatus, 'error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
     } finally {
       if (drRegBtn && !cooldownActive(drRegBtn)) drRegBtn.disabled = false;
     }
@@ -1234,6 +1386,9 @@ function getAdminToken() {
 }
 function setAdminStatus(msg) {
   if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
+}
+function setAdminStatusRich(kind, title, msg, details) {
+  setNotice(adminDriversStatus, kind, title, msg, details);
 }
 function renderDriversTable(drivers) {
   if (!adminDriversWrap) return;
@@ -1280,6 +1435,11 @@ function renderDriversTable(drivers) {
 
       const token = getAdminToken();
       if (!token) { setAdminStatus("Missing admin token."); return; }
+      if (action === 'approve') {
+        if (!window.confirm("Approve driver #" + id + "?")) return;
+      } else if (action === 'disable') {
+        if (!window.confirm("Disable driver #" + id + "? This will prevent this driver from using driver actions in the pilot.")) return;
+      }
 
       // small cooldown per button
       if (onCooldown(btn, adminDriversStatus, "Please wait…")) return;
@@ -1298,10 +1458,10 @@ function renderDriversTable(drivers) {
           // reload pending list
           await adminLoadPendingDrivers();
         } else {
-          setAdminStatus("Failed ❌ " + describeError(j, r));
+          setAdminStatusRich('error', 'Request failed', describeError(j, r));
         }
       } catch (err) {
-        setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
+        setAdminStatusRich('error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
       } finally {
         if (btn && !cooldownActive(btn)) btn.disabled = false;
       }
@@ -1324,10 +1484,10 @@ async function adminLoadPendingDrivers() {
       renderDriversTable(j.drivers || []);
       setAdminStatus("Loaded ✅");
     } else {
-      setAdminStatus("Failed ❌ " + describeError(j, r));
+      setAdminStatusRich('error', 'Request failed', describeError(j, r));
     }
   } catch (err) {
-    setAdminStatus("Network error ❌ " + (err && err.message ? err.message : err));
+    setAdminStatusRich('error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
   } finally {
     if (adminLoadPendingDriversBtn && !cooldownActive(adminLoadPendingDriversBtn)) adminLoadPendingDriversBtn.disabled = false;
   }
@@ -1390,9 +1550,9 @@ if (adminLoadPendingDriversBtn) {
       });
       const j = await safeJson(r);
       out.textContent = JSON.stringify(j, null, 2);
-      statusEl.textContent = j.ok ? "Created ✅" : ("Failed ❌ " + (j.error || "Unknown error"));
+      if (j.ok) setNotice(statusEl, 'success', 'Created', 'Request created successfully.'); else setNotice(statusEl, 'error', 'Create failed', (j.error || 'Unknown error'));
     } catch (err) {
-      statusEl.textContent = "Network error ❌ " + err.message;
+      setNotice(statusEl, 'error', 'Request failed', 'Network error', err && err.message ? err.message : err);
     } finally {
       if (!cooldownActive(createBtn)) createBtn.disabled = !ackBox.checked;
     }
@@ -1504,7 +1664,7 @@ if (adminLoadPendingDriversBtn) {
       const j1 = await safeJson(r1);
       viewRequest.textContent = JSON.stringify(j1, null, 2);
       if (!j1.ok) {
-        viewStatus.textContent = "Failed ❌";
+        setNotice(viewStatus, 'error', 'Load failed', 'The request could not be loaded.');
         if (viewStatusDetails) viewStatusDetails.textContent = describeError(j1, r1);
         return;
       }
@@ -1530,7 +1690,7 @@ if (adminLoadPendingDriversBtn) {
       viewStatus.textContent = "Loaded ✅";
       if (viewStatusDetails) viewStatusDetails.textContent = "";
     } catch (err) {
-      viewStatus.textContent = "Network error ❌";
+      setNotice(viewStatus, 'error', 'Load failed', 'Network error', 'Please check Request ID and sender token.');
       if (viewStatusDetails) viewStatusDetails.textContent = String(err && err.message ? err.message : err);
     } finally {
       if (!cooldownActive(viewBtn)) viewBtn.disabled = false;
@@ -1579,7 +1739,7 @@ if (adminLoadPendingDriversBtn) {
       fundOut.textContent = JSON.stringify(j, null, 2);
 
       if (!j.ok) {
-        fundStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+        setNotice(fundStatus, 'error', 'Payment start failed', (j.error || 'Unknown error'));
         return;
       }
 
@@ -1590,7 +1750,7 @@ if (adminLoadPendingDriversBtn) {
         fundStatus.textContent = "Created ✅ (no checkout_url returned)";
       }
     } catch (err) {
-      fundStatus.textContent = "Network error ❌ " + err.message;
+      setNotice(fundStatus, 'error', 'Payment start failed', 'Network error', err && err.message ? err.message : err);
     } finally {
       if (!cooldownActive(fundBtn)) fundBtn.disabled = false;
     }
@@ -1664,7 +1824,7 @@ if (adminLoadPendingDriversBtn) {
       acceptOut.textContent = JSON.stringify(j, null, 2);
 
       if (!j.ok) {
-        acceptStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+        setNotice(acceptStatus, 'error', 'Accept failed', (j.error || 'Unknown error'));
         return;
       }
 
@@ -1697,7 +1857,7 @@ if (adminLoadPendingDriversBtn) {
         fundStatus.textContent = "Accepted ✅ Now enter amount and click Pay now.";
       }
     } catch (err) {
-      acceptStatus.textContent = "Network error ❌ " + err.message;
+      setNotice(acceptStatus, 'error', 'Accept failed', 'Network error', err && err.message ? err.message : err);
     }
   }
 
@@ -1741,8 +1901,9 @@ if (adminLoadPendingDriversBtn) {
   if (releaseBtn) {
     releaseBtn.addEventListener('click', async () => {
       if (onCooldown(releaseBtn, releaseStatus, "Please wait…")) return;
+      if (!window.confirm("Confirm delivery and release payment now? This is final once released.")) return;
       setCooldown(releaseBtn, 8000, () => true);
-      releaseStatus.textContent = "";
+      clearNotice(releaseStatus);
       releaseOut.textContent = "{}";
 
       const requestId = String(viewRequestId.value || '').trim();
@@ -1788,12 +1949,12 @@ if (adminLoadPendingDriversBtn) {
           // Update guardrails if server returned request
           if (j.request) lastSenderReq = extractReq(j);
         } else {
-          releaseStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+          setNotice(releaseStatus, 'error', 'Release failed', (j.error || 'Unknown error'));
         }
 
         if (lastSenderReq) senderGuardrails(lastSenderReq);
       } catch (err) {
-        releaseStatus.textContent = "Network error ❌ " + err.message;
+        setNotice(releaseStatus, 'error', 'Release failed', 'Network error', err && err.message ? err.message : err);
       } finally {
         if (!cooldownActive(releaseBtn)) releaseBtn.disabled = false;
       }
@@ -1823,7 +1984,7 @@ if (adminLoadPendingDriversBtn) {
       const j1 = await safeJson(r1);
       dvRequest.textContent = JSON.stringify(j1, null, 2);
       if (!j1.ok) {
-        dvStatus.textContent = "Failed ❌ " + (j1.error || "Unknown error");
+        setNotice(dvStatus, 'error', 'Load failed', (j1.error || 'Unknown error'));
         return;
       }
 
@@ -1840,7 +2001,7 @@ if (adminLoadPendingDriversBtn) {
 
       dvStatus.textContent = "Loaded ✅";
     } catch (err) {
-      dvStatus.textContent = "Network error ❌ " + err.message;
+      setNotice(dvStatus, 'error', 'Load failed', 'Network error', err && err.message ? err.message : err);
     } finally {
       if (dvLoadBtn && !cooldownActive(dvLoadBtn)) dvLoadBtn.disabled = false;
     }
@@ -1900,9 +2061,9 @@ if (adminLoadPendingDriversBtn) {
       });
       const j = await safeJson(r);
       offerOut.textContent = JSON.stringify(j, null, 2);
-      offerStatus.textContent = j.ok ? "Offer submitted ✅" : ("Failed ❌ " + (j.error || "Unknown error"));
+      if (j.ok) setNotice(offerStatus, 'success', 'Offer submitted', 'Offer sent successfully.'); else setNotice(offerStatus, 'error', 'Offer failed', (j.error || 'Unknown error'));
     } catch (err) {
-      offerStatus.textContent = "Network error ❌ " + err.message;
+      setNotice(offerStatus, 'error', 'Offer failed', 'Network error', err && err.message ? err.message : err);
     } finally {
       if (!cooldownActive(offerBtn)) offerBtn.disabled = !driverAckBox.checked;
     }
@@ -1912,6 +2073,10 @@ if (adminLoadPendingDriversBtn) {
   driverStatusForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (onCooldown(dsUpdateBtn, dsStatus, "Please wait…")) return;
+    const _ns = String((dsNewStatus && dsNewStatus.value) || '').trim();
+    if (_ns === 'delivered') {
+      if (!window.confirm("Mark as delivered? This starts the escrow release window and may lead to payment release.")) return;
+    }
     setCooldown(dsUpdateBtn, 5000, () => true);
     if (dsUpdateBtn) dsUpdateBtn.disabled = true;
     dsStatus.textContent = "";
@@ -1963,10 +2128,10 @@ if (adminLoadPendingDriversBtn) {
         if (j.request) lastDriverReq = extractReq(j);
         if (lastDriverReq) driverGuardrails(lastDriverReq);
       } else {
-        dsStatus.textContent = "Failed ❌ " + (j.error || "Unknown error");
+        setNotice(dsStatus, 'error', 'Update failed', (j.error || 'Unknown error'));
       }
     } catch (err) {
-      dsStatus.textContent = "Network error ❌ " + err.message;
+      setNotice(dsStatus, 'error', 'Update failed', 'Network error', err && err.message ? err.message : err);
     } finally {
       if (dsUpdateBtn && !cooldownActive(dsUpdateBtn)) dsUpdateBtn.disabled = false;
     }
