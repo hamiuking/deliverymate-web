@@ -249,6 +249,14 @@
           <p class="subtitle">Peer-to-peer delivery marketplace (NZ)</p>
         </div>
       </div>
+
+      <nav id="mainNav" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <a href="#home" class="pill" style="text-decoration:none;">Home</a>
+        <a href="#sender" class="pill" style="text-decoration:none;">Sender</a>
+        <a href="#driver" class="pill" style="text-decoration:none;">Driver</a>
+        <a href="#about" class="pill" style="text-decoration:none;">About</a>
+        <a href="#admin" class="pill" id="navAdmin" style="text-decoration:none; display:none;">Admin</a>
+      </nav>
       <div class="idbar" id="identityBar" style="display:none;">
         <div class="line1" id="idLine1"></div>
         <div class="line2" id="idLine2">
@@ -258,6 +266,7 @@
     </div>
   </div>
 
+  <div id="page_home">
   <div class="hero">
     <div>
       <h2 class="hero-title">Test the platform end-to-end</h2>
@@ -267,6 +276,11 @@
       </p>
     </div>
     <div class="hero-right">
+      <div class="btn-row">
+        <button class="btn" id="goSenderBtn" type="button">Create a request</button>
+        <button class="btn secondary" id="goDriverBtn" type="button">Become a driver</button>
+      </div>
+      <div class="muted" style="max-width:320px; text-align:right;">Invite-only pilot. Request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</div>
     </div>
   </div>
 
@@ -356,7 +370,11 @@
     <div class="muted" id="ackInfo"></div>
   </div>
 
-  <!-- ================= SENDER ================= -->
+    </div>
+  </div>
+
+  <div id="page_sender" style="display:none;">
+<!-- ================= SENDER ================= -->
   <div id="senderSection">
 
     <!-- Create -->
@@ -486,7 +504,10 @@
     </div>
   </div>
 
-  <!-- ================= DRIVER ================= -->
+  </div>
+
+<div id="page_driver" style="display:none;">
+<!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
 <!-- Admin (pilot) — driver approvals -->
@@ -583,7 +604,38 @@
       <pre id="dsOut">{}</pre>
     </div>
 
+  
+</div>
+
+<div id="page_about" style="display:none;">
+  <div class="card">
+    <div class="section-head">
+      <h2>About</h2>
+      <span class="pill">DeliveryMate</span>
+    </div>
+    <p class="muted" style="margin-top:0;">
+      DeliveryMate is a facilitator for peer-to-peer deliveries in New Zealand. (You can replace this text later.)
+    </p>
+    <p class="muted">
+      Invite-only pilot — request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
+    </p>
   </div>
+</div>
+
+<div id="page_admin" style="display:none;">
+  <div class="card">
+    <div class="section-head">
+      <h2>Admin</h2>
+      <span class="pill">Pilot</span>
+    </div>
+    <p class="muted" style="margin-top:0;">Admin tools are hidden unless you provide a valid admin token.</p>
+    <!-- The existing admin approvals card stays in the document; this page link scrolls to it -->
+    <div class="row">
+      <button class="btn" type="button" id="scrollToAdminCardBtn">Go to Driver approvals</button>
+    </div>
+  </div>
+</div>
+</div>
 </div>
 
 <script>
@@ -2304,6 +2356,261 @@ if (adminLoadPendingDriversBtn) {
 
         maybeAutofillFromHash();
   });
+
+// ===================== Pilot pages (single-file routing) =====================
+function showPage(page) {
+  const pages = ['home','sender','driver','about','admin'];
+  for (const p of pages) {
+    const el = document.getElementById('page_' + p);
+    if (el) el.style.display = (p === page) ? '' : 'none';
+  }
+  // helpful role sync
+  if (page === 'sender') setRole('sender');
+  if (page === 'driver') setRole('driver');
+  // keep URL tidy
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
+}
+
+function route() {
+  const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  const page = (h.split('?')[0] || '').trim();
+  if (page === 'sender' || page === 'driver' || page === 'about' || page === 'admin') showPage(page);
+  else showPage('home');
+}
+
+window.addEventListener('hashchange', route);
+route();
+
+const goSenderBtn = document.getElementById('goSenderBtn');
+const goDriverBtn = document.getElementById('goDriverBtn');
+if (goSenderBtn) goSenderBtn.addEventListener('click', () => { window.location.hash = 'sender'; });
+if (goDriverBtn) goDriverBtn.addEventListener('click', () => { window.location.hash = 'driver'; });
+
+const scrollToAdminCardBtn = document.getElementById('scrollToAdminCardBtn');
+if (scrollToAdminCardBtn) {
+  scrollToAdminCardBtn.addEventListener('click', () => {
+    window.location.hash = 'driver'; // admin approvals card lives in driver section in this build
+    setTimeout(() => {
+      const el = document.getElementById('adminDriverCard');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  });
+}
+
+// Show Admin tab if token exists (uses the admin token storage introduced in previous fixes)
+function updateNavAdminVisibility() {
+  const navAdmin = document.getElementById('navAdmin');
+  if (!navAdmin) return;
+  let tok = '';
+  try { tok = String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) {}
+  navAdmin.style.display = tok ? '' : 'none';
+}
+updateNavAdminVisibility();
+
+// ===================== Driver: Available jobs list =====================
+const driverRefreshJobsBtn = document.getElementById('driverRefreshJobsBtn');
+const driverJobsStatus = document.getElementById('driverJobsStatus');
+const driverJobsWrap = document.getElementById('driverJobsWrap');
+
+function renderDriverJobs(requests) {
+  if (!driverJobsWrap) return;
+  const open = (Array.isArray(requests) ? requests : []).filter(r => String(r.status || '').toLowerCase() === 'open').slice(0, 25);
+
+  if (!open.length) {
+    driverJobsWrap.innerHTML = '<div class="muted">No open requests found.</div>';
+    return;
+  }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let rows = '<table style="width:100%; border-collapse:collapse;">' +
+    '<thead><tr>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Pickup</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Dropoff</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Action</th>' +
+    '</tr></thead><tbody>';
+
+  for (const r of open) {
+    rows += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(r.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(r.pickup_suburb || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(r.dropoff_suburb || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(r.status || '') + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn secondary" type="button" data-pick-job="' + esc(r.id) + '" data-pickup="' + esc(r.pickup_suburb || '') + '" data-dropoff="' + esc(r.dropoff_suburb || '') + '">Make offer</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  rows += '</tbody></table>';
+  driverJobsWrap.innerHTML = rows;
+
+  driverJobsWrap.querySelectorAll('button[data-pick-job]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-pick-job');
+      if (!id) return;
+      // prefill existing offer form inputs if present
+      const offerRequestId = document.getElementById('offer_request_id');
+      if (offerRequestId) offerRequestId.value = id;
+      // scroll to offer form
+      const offerCard = document.getElementById('driverOfferCard');
+      if (offerCard) offerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+async function loadDriverJobs() {
+  if (!driverJobsStatus) return;
+  driverJobsStatus.textContent = 'Loading…';
+  try {
+    const r = await fetch(API_BASE + '/requests');
+    const j = await safeJson(r);
+    if (!j.ok) {
+      driverJobsStatus.textContent = '';
+      setNotice(driverJobsStatus, 'error', 'Load failed', (j.error || 'Unknown error'));
+      return;
+    }
+    renderDriverJobs(j.requests || []);
+    driverJobsStatus.textContent = 'Updated ✅';
+  } catch (err) {
+    driverJobsStatus.textContent = '';
+    setNotice(driverJobsStatus, 'error', 'Load failed', 'Network error', err && err.message ? err.message : err);
+  }
+}
+
+if (driverRefreshJobsBtn) {
+  driverRefreshJobsBtn.addEventListener('click', async () => {
+    if (onCooldown(driverRefreshJobsBtn, driverJobsStatus, 'Please wait…')) return;
+    setCooldown(driverRefreshJobsBtn, 3000, () => true);
+    await loadDriverJobs();
+  });
+}
+// auto-load when driver page is shown (lightweight)
+setTimeout(() => { if (window.location.hash === '#driver') loadDriverJobs(); }, 200);
+
+// ===================== Sender: Google Geocoding helper (optional) =====================
+const gmapsKeyInput = document.getElementById('gmapsKeyInput');
+const gmapsSaveKeyBtn = document.getElementById('gmapsSaveKeyBtn');
+const gmapsKeyStatus = document.getElementById('gmapsKeyStatus');
+
+function getGmapsKey() {
+  const t = gmapsKeyInput ? String(gmapsKeyInput.value || '').trim() : '';
+  if (t) return t;
+  try { return String(localStorage.getItem('dm_gmaps_key') || '').trim(); } catch (_) { return ''; }
+}
+function saveGmapsKey() {
+  const k = getGmapsKey();
+  if (!k) return '';
+  try { localStorage.setItem('dm_gmaps_key', k); } catch (_) {}
+  if (gmapsKeyInput) gmapsKeyInput.value = k;
+  if (gmapsKeyStatus) gmapsKeyStatus.textContent = 'Saved ✅';
+  return k;
+}
+if (gmapsSaveKeyBtn) gmapsSaveKeyBtn.addEventListener('click', () => {
+  const k = saveGmapsKey();
+  if (!k && gmapsKeyStatus) gmapsKeyStatus.textContent = 'No key provided.';
+});
+try {
+  const saved = String(localStorage.getItem('dm_gmaps_key') || '').trim();
+  if (saved && gmapsKeyInput && !String(gmapsKeyInput.value || '').trim()) gmapsKeyInput.value = saved;
+} catch (_) {}
+
+function extractSuburbFromGeocodeResult(result) {
+  // Prefer NZ-relevant: suburb, sublocality, locality (city), administrative_area_level_2, etc.
+  const comps = (result && result.address_components) ? result.address_components : [];
+  const pick = (type) => {
+    const c = comps.find(x => Array.isArray(x.types) && x.types.includes(type));
+    return c ? (c.long_name || c.short_name || '') : '';
+  };
+  return (
+    pick('sublocality') ||
+    pick('sublocality_level_1') ||
+    pick('locality') ||
+    pick('postal_town') ||
+    pick('administrative_area_level_2') ||
+    pick('administrative_area_level_1') ||
+    ''
+  );
+}
+
+async function geocodeAddressToSuburb(address) {
+  const key = getGmapsKey();
+  if (!key) throw new Error('Google Maps API key not set');
+  const url = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + encodeURIComponent(address) + '&key=' + encodeURIComponent(key);
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.status !== 'OK' || !j.results || !j.results[0]) {
+    const msg = j.error_message ? (j.status + ': ' + j.error_message) : ('Geocoding failed: ' + (j.status || 'unknown'));
+    throw new Error(msg);
+  }
+  const top = j.results[0];
+  const suburb = extractSuburbFromGeocodeResult(top);
+  const loc = top.geometry && top.geometry.location ? top.geometry.location : null;
+  return {
+    suburb: suburb || '',
+    formatted: top.formatted_address || '',
+    lat: loc ? loc.lat : null,
+    lng: loc ? loc.lng : null
+  };
+}
+
+const pickupAddress = document.getElementById('pickupAddress');
+const dropoffAddress = document.getElementById('dropoffAddress');
+const pickupGeocodeBtn = document.getElementById('pickupGeocodeBtn');
+const dropoffGeocodeBtn = document.getElementById('dropoffGeocodeBtn');
+const pickupGeoMeta = document.getElementById('pickupGeoMeta');
+const dropoffGeoMeta = document.getElementById('dropoffGeoMeta');
+
+function setGeoMeta(el, info) {
+  if (!el) return;
+  if (!info) { el.textContent = ''; return; }
+  const bits = [];
+  if (info.formatted) bits.push(info.formatted);
+  if (info.lat != null && info.lng != null) bits.push('(' + info.lat + ', ' + info.lng + ')');
+  el.textContent = bits.join(' ');
+}
+
+function setSuburbField(name, value) {
+  const input = document.querySelector('input[name="' + name + '"]');
+  if (input) input.value = value || '';
+}
+
+if (pickupGeocodeBtn) {
+  pickupGeocodeBtn.addEventListener('click', async () => {
+    const addr = pickupAddress ? String(pickupAddress.value || '').trim() : '';
+    if (!addr) { if (pickupGeoMeta) pickupGeoMeta.textContent = 'Enter an address first.'; return; }
+    pickupGeocodeBtn.disabled = true;
+    if (pickupGeoMeta) pickupGeoMeta.textContent = 'Looking up…';
+    try {
+      const info = await geocodeAddressToSuburb(addr);
+      if (info.suburb) setSuburbField('pickup_suburb', info.suburb);
+      setGeoMeta(pickupGeoMeta, info);
+    } catch (e) {
+      if (pickupGeoMeta) pickupGeoMeta.textContent = (e && e.message) ? e.message : String(e);
+    } finally {
+      pickupGeocodeBtn.disabled = false;
+    }
+  });
+}
+
+if (dropoffGeocodeBtn) {
+  dropoffGeocodeBtn.addEventListener('click', async () => {
+    const addr = dropoffAddress ? String(dropoffAddress.value || '').trim() : '';
+    if (!addr) { if (dropoffGeoMeta) dropoffGeoMeta.textContent = 'Enter an address first.'; return; }
+    dropoffGeocodeBtn.disabled = true;
+    if (dropoffGeoMeta) dropoffGeoMeta.textContent = 'Looking up…';
+    try {
+      const info = await geocodeAddressToSuburb(addr);
+      if (info.suburb) setSuburbField('dropoff_suburb', info.suburb);
+      setGeoMeta(dropoffGeoMeta, info);
+    } catch (e) {
+      if (dropoffGeoMeta) dropoffGeoMeta.textContent = (e && e.message) ? e.message : String(e);
+    } finally {
+      dropoffGeocodeBtn.disabled = false;
+    }
+  });
+}
+
 </script>
 
 </body>
