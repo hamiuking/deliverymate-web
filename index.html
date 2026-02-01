@@ -249,14 +249,6 @@
           <p class="subtitle">Peer-to-peer delivery marketplace (NZ)</p>
         </div>
       </div>
-
-      <nav id="mainNav" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <a href="#home" class="pill" style="text-decoration:none;">Home</a>
-        <a href="#sender" class="pill" style="text-decoration:none;">Sender</a>
-        <a href="#driver" class="pill" style="text-decoration:none;">Driver</a>
-        <a href="#about" class="pill" style="text-decoration:none;">About</a>
-        <a href="#admin" class="pill" id="navAdmin" style="text-decoration:none; display:none;">Admin</a>
-      </nav>
       <div class="idbar" id="identityBar" style="display:none;">
         <div class="line1" id="idLine1"></div>
         <div class="line2" id="idLine2">
@@ -266,7 +258,6 @@
     </div>
   </div>
 
-  <div id="page_home">
   <div class="hero">
     <div>
       <h2 class="hero-title">Test the platform end-to-end</h2>
@@ -276,11 +267,6 @@
       </p>
     </div>
     <div class="hero-right">
-      <div class="btn-row">
-        <button class="btn" id="goSenderBtn" type="button">Create a request</button>
-        <button class="btn secondary" id="goDriverBtn" type="button">Become a driver</button>
-      </div>
-      <div class="muted" style="max-width:320px; text-align:right;">Invite-only pilot. Request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</div>
     </div>
   </div>
 
@@ -298,7 +284,7 @@
       <li><strong>Escrow release:</strong> driver marks <code>delivered</code> → sender confirms to release immediately, or it auto-releases after 24 hours.</li>
       <li><strong>No disputes or refunds</strong> after release. The platform does not judge delivery quality or responsibility.</li>
     </ul>
-    <div class="notice">If you don’t have an invite code, request access by emailing <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</div>
+    <div class="notice">If you don’t have an invite code, ask the pilot organiser for access.</div>
   </div>
 
 
@@ -370,11 +356,7 @@
     <div class="muted" id="ackInfo"></div>
   </div>
 
-    </div>
-  </div>
-
-  <div id="page_sender" style="display:none;">
-<!-- ================= SENDER ================= -->
+  <!-- ================= SENDER ================= -->
   <div id="senderSection">
 
     <!-- Create -->
@@ -504,13 +486,36 @@
     </div>
   </div>
 
-  </div>
-
-<div id="page_driver" style="display:none;">
-<!-- ================= DRIVER ================= -->
+  <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
-<!-- (Admin driver approvals moved to #admin page to avoid exposing admin controls in driver flow) -->
+<!-- Admin (pilot) — driver approvals -->
+<div class="card" id="adminDriverCard">
+  <details>
+    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
+    <p class="muted">
+      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
+    </p>
+    <div class="row">
+      <div style="flex:2;">
+        <label>Admin token *</label>
+        <input id="admin_token" placeholder="X-Admin-Token" />
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <button class="btn" id="adminLoadPendingDriversBtn" type="button">Load pending drivers</button>
+      </div>
+      <div class="muted" id="adminDriversStatus"></div>
+    </div>
+
+    <div id="adminDriversWrap"></div>
+    <pre id="adminDriversOut">{}</pre>
+  </details>
 </div>
 
 
@@ -578,59 +583,7 @@
       <pre id="dsOut">{}</pre>
     </div>
 
-  
-</div>
-
-<div id="page_about" style="display:none;">
-  <div class="card">
-    <div class="section-head">
-      <h2>About DeliveryMate</h2>
-      <span class="pill">Invite-only pilot</span>
-    </div>
-    <p class="muted" style="margin-top:0;">
-      DeliveryMate is a facilitator for peer-to-peer deliveries in New Zealand. Drivers and senders arrange details directly.
-    </p>
-    <ul class="how">
-      <li><strong>Facilitator only:</strong> DeliveryMate is not an employer, courier, contractor, or agent of drivers or senders.</li>
-      <li><strong>No disputes / no refunds:</strong> after escrow is released, there are no reversals. The platform does not judge delivery quality or responsibility.</li>
-      <li><strong>Escrow release:</strong> driver marks <code>delivered</code> → sender confirms to release immediately, or it auto-releases after 24 hours.</li>
-      <li><strong>Invite-only pilot:</strong> request access by emailing <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</li>
-    </ul>
   </div>
-</div>
-
-<div id="page_admin" style="display:none;">
-  <!-- Admin (pilot) — driver approvals -->
-  <div class="card" id="adminDriverCardStandalone">
-    <div class="section-head">
-      <h2>Admin — driver approvals</h2>
-      <span class="pill">Requires X-Admin-Token</span>
-    </div>
-    <p class="muted" style="margin-top:0;">
-      Approve or disable driver registrations for the invite-only pilot.
-    </p>
-    <div class="row">
-      <div style="flex:2;">
-        <label>Admin token *</label>
-        <input id="admin_token2" placeholder="X-Admin-Token" />
-      </div>
-      <div style="align-self:flex-end;">
-        <button class="btn" id="adminSaveTokenBtn2" type="button">Save token</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <button class="btn" id="adminLoadPendingDriversBtn2" type="button">Load pending drivers</button>
-      </div>
-      <div class="muted" id="adminDriversStatus2"></div>
-    </div>
-
-    <div id="adminDriversWrap2"></div>
-    <pre id="adminDriversOut2">{}</pre>
-  </div>
-</div>
-</div>
 </div>
 
 <script>
@@ -1106,6 +1059,144 @@ const adminDriversStatus = document.getElementById('adminDriversStatus');
 const adminDriversWrap = document.getElementById('adminDriversWrap');
 const adminDriversOut = document.getElementById('adminDriversOut');
 
+// ===== Admin (pilot): driver approvals (top-level wiring) =====
+// The backend requires X-Admin-Token header. This wiring is intentionally additive and does not affect user flows.
+function adminTokenValue() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (t) return t;
+  try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
+}
+function adminTokenSave() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (!t) return '';
+  try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
+  if (typeof updateAdminMode === 'function') updateAdminMode();
+  return t;
+}
+function adminSetStatusPlain(msg) {
+  if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
+}
+function adminSetStatus(kind, title, msg, details) {
+  // reuse existing notice renderer
+  if (typeof setNotice === 'function') setNotice(adminDriversStatus, kind, title, msg, details);
+  else adminSetStatusPlain(msg);
+}
+function adminSetOut(obj) {
+  if (!adminDriversOut) return;
+  adminDriversOut.textContent = JSON.stringify(obj || {}, null, 2);
+}
+function adminRenderDrivers(drivers) {
+  if (!adminDriversWrap) return;
+  if (!Array.isArray(drivers) || drivers.length === 0) {
+    adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
+    return;
+  }
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let table = '<table style="width:100%; border-collapse:collapse;">' +
+    '<thead><tr>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
+    '</tr></thead><tbody>';
+
+  for (const d of drivers) {
+    table += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status || '') + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
+        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  table += '</tbody></table>';
+  adminDriversWrap.innerHTML = table;
+
+  adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-admin-action');
+      const id = btn.getAttribute('data-driver-id');
+      if (!action || !id) return;
+
+      const tok = adminTokenValue();
+      if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
+
+      if (action === 'approve' && !window.confirm('Approve driver #' + id + '?')) return;
+      if (action === 'disable' && !window.confirm('Disable driver #' + id + '?')) return;
+
+      adminSetStatusPlain((action === 'approve' ? 'Approving' : 'Disabling') + ' driver #' + id + '…');
+
+      try {
+        const r = await fetch(API_BASE + '/admin/drivers/' + encodeURIComponent(id) + '/' + action, {
+          method: 'POST',
+          headers: { 'X-Admin-Token': tok }
+        });
+        const j = await safeJson(r);
+        adminSetOut(j);
+        if (j.ok) {
+          adminSetStatus('success', 'Updated', 'Done ✅', 'Driver #' + id + ' ' + action + 'd.');
+          await adminLoadPendingDrivers();
+        } else {
+          adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
+        }
+      } catch (err) {
+        adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
+      }
+    });
+  });
+}
+async function adminLoadPendingDrivers() {
+  const tok = adminTokenValue();
+  if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
+  adminSetStatusPlain('Loading pending drivers…');
+  adminSetOut({});
+  try {
+    const r = await fetch(API_BASE + '/admin/drivers?status=pending_review', {
+      headers: { 'X-Admin-Token': tok }
+    });
+    const j = await safeJson(r);
+    adminSetOut(j);
+    if (j.ok) {
+      adminRenderDrivers(j.drivers || []);
+      adminSetStatus('success', 'Loaded', 'Loaded ✅', 'Pending drivers: ' + (j.drivers ? j.drivers.length : 0));
+    } else {
+      adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
+    }
+  } catch (err) {
+    adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
+  }
+}
+
+// Wire admin buttons (top-level)
+if (adminSaveTokenBtn) {
+  adminSaveTokenBtn.addEventListener('click', () => {
+    const t = adminTokenSave();
+    if (!t) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter an admin token then click Save token.');
+    adminSetStatus('success', 'Saved', 'Saved ✅', 'Admin token stored locally for this browser.');
+  });
+}
+if (adminLoadPendingDriversBtn) {
+  adminLoadPendingDriversBtn.addEventListener('click', async () => {
+    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, 'Please wait…')) return;
+    setCooldown(adminLoadPendingDriversBtn, 3000, () => true);
+    await adminLoadPendingDrivers();
+  });
+}
+
+// Restore saved token into input (if present)
+try {
+  const saved = String(localStorage.getItem('dm_admin_token') || '').trim();
+  if (saved && adminTokenInput && !String(adminTokenInput.value || '').trim()) adminTokenInput.value = saved;
+} catch (_) {}
+
 (function restoreAdminToken(){
   try {
     const t = localStorage.getItem('dm_admin_token');
@@ -1121,228 +1212,11 @@ function getAdminTokenValue(){
 }
 function updateAdminMode(){
   const tok = getAdminTokenValue();
-  let ls = '';
-  try { ls = String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) {}
-  const tok2 = (document.getElementById('admin_token2')) ? String(document.getElementById('admin_token2').value || '').trim() : '';
-  if (tok || tok2 || ls) document.body.classList.add('admin-mode');
+  if (tok) document.body.classList.add('admin-mode');
   else document.body.classList.remove('admin-mode');
 }
 updateAdminMode();
 if (adminTokenInput) adminTokenInput.addEventListener('input', updateAdminMode);
-
-// ===== Admin wiring (pilot): driver approvals (robust) =====
-// Note: Previously the admin wiring was nested inside an unrelated driverRegForm block.
-// This version is top-level so the Admin page works reliably.
-function getAdminTokenStored() {
-  try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
-}
-function getAdminTokenAny() {
-  const tA = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
-  const tBEl = document.getElementById('admin_token2');
-  const tB = tBEl ? String(tBEl.value || '').trim() : '';
-  return tA || tB || getAdminTokenStored();
-}
-function saveAdminTokenAny() {
-  const t = getAdminTokenAny();
-  if (!t) return '';
-  try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
-  if (adminTokenInput) adminTokenInput.value = t;
-  const t2 = document.getElementById('admin_token2');
-  if (t2) t2.value = t;
-  updateAdminMode();
-  updateAdminNav();
-  return t;
-}
-function setAdminStatusAny(msg, kind, title, details) {
-  const s1 = adminDriversStatus;
-  const s2 = document.getElementById('adminDriversStatus2');
-  if (kind === 'success' || kind === 'error') {
-    setNotice(s1, kind, title || (kind === 'success' ? 'OK' : 'Error'), msg, details);
-    setNotice(s2, kind, title || (kind === 'success' ? 'OK' : 'Error'), msg, details);
-  } else {
-    if (s1) s1.textContent = msg || '';
-    if (s2) s2.textContent = msg || '';
-  }
-}
-function setAdminOutAny(obj) {
-  const p1 = adminDriversOut;
-  const p2 = document.getElementById('adminDriversOut2');
-  const txt = JSON.stringify(obj || {}, null, 2);
-  if (p1) p1.textContent = txt;
-  if (p2) p2.textContent = txt;
-}
-function renderDriversTableAny(drivers) {
-  const wrap1 = adminDriversWrap;
-  const wrap2 = document.getElementById('adminDriversWrap2');
-  const wraps = [wrap1, wrap2].filter(Boolean);
-  if (!wraps.length) return;
-
-  if (!Array.isArray(drivers) || drivers.length === 0) {
-    wraps.forEach(w => w.innerHTML = '<div class="muted">No pending drivers.</div>');
-    return;
-  }
-
-  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  let table = '<table style="width:100%; border-collapse:collapse;">' +
-             '<thead><tr>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
-             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
-             '</tr></thead><tbody>';
-
-  for (const d of drivers) {
-    table += '<tr>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name) + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone) + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status) + '</code></td>' +
-      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
-        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
-        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
-      '</td>' +
-    '</tr>';
-  }
-  table += '</tbody></table>';
-
-  wraps.forEach(w => w.innerHTML = table);
-
-  wraps.forEach(container => {
-    container.querySelectorAll('button[data-admin-action]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const action = btn.getAttribute('data-admin-action');
-        const id = btn.getAttribute('data-driver-id');
-        if (!action || !id) return;
-
-        const token = getAdminTokenAny();
-        if (!token) { setAdminStatusAny("Missing admin token."); return; }
-
-        if (action === 'approve') {
-          if (!window.confirm("Approve driver #" + id + "?")) return;
-        } else if (action === 'disable') {
-          if (!window.confirm("Disable driver #" + id + "? This will prevent this driver from using driver actions in the pilot.")) return;
-        }
-
-        if (onCooldown(btn, adminDriversStatus, "Please wait…")) return;
-        setCooldown(btn, 3000, () => true);
-
-        setAdminStatusAny((action === 'approve' ? "Approving" : "Disabling") + " driver #" + id + "…");
-        try {
-          const r = await fetch(API_BASE + "/admin/drivers/" + encodeURIComponent(id) + "/" + action, {
-            method: "POST",
-            headers: { "X-Admin-Token": token }
-          });
-          const j = await safeJson(r);
-          setAdminOutAny(j);
-          if (j.ok) {
-            setAdminStatusAny("Done ✅", 'success', 'Updated', 'Driver #' + id + ' ' + action + 'd.');
-            await adminLoadPendingDriversAny();
-          } else {
-            setAdminStatusAny("Request failed", 'error', 'Request failed', describeError(j, r));
-          }
-        } catch (err) {
-          setAdminStatusAny("Network error", 'error', 'Request failed', (err && err.message ? err.message : err));
-        } finally {
-          if (btn && !cooldownActive(btn)) btn.disabled = false;
-        }
-      });
-    });
-  });
-}
-
-async function adminLoadPendingDriversAny() {
-  const token = getAdminTokenAny();
-  if (!token) { setAdminStatusAny("Missing admin token."); return; }
-  setAdminStatusAny("Loading pending drivers…");
-  setAdminOutAny({});
-  try {
-    const r = await fetch(API_BASE + "/admin/drivers?status=pending_review", {
-      headers: { "X-Admin-Token": token }
-    });
-    const j = await safeJson(r);
-    setAdminOutAny(j);
-    if (j.ok) {
-      renderDriversTableAny(j.drivers || []);
-      setAdminStatusAny("Loaded ✅", 'success', 'Loaded', 'Pending drivers: ' + (j.drivers ? j.drivers.length : 0));
-    } else {
-      setAdminStatusAny("Request failed", 'error', 'Request failed', describeError(j, r));
-    }
-  } catch (err) {
-    setAdminStatusAny("Network error", 'error', 'Request failed', (err && err.message ? err.message : err));
-  }
-}
-
-function updateAdminNav() {
-  const navAdmin = document.getElementById('navAdmin');
-  if (!navAdmin) return;
-  const tok = getAdminTokenAny();
-  navAdmin.style.display = tok ? '' : 'none';
-}
-updateAdminNav();
-
-const adminSaveTokenBtn2 = document.getElementById('adminSaveTokenBtn2');
-const adminLoadPendingDriversBtn2 = document.getElementById('adminLoadPendingDriversBtn2');
-
-if (adminSaveTokenBtn) {
-  adminSaveTokenBtn.addEventListener('click', () => {
-    const t = saveAdminTokenAny();
-    if (!t) { setAdminStatusAny("Missing admin token."); return; }
-    setAdminStatusAny("Saved ✅", 'success', 'Saved', 'Admin mode enabled.');
-  });
-}
-if (adminSaveTokenBtn2) {
-  adminSaveTokenBtn2.addEventListener('click', () => {
-    const t = saveAdminTokenAny();
-    if (!t) { setAdminStatusAny("Missing admin token."); return; }
-    setAdminStatusAny("Saved ✅", 'success', 'Saved', 'Admin mode enabled.');
-  });
-}
-if (adminLoadPendingDriversBtn) {
-  adminLoadPendingDriversBtn.addEventListener('click', async () => {
-    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, "Please wait…")) return;
-    setCooldown(adminLoadPendingDriversBtn, 4000, () => true);
-    await adminLoadPendingDriversAny();
-  });
-}
-if (adminLoadPendingDriversBtn2) {
-  adminLoadPendingDriversBtn2.addEventListener('click', async () => {
-    if (onCooldown(adminLoadPendingDriversBtn2, document.getElementById('adminDriversStatus2'), "Please wait…")) return;
-    setCooldown(adminLoadPendingDriversBtn2, 4000, () => true);
-    await adminLoadPendingDriversAny();
-  });
-}
-
-// ===== Simple page routing (hash-based) =====
-function showPage(name) {
-  const pages = ['home','sender','driver','about','admin'];
-  pages.forEach(p => {
-    const el = document.getElementById('page_' + p);
-    if (el) el.style.display = (p === name) ? '' : 'none';
-  });
-  if (name === 'driver') setRole('driver');
-  else if (name === 'sender') setRole('sender');
-}
-function routeFromHash() {
-  const h = (window.location.hash || '').replace(/^#/, '').trim();
-  const page = (h.split('&')[0] || '').toLowerCase();
-  if (['home','sender','driver','about','admin'].includes(page)) showPage(page);
-  else showPage('home');
-}
-window.addEventListener('hashchange', routeFromHash);
-routeFromHash();
-
-// Home buttons
-const goSenderBtn = document.getElementById('goSenderBtn');
-const goDriverBtn = document.getElementById('goDriverBtn');
-if (goSenderBtn) goSenderBtn.addEventListener('click', () => { window.location.hash = 'sender'; setTimeout(() => document.getElementById('senderSection')?.scrollIntoView({behavior:'smooth'}), 50); });
-if (goDriverBtn) goDriverBtn.addEventListener('click', () => { window.location.hash = 'driver'; setTimeout(() => document.getElementById('driverSection')?.scrollIntoView({behavior:'smooth'}), 50); });
-
-
 
 
   const driverViewForm = document.getElementById('driverViewForm');
@@ -1662,7 +1536,7 @@ if (driverRegForm) {
     }
   });
 
-/* // ===== Admin (pilot): driver approvals =====
+// ===== Admin (pilot): driver approvals =====
 function getAdminToken() {
   const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
   return t;
@@ -1795,9 +1669,7 @@ if (adminLoadPendingDriversBtn) {
 
 }
 
-  */
-
-// ===== Sender create =====
+  // ===== Sender create =====
   ackBox.addEventListener('change', () => {
     createBtn.disabled = !ackBox.checked;
   });
