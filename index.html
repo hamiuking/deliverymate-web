@@ -362,7 +362,7 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
 
 
   <!-- Role switch -->
-  <div class="card">
+  <div class="card" data-systeminfo="1">
     <strong>I am a:</strong>
     <label style="display:inline-block;margin-left:10px;">
       <input type="radio" name="roleSwitch" value="sender" checked /> Sender
@@ -373,7 +373,7 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
   </div>
 
   <!-- API + ack info -->
-  <div class="card">
+  <div class="card" data-systeminfo="1">
     <div class="muted">Backend API: <span class="pill" id="apiBasePill"></span></div>
     <div class="muted" id="ackInfo"></div>
   </div>
@@ -611,10 +611,7 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
     <p class="muted" style="margin-top:0;">
       DeliveryMate is a facilitator for peer-to-peer deliveries in New Zealand. (You can replace this text later.)
     </p>
-    <p class="muted">
-      Invite-only pilot — request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
-    </p>
-  </div>
+</div>
 </div>
 
 <div id="page_admin" style="display:none;">
@@ -2640,7 +2637,12 @@ function setStoredUser(u) {
 function clearSession() {
   // Clear pilot session artifacts (frontend only)
   try { localStorage.removeItem('dm_user'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_name'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_phone'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_email'); } catch (_) {}
   try { localStorage.removeItem('dm_driver_token'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_phone'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_status'); } catch (_) {}
   // keep dm_admin_token; admin is separate
 }
 function updateUserBarVisibility() {
