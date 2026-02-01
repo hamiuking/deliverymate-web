@@ -162,6 +162,10 @@
       border: 1px solid rgba(255,255,255,.08);
     }
 
+    /* Hide technical JSON blocks for normal users (pilot UX).
+       Admins can view details after providing X-Admin-Token. */
+    body:not(.admin-mode) pre{ display:none; }
+
     .inline{
       display:flex; gap:12px; flex-wrap:wrap; align-items:center;
     }
@@ -291,11 +295,8 @@
     </div>
 
     <p style="margin:6px 0 10px; font-size:13px; color:#666;">
-  <p class="invite-note">
-  <strong>Invite-only pilot.</strong>
-  Request an invite code by emailing
-  <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
-</p>
+      <strong>Invite-only pilot.</strong> Request an invite code by emailing
+      <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
     </p>
 
     <p class="muted">
@@ -1064,6 +1065,20 @@ const adminDriversOut = document.getElementById('adminDriversOut');
     if (adminTokenInput && t) adminTokenInput.value = t;
   } catch (_) {}
 })();
+
+// Admin mode toggles visibility of technical JSON blocks (<pre> outputs).
+function getAdminTokenValue(){
+  const t1 = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (t1) return t1;
+  try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
+}
+function updateAdminMode(){
+  const tok = getAdminTokenValue();
+  if (tok) document.body.classList.add('admin-mode');
+  else document.body.classList.remove('admin-mode');
+}
+updateAdminMode();
+if (adminTokenInput) adminTokenInput.addEventListener('input', updateAdminMode);
 
 
   const driverViewForm = document.getElementById('driverViewForm');
