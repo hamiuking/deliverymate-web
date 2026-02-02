@@ -2745,6 +2745,35 @@ function storeUserFromRegisterResult(result) {
   refreshProfilePanels();
 }
 
+
+// ===== Registration card mounting (Sender / Driver) =====
+function getStoredUserSafe() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); }
+  catch (_) { return null; }
+}
+
+function mountRegistrationCard() {
+  const regCard = document.getElementById('userRegCard');
+  const senderMount = document.getElementById('senderRegMount');
+  const driverMount = document.getElementById('driverRegMount');
+  if (!regCard || !senderMount || !driverMount) return;
+
+  const user = getStoredUserSafe();
+  const hash = String(window.location.hash || '').toLowerCase();
+
+  if (!user) {
+    if (hash === '#driver') driverMount.appendChild(regCard);
+    else senderMount.appendChild(regCard);
+    regCard.style.display = '';
+  } else {
+    senderMount.appendChild(regCard);
+    regCard.style.display = 'none';
+  }
+}
+
+window.addEventListener('hashchange', mountRegistrationCard);
+setTimeout(mountRegistrationCard, 50);
+
 </script>
 
 </body>
