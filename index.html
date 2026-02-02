@@ -181,7 +181,6 @@
       line-height:1.35;
     }
 
-
     .alert{
       margin: 10px 0 0;
       padding: 10px 12px;
@@ -224,7 +223,6 @@
     .idbar .line2{ font-size:12.5px; color: var(--muted); }
     .idbar a{ color: var(--primary); text-decoration:none; border-bottom:1px solid rgba(15,23,42,.15); }
     .idbar a:hover{ border-bottom-color: rgba(15,23,42,.35); }
-
 
     footer{
       margin-top: 22px;
@@ -296,9 +294,6 @@ body.page-home #userRegCard { display:none !important; }
     </div>
   </div>
 
-
-
-
   <div class="card compact" id="howItWorksCard">
     <div class="section-head">
       <h2>How it works (pilot)</h2>
@@ -313,11 +308,8 @@ body.page-home #userRegCard { display:none !important; }
     <div class="notice">If you don’t have an invite code, ask the pilot organiser for access.</div>
   </div>
 
-
   <!-- Account registration (pilot; required for sender + optional driver capability) -->
   <!-- userRegCard moved to Sender page -->
-
-
 
   <!-- Role switch -->
   <div class="card" data-systeminfo="1">
@@ -400,7 +392,6 @@ body.page-home #userRegCard { display:none !important; }
       <div class="muted" id="senderProfileText">Not registered yet.</div>
       <div class="notice" id="senderNeedRegNotice" style="margin-top:10px;">Please register to create a delivery request.</div>
     </div>
-
 
     <!-- Create -->
     <div class="card" id="senderCreateCard">
@@ -536,16 +527,14 @@ body.page-home #userRegCard { display:none !important; }
   <div id="driverSection" style="display:none;">
   <div id="driverRegMount"></div>
 
-
     <div class="card" id="driverProfileCard">
       <div class="section-head">
         <h2>Driver profile</h2>
         <span class="pill">Pilot</span>
       </div>
       <div class="muted" id="driverProfileText">Not registered yet.</div>
-      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;">Please register (and apply as driver) to make offers.</div><button class="btn" type="button" id="driverGoRegisterBtn">Register / Update</button>
-
-    </div>
+      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;"></div>
+</div>
 
 <!-- Admin approvals are shown on #admin only -->
 <!-- View my job (driver) -->
@@ -822,7 +811,6 @@ body.page-home #userRegCard { display:none !important; }
 
   prefillFromStorage();
 
-
   function uuid() {
     return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random());
   }
@@ -837,7 +825,6 @@ body.page-home #userRegCard { display:none !important; }
     if (!el) return;
     el.textContent = (txt == null ? "" : String(txt));
   }
-
 
   function escapeHtml(s) {
     return String(s == null ? "" : s)
@@ -908,7 +895,6 @@ body.page-home #userRegCard { display:none !important; }
     const linksHtml = '<a href="#senderSection" id="idLinkSender">Sender</a> · <a href="#driverSection" id="idLinkDriver">Driver</a>';
     l2.innerHTML = escapeHtml(s2) + ' · ' + linksHtml;
   }
-
 
   function describeError(json, resp) {
     const parts = [];
@@ -1029,7 +1015,6 @@ body.page-home #userRegCard { display:none !important; }
     return true;
   }
 
-
   let SENDER_ACK_VERSION = null;
   let DRIVER_ACK_VERSION = null;
 
@@ -1110,7 +1095,6 @@ body.page-home #userRegCard { display:none !important; }
   const dsDriverToken = document.getElementById('ds_driver_token');
   const dsUpdateBtn = document.getElementById('dsUpdateBtn');
 
-
 // Driver registration (pilot)
 const driverRegForm = document.getElementById('driverRegForm');
 const drInviteCode = document.getElementById('dr_invite_code');
@@ -1123,7 +1107,6 @@ const drWofExpiry = document.getElementById('dr_wof_expiry');
 const drRegBtn = document.getElementById('drRegBtn');
 const drRegStatus = document.getElementById('drRegStatus');
 const drRegOut = document.getElementById('drRegOut');
-
 
 // Admin (pilot): driver approvals
 const adminTokenInput = document.getElementById('admin_token');
@@ -1291,7 +1274,6 @@ function updateAdminMode(){
 }
 updateAdminMode();
 if (adminTokenInput) adminTokenInput.addEventListener('input', updateAdminMode);
-
 
   const driverViewForm = document.getElementById('driverViewForm');
   const dvLoadBtn = document.getElementById('dvLoadBtn');
@@ -2635,7 +2617,6 @@ if (dropoffGeocodeBtn) {
   });
 }
 
-
 // ===================== User bar + logout (pilot) =====================
 function maskPhone(p) {
   const s = String(p || '');
@@ -2697,7 +2678,6 @@ if (logoutLink) {
 // Hook into registration success to store user in localStorage (if register handler exposes result JSON in `j.register.user`).
 // This is additive: if the variable names differ, nothing breaks.
 
-
 // ===================== Profile panels + gating (pilot UX) =====================
 function getCurrentUserFromStorage() {
   try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
@@ -2747,7 +2727,6 @@ function storeUserFromRegisterResult(result) {
   } catch (_) {}
   refreshProfilePanels();
 }
-
 
 // ===== Registration card mounting (Sender / Driver) =====
 function getStoredUserSafe() {
