@@ -342,6 +342,7 @@ body.page-home #userRegCard { display:none !important; }
   <div id="page_sender" style="display:none;">
 <!-- ================= SENDER ================= -->
   <div id="senderSection">
+  <div id="senderRegMount"></div>
 <div class="card" id="userRegCard">
     <div class="section-head">
       <h2>Account registration (pilot)</h2>
@@ -533,6 +534,7 @@ body.page-home #userRegCard { display:none !important; }
 <div id="page_driver" style="display:none;">
 <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
+  <div id="driverRegMount"></div>
 
 
     <div class="card" id="driverProfileCard">
@@ -2760,13 +2762,14 @@ function mountRegistrationCard() {
   if (!regCard || !senderMount || !driverMount) return;
 
   const user = getStoredUserSafe();
-  const rawHash = String(window.location.hash || '').toLowerCase();
-  const page = rawHash.replace(/^#/, ''); // supports "#driver" and "driver"
 
-  // Not registered: show reg card on sender/driver depending on current page
+  // Support hashes like "#driver", "#driver=1&rid=..", "#sender", "#home"
+  const raw = String(window.location.hash || '').toLowerCase().replace(/^#/, '');
+  const page = raw.split(/[&=?]/)[0]; // take the first token
+
   if (!user) {
     if (page === 'driver') driverMount.appendChild(regCard);
-    else senderMount.appendChild(regCard); // default: sender/home
+    else senderMount.appendChild(regCard); // default
     regCard.style.display = '';
     return;
   }
@@ -2783,15 +2786,18 @@ const driverGoRegisterBtn = document.getElementById('driverGoRegisterBtn');
 
 if (driverGoRegisterBtn) {
   driverGoRegisterBtn.addEventListener('click', () => {
-    // Stay on driver page
-    window.location.hash = 'driver';
+    // Ensure driver page is selected (may already be on it)
+    if (String(window.location.hash || '') !== '#driver') {
+      window.location.hash = 'driver';
+    }
+    // Make sure the registration card is mounted to the current page
+    try { mountRegistrationCard(); } catch (_) {}
 
     // Scroll to the registration form
     setTimeout(() => {
+      try { mountRegistrationCard(); } catch (_) {}
       const reg = document.getElementById('userRegCard');
-      if (reg) {
-        reg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (reg) reg.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 80);
   });
 }
