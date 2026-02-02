@@ -541,7 +541,8 @@ body.page-home #userRegCard { display:none !important; }
         <span class="pill">Pilot</span>
       </div>
       <div class="muted" id="driverProfileText">Not registered yet.</div>
-      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;">Please register (and apply as driver) to make offers.</div>
+      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;">Please register (and apply as driver) to make offers.</div><button class="btn" type="button" id="driverGoRegisterBtn">Register / Update</button>
+
     </div>
 
 <!-- Admin approvals are shown on #admin only -->
@@ -2759,20 +2760,41 @@ function mountRegistrationCard() {
   if (!regCard || !senderMount || !driverMount) return;
 
   const user = getStoredUserSafe();
-  const hash = String(window.location.hash || '').toLowerCase();
+  const rawHash = String(window.location.hash || '').toLowerCase();
+  const page = rawHash.replace(/^#/, ''); // supports "#driver" and "driver"
 
+  // Not registered: show reg card on sender/driver depending on current page
   if (!user) {
-    if (hash === '#driver') driverMount.appendChild(regCard);
-    else senderMount.appendChild(regCard);
+    if (page === 'driver') driverMount.appendChild(regCard);
+    else senderMount.appendChild(regCard); // default: sender/home
     regCard.style.display = '';
-  } else {
-    senderMount.appendChild(regCard);
-    regCard.style.display = 'none';
+    return;
   }
+
+  // Registered: keep reg card hidden (mounted under sender for stability)
+  senderMount.appendChild(regCard);
+  regCard.style.display = 'none';
 }
 
 window.addEventListener('hashchange', mountRegistrationCard);
 setTimeout(mountRegistrationCard, 50);
+// ===== Driver page: helper to go to registration =====
+const driverGoRegisterBtn = document.getElementById('driverGoRegisterBtn');
+
+if (driverGoRegisterBtn) {
+  driverGoRegisterBtn.addEventListener('click', () => {
+    // Stay on driver page
+    window.location.hash = 'driver';
+
+    // Scroll to the registration form
+    setTimeout(() => {
+      const reg = document.getElementById('userRegCard');
+      if (reg) {
+        reg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 80);
+  });
+}
 
 </script>
 
