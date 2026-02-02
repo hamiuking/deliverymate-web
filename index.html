@@ -238,6 +238,10 @@
   
 /* Hide technical/system info on Home. Admin can still see it. */
 body.page-home [data-systeminfo="1"] { display: none !important; }
+
+/* Home should feel like a real pilot website (hide console-like elements) */
+body.page-home #identityBar { display:none !important; }
+body.page-home #userRegCard { display:none !important; }
 </style>
 </head>
 <body>
@@ -311,7 +315,34 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
 
 
   <!-- Account registration (pilot; required for sender + optional driver capability) -->
-  <div class="card" id="userRegCard">
+  <!-- userRegCard moved to Sender page -->
+
+
+
+  <!-- Role switch -->
+  <div class="card" data-systeminfo="1">
+    <strong>I am a:</strong>
+    <label style="display:inline-block;margin-left:10px;">
+      <input type="radio" name="roleSwitch" value="sender" checked /> Sender
+    </label>
+    <label style="display:inline-block;margin-left:10px;">
+      <input type="radio" name="roleSwitch" value="driver" /> Driver
+    </label>
+  </div>
+
+  <!-- API + ack info -->
+  <div class="card" data-systeminfo="1">
+    <div class="muted">Backend API: <span class="pill" id="apiBasePill"></span></div>
+    <div class="muted" id="ackInfo"></div>
+  </div>
+
+    </div>
+  </div>
+
+  <div id="page_sender" style="display:none;">
+<!-- ================= SENDER ================= -->
+  <div id="senderSection">
+<div class="card" id="userRegCard">
     <div class="section-head">
       <h2>Account registration (pilot)</h2>
     </div>
@@ -360,33 +391,18 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
     <pre id="uRegOut">{}</pre>
   </div>
 
-
-  <!-- Role switch -->
-  <div class="card" data-systeminfo="1">
-    <strong>I am a:</strong>
-    <label style="display:inline-block;margin-left:10px;">
-      <input type="radio" name="roleSwitch" value="sender" checked /> Sender
-    </label>
-    <label style="display:inline-block;margin-left:10px;">
-      <input type="radio" name="roleSwitch" value="driver" /> Driver
-    </label>
-  </div>
-
-  <!-- API + ack info -->
-  <div class="card" data-systeminfo="1">
-    <div class="muted">Backend API: <span class="pill" id="apiBasePill"></span></div>
-    <div class="muted" id="ackInfo"></div>
-  </div>
-
+    <div class="card" id="senderProfileCard">
+      <div class="section-head">
+        <h2>Sender profile</h2>
+        <span class="pill">Pilot</span>
+      </div>
+      <div class="muted" id="senderProfileText">Not registered yet.</div>
+      <div class="notice" id="senderNeedRegNotice" style="margin-top:10px;">Please register to create a delivery request.</div>
     </div>
-  </div>
 
-  <div id="page_sender" style="display:none;">
-<!-- ================= SENDER ================= -->
-  <div id="senderSection">
 
     <!-- Create -->
-    <div class="card">
+    <div class="card" id="senderCreateCard">
       <h2>Create delivery</h2>
       <form id="createForm">
         <div class="row">
@@ -518,24 +534,18 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
 <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
 
-<!-- Admin (pilot) — driver approvals -->
-<!-- Admin driver approvals moved to #admin page -->
 
-
-    <div class="row">
-      <div>
-        <button class="btn" id="adminLoadPendingDriversBtn" type="button">Load pending drivers</button>
+    <div class="card" id="driverProfileCard">
+      <div class="section-head">
+        <h2>Driver profile</h2>
+        <span class="pill">Pilot</span>
       </div>
-      <div class="muted" id="adminDriversStatus"></div>
+      <div class="muted" id="driverProfileText">Not registered yet.</div>
+      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;">Please register (and apply as driver) to make offers.</div>
     </div>
 
-    <div id="adminDriversWrap"></div>
-    <pre id="adminDriversOut">{}</pre>
-  </details>
-</div>
-
-
-    <!-- View my job (driver) -->
+<!-- Admin approvals are shown on #admin only -->
+<!-- View my job (driver) -->
     <div class="card">
       <h2>View my job</h2>
       <form id="driverViewForm">
@@ -749,7 +759,7 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
       setCooldown(uRegBtn, 5000, () => true);
 
       if (uRegOut) uRegOut.textContent = "{}";
-      if (uRegStatus) { clearNotice(uRegStatus); setText(uRegStatus, "Submitting…"); }
+      if (uRegStatus) { clearNotice(uRegStatus); setText(uRegStatus, "Submitted"); }
 
       const invite_code = String(uInvite?.value || '').trim();
       const full_name = String(uName?.value || '').trim();
@@ -792,11 +802,12 @@ body.page-home [data-systeminfo="1"] { display: none !important; }
             : null;
           try { if (ds) localStorage.setItem('dm_driver_status', String(ds)); } catch (_) {}
 
-          if (uRegStatus) setNotice(uRegStatus, 'success', 'Saved', ds ? ('Driver status: ' + ds) : 'Account updated.');
+          if (uRegStatus) setNotice(uRegStatus, 'success', 'Success', 'Success');
           prefillFromStorage();
   refreshIdentityBar();
+  try { storeUserFromRegisterResult(result); } catch (_) {}
         } else {
-          if (uRegStatus) setNotice(uRegStatus, 'error', 'Registration failed', (result.json && (result.json.error || result.json.message) ? (result.json.error || result.json.message) : 'Unknown error'));
+          if (uRegStatus) setNotice(uRegStatus, 'error', 'Failure', 'Failure');
         }
       } catch (err) {
         if (uRegStatus) setNotice(uRegStatus, 'error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
@@ -2682,6 +2693,57 @@ if (logoutLink) {
 
 // Hook into registration success to store user in localStorage (if register handler exposes result JSON in `j.register.user`).
 // This is additive: if the variable names differ, nothing breaks.
+
+
+// ===================== Profile panels + gating (pilot UX) =====================
+function getCurrentUserFromStorage() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
+}
+function formatUserLine(u) {
+  if (!u) return 'Not registered yet.';
+  const phone = (typeof maskPhone === 'function') ? maskPhone(u.phone) : (u.phone || '');
+  const bits = [];
+  if (u.full_name) bits.push(u.full_name);
+  if (phone) bits.push(phone);
+  if (u.email) bits.push(u.email);
+  return bits.join(' · ');
+}
+function refreshProfilePanels() {
+  const u = getCurrentUserFromStorage();
+
+  const sText = document.getElementById('senderProfileText');
+  const sNotice = document.getElementById('senderNeedRegNotice');
+  const createCard = document.getElementById('senderCreateCard');
+
+  if (sText) sText.textContent = formatUserLine(u);
+  const senderOk = !!(u && u.sender_enabled);
+  if (sNotice) sNotice.style.display = senderOk ? 'none' : '';
+  if (createCard) createCard.style.display = senderOk ? '' : 'none';
+
+  const dText = document.getElementById('driverProfileText');
+  const dNotice = document.getElementById('driverNeedRegNotice');
+  if (dText) {
+    let extra = '';
+    if (u && u.driver_status && u.driver_status !== 'none') extra = ' · Driver: ' + String(u.driver_status).replace('_',' ');
+    dText.textContent = formatUserLine(u) + extra;
+  }
+  const driverApplied = !!(u && u.driver_status && u.driver_status !== 'none');
+  if (dNotice) dNotice.style.display = driverApplied ? 'none' : '';
+}
+window.addEventListener('hashchange', refreshProfilePanels);
+setTimeout(refreshProfilePanels, 80);
+
+// After successful registration, store dm_user and refresh panels (additive)
+function storeUserFromRegisterResult(result) {
+  try {
+    const u = result && result.register && result.register.user ? result.register.user : null;
+    if (u) localStorage.setItem('dm_user', JSON.stringify(u));
+  } catch (_) {}
+  try {
+    if (typeof refreshIdentityBar === 'function') refreshIdentityBar();
+  } catch (_) {}
+  refreshProfilePanels();
+}
 
 </script>
 
