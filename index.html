@@ -533,16 +533,6 @@ body.page-home #userRegCard { display:none !important; }
 <div id="page_driver" style="display:none;">
 <!-- ================= DRIVER ================= -->
   <div id="driverSection" style="display:none;">
-  <!-- Driver registration gate -->
-  <div class="card" id="driverRegisterGate" style="display:none;">
-    <div class="section-head">
-      <h2>Become a driver</h2>
-      <span class="pill">Invite-only pilot</span>
-    </div>
-    <p class="muted" style="margin-top:0;">
-      Please register to become a driver.
-    </p>
-  </div>
 
 
     <div class="card" id="driverProfileCard">
@@ -2754,32 +2744,6 @@ function storeUserFromRegisterResult(result) {
   } catch (_) {}
   refreshProfilePanels();
 }
-<script>
-// ===== Driver registration gate =====
-function getStoredUserSafe() {
-  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); }
-  catch (_) { return null; }
-}
-
-function toggleDriverGate() {
-  const gate = document.getElementById('driverRegisterGate');
-  const driverProfile = document.getElementById('driverProfileCard');
-  const user = getStoredUserSafe();
-
-  if (!gate) return;
-
-  if (!user) {
-    gate.style.display = '';
-    if (driverProfile) driverProfile.style.display = 'none';
-  } else {
-    gate.style.display = 'none';
-    if (driverProfile) driverProfile.style.display = '';
-  }
-}
-
-// Run on page load and page switch
-window.addEventListener('hashchange', toggleDriverGate);
-setTimeout(toggleDriverGate, 50);
 
 </script>
 
