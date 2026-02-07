@@ -233,17 +233,18 @@
       line-height:1.45;
     }
 
-    /* Hide technical/system info on Home. Admin can still see it. */
-    body.page-home [data-systeminfo="1"] { display: none !important; }
+  
+/* Hide technical/system info on Home. Admin can still see it. */
+body.page-home [data-systeminfo="1"] { display: none !important; }
 
-    /* Home should feel like a real pilot website (hide console-like elements) */
-    body.page-home #identityBar { display:none !important; }
-    body.page-home #userRegCard { display:none !important; }
-  </style>
+/* Home should feel like a real pilot website (hide console-like elements) */
+body.page-home #identityBar { display:none !important; }
+body.page-home #userRegCard { display:none !important; }
+</style>
 </head>
 <body>
 <div class="wrap">
-
+  
   <div class="topbar" role="banner">
     <div class="topbar-inner">
       <div class="brand">
@@ -256,13 +257,11 @@
 
       <nav id="mainNav" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <a href="#home" class="pill" style="text-decoration:none;">Home</a>
-        <a href="#quickstart" class="pill" style="text-decoration:none;">Pilot Quick Start</a>
         <a href="#sender" class="pill" style="text-decoration:none;">Sender</a>
         <a href="#driver" class="pill" style="text-decoration:none;">Driver</a>
         <a href="#about" class="pill" style="text-decoration:none;">About</a>
         <a href="#admin" class="pill" id="navAdmin" style="text-decoration:none; display:none;">Admin</a>
       </nav>
-
       <div id="userBar" style="display:none; margin-left:auto; gap:10px; align-items:center; flex-wrap:wrap;">
         <span class="pill" id="userBarText">Not signed in</span>
         <a href="#home" id="logoutLink" class="pill" style="text-decoration:none;">Log out</a>
@@ -278,427 +277,377 @@
   </div>
 
   <div id="page_home">
-    <div class="hero">
-      <div>
-        <h2 class="hero-title">Test the platform end-to-end</h2>
-        <p class="hero-text">
-          DeliveryMate is running a controlled pilot. Register first, then create a request (sender) or make an offer (driver).
-          Driver applications require manual approval during the pilot.
-        </p>
-      </div>
-      <div class="hero-right">
-        <div class="btn-row">
-          <button class="btn" id="goSenderBtn" type="button">Create a request</button>
-          <button class="btn secondary" id="goDriverBtn" type="button">Become a driver</button>
-        </div>
-        <div class="muted" style="max-width:320px; text-align:right;">
-          Invite-only pilot. Request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
-        </div>
-      </div>
+  <div class="hero">
+    <div>
+      <h2 class="hero-title">Test the platform end-to-end</h2>
+      <p class="hero-text">
+        DeliveryMate is running a controlled pilot. Register first, then create a request (sender) or make an offer (driver).
+        Driver applications require manual approval during the pilot.
+      </p>
     </div>
-
-    <div class="card compact" id="howItWorksCard">
-      <div class="section-head">
-        <h2>How it works (pilot)</h2>
-        <span class="pill">Invite-only</span>
+    <div class="hero-right">
+      <div class="btn-row">
+        <button class="btn" id="goSenderBtn" type="button">Create a request</button>
+        <button class="btn secondary" id="goDriverBtn" type="button">Become a driver</button>
+          <button class="btn secondary" id="goQuickstartBtn" type="button">Pilot Quick Start</button>
       </div>
-      <ul class="how">
-        <li><strong>DeliveryMate is a facilitator only.</strong> Drivers and senders interact directly and are responsible for their own arrangements.</li>
-        <li><strong>Drivers are independent participants</strong> (not employees, contractors, or agents of the platform).</li>
-        <li><strong>Escrow release:</strong> driver marks <code>delivered</code> → sender confirms to release immediately, or it auto-releases after 24 hours.</li>
-        <li><strong>No disputes or refunds</strong> after release. The platform does not judge delivery quality or responsibility.</li>
-      </ul>
+      <div class="muted" style="max-width:320px; text-align:right;">Invite-only pilot. Request access via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</div>
+    </div>
+  </div>
+
+  <div class="card compact" id="howItWorksCard">
+    <div class="section-head">
+      <h2>How it works (pilot)</h2>
+      <span class="pill">Invite-only</span>
+    </div>
+    <ul class="how">
+      <li><strong>DeliveryMate is a facilitator only.</strong> Drivers and senders interact directly and are responsible for their own arrangements.</li>
+      <li><strong>Drivers are independent participants</strong> (not employees, contractors, or agents of the platform).</li>
+      <li><strong>Escrow release:</strong> driver marks <code>delivered</code> → sender confirms to release immediately, or it auto-releases after 24 hours.</li>
+      <li><strong>No disputes or refunds</strong> after release. The platform does not judge delivery quality or responsibility.</li>
+    </ul>
+    <div class="muted" style="margin-top:10px;">Learn more: <a href="#quickstart">Pilot Quick Start</a>.</div>
       <div class="notice">If you don’t have an invite code, ask the pilot organiser for access.</div>
-    </div>
+  </div>
 
-    <!-- Role switch (kept but hidden on Home via CSS) -->
-    <div class="card" data-systeminfo="1">
-      <strong>I am a:</strong>
-      <label style="display:inline-block;margin-left:10px;">
-        <input type="radio" name="roleSwitch" value="sender" checked /> Sender
-      </label>
-      <label style="display:inline-block;margin-left:10px;">
-        <input type="radio" name="roleSwitch" value="driver" /> Driver
-      </label>
-    </div>
+  <!-- Account registration (pilot; required for sender + optional driver capability) -->
+  <!-- userRegCard moved to Sender page -->
 
-    <!-- API + ack info (kept but hidden on Home via CSS) -->
-    <div class="card" data-systeminfo="1">
-      <div class="muted">Backend API: <span class="pill" id="apiBasePill"></span></div>
-      <div class="muted" id="ackInfo"></div>
+  <!-- Role switch -->
+  <div class="card" data-systeminfo="1">
+    <strong>I am a:</strong>
+    <label style="display:inline-block;margin-left:10px;">
+      <input type="radio" name="roleSwitch" value="sender" checked /> Sender
+    </label>
+    <label style="display:inline-block;margin-left:10px;">
+      <input type="radio" name="roleSwitch" value="driver" /> Driver
+    </label>
+  </div>
+
+  <!-- API + ack info -->
+  <div class="card" data-systeminfo="1">
+    <div class="muted">Backend API: <span class="pill" id="apiBasePill"></span></div>
+    <div class="muted" id="ackInfo"></div>
+  </div>
+
     </div>
   </div>
 
-  <!-- ================= PILOT QUICK START ================= -->
-  <div id="page_quickstart" style="display:none;">
-    <div class="card">
-      <div class="section-head">
-        <h2>Pilot Quick Start</h2>
-        <span class="pill">Invite-only</span>
-      </div>
-
-      <p class="muted" style="margin-top:0;">
-        This is a controlled pilot. The platform is a facilitator only: no dispute resolution, and no refunds after escrow release.
-      </p>
-
-      <div class="grid">
-        <div class="card compact" style="margin:0;">
-          <h3 style="margin:0 0 8px;">For senders</h3>
-          <ol class="how" style="margin-top:0;">
-            <li>Request an invite code via <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</li>
-            <li>Go to <a href="#sender">Sender</a> and register (pilot).</li>
-            <li>Create a delivery request.</li>
-            <li>Share the Request ID with a driver (they make an offer).</li>
-            <li>View your request → accept an offer → fund escrow (Stripe Checkout).</li>
-            <li>After delivery, confirm to release payment (or it auto-releases after 24h).</li>
-          </ol>
-        </div>
-
-        <div class="card compact" style="margin:0;">
-          <h3 style="margin:0 0 8px;">For drivers</h3>
-          <ol class="how" style="margin-top:0;">
-            <li>Register once (you can also apply as a driver during registration).</li>
-            <li>Wait for manual approval during the pilot.</li>
-            <li>Go to <a href="#driver">Driver</a> → make an offer on a request ID.</li>
-            <li>If accepted, you will receive a driver token (required to update status).</li>
-            <li>Update status: picked_up → delivered.</li>
-          </ol>
-        </div>
-      </div>
-
-      <div class="card compact">
-        <h3 style="margin:0 0 8px;">For the pilot organiser (admin)</h3>
-        <ol class="how" style="margin-top:0;">
-          <li>Open <a href="#admin">Admin</a>.</li>
-          <li>Paste your X-Admin-Token and load pending drivers.</li>
-          <li>Approve (or disable) driver registrations as needed.</li>
-        </ol>
-        <div class="notice">
-          Admin tools are hidden unless a token is provided. Tokens should not be shared with pilot users.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= SENDER ================= -->
   <div id="page_sender" style="display:none;">
-    <div id="senderSection">
-      <div id="senderRegMount"></div>
-
-      <div class="card" id="userRegCard">
-        <div class="section-head">
-          <h2>Account registration (pilot)</h2>
-        </div>
-
-        <p style="margin:6px 0 10px; font-size:13px; color:#666;">
-          <strong>Invite-only pilot.</strong> Request an invite code by emailing
-          <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
-        </p>
-
-        <p class="muted">
-          Register once to use the platform. Approved drivers automatically have sender capability.
-          You can also register as a sender first, then optionally apply as a driver.
-        </p>
-
-        <form id="userRegForm">
-          <div class="row">
-            <div><label>Invite code *</label><input id="u_invite_code" required /></div>
-            <div><label>Full name</label><input id="u_full_name" /></div>
-          </div>
-          <div class="row">
-            <div><label>Phone *</label><input id="u_phone" required /></div>
-            <div><label>Email</label><input id="u_email" /></div>
-          </div>
-
-          <label style="margin-top:8px;">
-            <input type="checkbox" id="u_apply_driver" /> Also apply as driver (optional)
-          </label>
-
-          <div id="u_driver_fields" style="display:none; margin-top:10px;">
-            <div class="row">
-              <div><label>Driver invite code *</label><input id="u_driver_invite_code" placeholder="can be same as invite code" /></div>
-              <div><label>Vehicle plate</label><input id="u_plate" /></div>
-            </div>
-            <div class="row">
-              <div><label>Licence / last 6 (optional)</label><input id="u_lic_last6" /></div>
-              <div><label>WOF expiry (optional)</label><input id="u_wof_expiry" placeholder="YYYY-MM-DD" /></div>
-            </div>
-          </div>
-
-          <div class="btn-row" style="margin-top:10px;">
-            <button class="btn" id="uRegBtn" type="submit">Register / Update</button>
-            <span class="muted" id="uRegStatus"></span>
-          </div>
-        </form>
-
-        <pre id="uRegOut">{}</pre>
-      </div>
-
-      <div class="card" id="senderProfileCard">
-        <div class="section-head">
-          <h2>Sender profile</h2>
-          <span class="pill">Pilot</span>
-        </div>
-        <div class="muted" id="senderProfileText">Not registered yet.</div>
-        <div class="notice" id="senderNeedRegNotice" style="margin-top:10px;">Please register to create a delivery request.</div>
-      </div>
-
-      <!-- Create -->
-      <div class="card" id="senderCreateCard">
-        <h2>Create delivery</h2>
-        <!-- Tiny UI text #1 (added) -->
-        <p class="muted" style="margin-top:6px;">Tip: Your registered account details are used for contact during the pilot.</p>
-
-        <form id="createForm">
-          <div class="row">
-            <div><label>Pickup suburb *</label><input name="pickup_suburb" required /></div>
-            <div><label>Drop-off suburb *</label><input name="dropoff_suburb" required /></div>
-          </div>
-
-          <label>Item description</label><textarea name="item_description"></textarea>
-
-          <div class="row">
-            <div><label>Weight (kg)</label><input name="weight_kg" type="number" step="0.1" /></div>
-            <div><label>Suggested price (NZD)</label><input name="suggested_price_nzd" type="number" step="0.01" /></div>
-          </div>
-
-          <div class="row">
-            <div><label>Your name</label><input name="sender_name" /></div>
-            <div><label>Your phone</label><input name="sender_phone" /></div>
-          </div>
-
-          <div class="card">
-            <strong class="muted">Sender acknowledgement</strong>
-            <div id="senderAckText" class="muted" style="white-space:pre-wrap;"></div>
-            <label><input type="checkbox" id="ackBox" /> I agree</label>
-          </div>
-
-          <button class="btn" id="createBtn" disabled>Create request</button>
-          <div class="muted" id="status"></div>
-        </form>
-      </div>
-
-      <div class="card">
-        <h2>Result</h2>
-        <pre id="out">{}</pre>
-      </div>
-
-      <!-- View -->
-      <div class="card">
-        <h2>View my request</h2>
-        <form id="viewForm">
-          <div class="row">
-            <div><label>Request ID *</label><input id="view_request_id" required /></div>
-            <div><label>Sender token *</label><input id="view_sender_token" required /></div>
-          </div>
-          <button class="btn" id="viewBtn">Load</button>
-          <div class="muted" id="viewStatus"></div>
-          <div class="muted" id="viewStatusDetails"></div>
-        </form>
-
-        <h3>Request</h3><pre id="viewRequest">{}</pre>
-
-        <h3>Escrow</h3>
-        <div class="muted" id="escrowLine">—</div>
-        <div class="muted" id="escrowEta"></div>
-        <div class="muted" id="escrowExplain"></div>
-
-        <h3>Offers</h3><pre id="viewOffers">[]</pre>
-
-        <div class="card" id="offersListCard" style="margin-top:12px;">
-          <h3 style="margin-top:0;">Offers list (one-click)</h3>
-          <div class="muted">Click “Accept this offer” to auto-fill Offer ID, auto-fill amount (if available), then proceed.</div>
-          <div id="offersList" style="margin-top:10px;"></div>
-        </div>
-
-        <div class="card" id="acceptOfferCard">
-          <h3>Accept offer</h3>
-          <form id="acceptOfferForm">
-            <div class="row">
-              <div><label>Offer ID *</label><input id="accept_offer_id" required /></div>
-              <div><label>&nbsp;</label><button class="btn" id="acceptBtn">Accept</button></div>
-            </div>
-            <div class="muted" id="acceptStatus"></div>
-          </form>
-
-          <pre id="acceptOut">{}</pre>
-
-          <div class="row">
-            <input id="driverTokenBox" readonly placeholder="driver_token appears here" />
-            <button class="btn" id="copyDriverTokenBtn" type="button">Copy</button>
-          </div>
-          <div class="muted" id="copyStatus"></div>
-
-          <div class="row" style="margin-top:10px;">
-            <input id="driverLinkBox" readonly placeholder="driver link appears here" />
-            <button class="btn" id="copyDriverLinkBtn" type="button">Copy driver link</button>
-          </div>
-          <div class="muted" id="copyLinkStatus"></div>
-        </div>
-
-        <div class="card" id="fundEscrowCard">
-          <h3>Fund escrow (Pay now)</h3>
-          <p class="muted">After accepting an offer, fund escrow via Stripe Checkout. Required before release.</p>
-
-          <div class="row">
-            <div>
-              <label>Amount (NZD)</label>
-              <input id="fund_amount_nzd" type="number" step="0.01" min="0" placeholder="auto-filled after accept (if available)" />
-            </div>
-            <div>
-              <label>&nbsp;</label>
-              <button class="btn" id="fundBtn" type="button">Pay now (Stripe Checkout)</button>
-            </div>
-          </div>
-
-          <div class="muted" id="fundStatus" style="margin-top:10px;"></div>
-          <pre id="fundOut">{}</pre>
-        </div>
-
-        <div class="card" id="releaseEscrowCard">
-          <h3>Confirm delivery (release escrow)</h3>
-          <p class="muted">
-            Use this after the driver marks the request as <code>delivered</code>.
-            This releases escrow immediately. If you do nothing, escrow auto-releases after 24 hours.
-          </p>
-
-          <button class="btn" id="releaseBtn" type="button">Confirm delivery &amp; release payment</button>
-          <div class="muted" id="releaseStatus" style="margin-top:10px;"></div>
-
-          <h4 style="margin-top:16px;">Result</h4>
-          <pre id="releaseOut">{}</pre>
-        </div>
-
-        <h3>History</h3><pre id="viewHistory">[]</pre>
-      </div>
+<!-- ================= SENDER ================= -->
+  <div id="senderSection">
+  <div id="senderRegMount"></div>
+<div class="card" id="userRegCard">
+    <div class="section-head">
+      <h2>Account registration (pilot)</h2>
     </div>
+
+    <p style="margin:6px 0 10px; font-size:13px; color:#666;">
+      <strong>Invite-only pilot.</strong> Request an invite code by emailing
+      <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
+    </p>
+
+    <p class="muted">
+      Register once to use the platform. Approved drivers automatically have sender capability.
+      You can also register as a sender first, then optionally apply as a driver.
+    </p>
+
+    <form id="userRegForm">
+      <div class="row">
+        <div><label>Invite code *</label><input id="u_invite_code" required /></div>
+        <div><label>Full name</label><input id="u_full_name" /></div>
+      </div>
+      <div class="row">
+        <div><label>Phone *</label><input id="u_phone" required /></div>
+        <div><label>Email</label><input id="u_email" /></div>
+      </div>
+
+      <label style="margin-top:8px;">
+        <input type="checkbox" id="u_apply_driver" /> Also apply as driver (optional)
+      </label>
+
+      <div id="u_driver_fields" style="display:none; margin-top:10px;">
+        <div class="row">
+          <div><label>Driver invite code *</label><input id="u_driver_invite_code" placeholder="can be same as invite code" /></div>
+          <div><label>Vehicle plate</label><input id="u_plate" /></div>
+        </div>
+        <div class="row">
+          <div><label>Licence / last 6 (optional)</label><input id="u_lic_last6" /></div>
+          <div><label>WOF expiry (optional)</label><input id="u_wof_expiry" placeholder="YYYY-MM-DD" /></div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn" id="uRegBtn" type="submit">Register / Update</button>
+        <span class="muted" id="uRegStatus"></span>
+      </div>
+    </form>
+
+    <pre id="uRegOut">{}</pre>
   </div>
 
-  <!-- ================= DRIVER ================= -->
-  <div id="page_driver" style="display:none;">
-    <div id="driverSection" style="display:none;">
-      <div id="driverRegMount"></div>
-
-      <div class="card" id="driverProfileCard">
-        <div class="section-head">
-          <h2>Driver profile</h2>
-          <span class="pill">Pilot</span>
-        </div>
-        <div class="muted" id="driverProfileText">Not registered yet.</div>
-        <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;"></div>
-      </div>
-
-      <div class="card">
-        <h2>View my job</h2>
-        <form id="driverViewForm">
-          <div class="row">
-            <div><label>Request ID *</label><input id="dv_request_id" required /></div>
-            <div><label>Driver token *</label><input id="dv_driver_token" required /></div>
-          </div>
-          <button class="btn" id="dvLoadBtn">Load job</button>
-          <div class="muted" id="dvStatus"></div>
-        </form>
-
-        <h3>Job details</h3>
-        <pre id="dvRequest">{}</pre>
-
-        <h3>History</h3>
-        <pre id="dvHistory">[]</pre>
-      </div>
-
-      <div class="card" id="driverOfferCard">
-        <h2>Make offer</h2>
-        <!-- Tiny UI text #2 (added) -->
-        <p class="muted" style="margin-top:6px;">Tip: Only share what you’re comfortable sharing during the pilot.</p>
-
-        <form id="driverOfferForm">
-          <div class="row">
-            <div><label>Request ID *</label><input id="offer_request_id" required /></div>
-            <div><label>Price (NZD)</label><input id="offer_price_nzd" type="number" step="0.01" /></div>
-          </div>
-          <div class="row">
-            <div><label>Driver name *</label><input id="offer_driver_name" required /></div>
-            <div><label>Phone * (pilot)</label><input id="offer_driver_phone" required /></div>
-          </div>
-          <label>Note</label><textarea id="offer_note"></textarea>
-          <div class="card">
-            <strong class="muted">Driver acknowledgement</strong>
-            <div id="driverAckText" class="muted" style="white-space:pre-wrap;"></div>
-            <label><input type="checkbox" id="driverAckBox" /> I agree</label>
-          </div>
-          <button class="btn" id="offerBtn" disabled>Submit offer</button>
-          <div class="muted" id="offerStatus"></div>
-        </form>
-        <pre id="offerOut">{}</pre>
-      </div>
-
-      <div class="card" id="driverUpdateCard">
-        <h2>Update status</h2>
-        <form id="driverStatusForm">
-          <div class="row">
-            <div><label>Request ID *</label><input id="ds_request_id" required /></div>
-            <div><label>Status *</label>
-              <select id="ds_status">
-                <option value="picked_up">picked_up</option>
-                <option value="delivered">delivered</option>
-              </select>
-            </div>
-          </div>
-          <div class="row">
-            <div><label>Driver name *</label><input id="ds_driver_name" required /></div>
-            <div><label>Driver token *</label><input id="ds_driver_token" required /></div>
-          </div>
-          <button class="btn" id="dsUpdateBtn">Update</button>
-          <div class="muted" id="dsStatus"></div>
-        </form>
-        <pre id="dsOut">{}</pre>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= ABOUT ================= -->
-  <div id="page_about" style="display:none;">
-    <div class="card">
+    <div class="card" id="senderProfileCard">
       <div class="section-head">
-        <h2>About</h2>
-        <span class="pill">DeliveryMate</span>
+        <h2>Sender profile</h2>
+        <span class="pill">Pilot</span>
       </div>
-      <p class="muted" style="margin-top:0;">
-        DeliveryMate is a facilitator for peer-to-peer deliveries in New Zealand. (You can replace this text later.)
-      </p>
+      <div class="muted" id="senderProfileText">Not registered yet.</div>
+      <div class="notice" id="senderNeedRegNotice" style="margin-top:10px;">Please register to create a delivery request.</div>
     </div>
-  </div>
 
-  <!-- ================= ADMIN ================= -->
-  <div id="page_admin" style="display:none;">
-    <div class="card" id="adminDriverCard">
-      <details open>
-        <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
-        <p class="muted">
-          Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
-        </p>
+    <!-- Create -->
+    <div class="card" id="senderCreateCard">
+      <h2>Create delivery</h2>
+      <form id="createForm">
+        <div class="row">
+          <div><label>Pickup suburb *</label><input name="pickup_suburb" required /></div>
+          <div><label>Drop-off suburb *</label><input name="dropoff_suburb" required /></div>
+        </div>
+        <label>Item description</label><textarea name="item_description"></textarea>
+        <div class="row">
+          <div><label>Weight (kg)</label><input name="weight_kg" type="number" step="0.1" /></div>
+          <div><label>Suggested price (NZD)</label><input name="suggested_price_nzd" type="number" step="0.01" /></div>
+        </div>
+        <div class="row">
+          <div><label>Your name</label><input name="sender_name" /></div>
+          <div><label>Your phone</label><input name="sender_phone" /></div>
+        </div>
+        <div class="card">
+          <strong class="muted">Sender acknowledgement</strong>
+          <div id="senderAckText" class="muted" style="white-space:pre-wrap;"></div>
+          <label><input type="checkbox" id="ackBox" /> I agree</label>
+        </div>
+        <button class="btn" id="createBtn" disabled>Create request</button>
+        <div class="muted" id="status"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Result</h2>
+      <pre id="out">{}</pre>
+    </div>
+
+    <!-- View -->
+    <div class="card">
+      <h2>View my request</h2>
+      <form id="viewForm">
+        <div class="row">
+          <div><label>Request ID *</label><input id="view_request_id" required /></div>
+          <div><label>Sender token *</label><input id="view_sender_token" required /></div>
+        </div>
+        <button class="btn" id="viewBtn">Load</button>
+        <div class="muted" id="viewStatus"></div>
+        <div class="muted" id="viewStatusDetails"></div>
+      </form>
+
+      <h3>Request</h3><pre id="viewRequest">{}</pre>
+
+      <h3>Escrow</h3>
+      <div class="muted" id="escrowLine">—</div>
+      <div class="muted" id="escrowEta"></div>
+      <div class="muted" id="escrowExplain"></div>
+
+      <h3>Offers</h3><pre id="viewOffers">[]</pre>
+
+      <!-- Offers list (one-click accept) -->
+      <div class="card" id="offersListCard" style="margin-top:12px;">
+        <h3 style="margin-top:0;">Offers list (one-click)</h3>
+        <div class="muted">Click “Accept this offer” to auto-fill Offer ID, auto-fill amount (if available), then proceed.</div>
+        <div id="offersList" style="margin-top:10px;"></div>
+      </div>
+
+      <!-- Accept offer -->
+      <div class="card" id="acceptOfferCard">
+        <h3>Accept offer</h3>
+        <form id="acceptOfferForm">
+          <div class="row">
+            <div><label>Offer ID *</label><input id="accept_offer_id" required /></div>
+            <div><label>&nbsp;</label><button class="btn" id="acceptBtn">Accept</button></div>
+          </div>
+          <div class="muted" id="acceptStatus"></div>
+        </form>
+
+        <pre id="acceptOut">{}</pre>
 
         <div class="row">
-          <div style="flex:2;">
-            <label>Admin token *</label>
-            <input id="admin_token" placeholder="X-Admin-Token" />
+          <input id="driverTokenBox" readonly placeholder="driver_token appears here" />
+          <button class="btn" id="copyDriverTokenBtn" type="button">Copy</button>
+        </div>
+        <div class="muted" id="copyStatus"></div>
+
+        <!-- NEW: Driver deep-link -->
+        <div class="row" style="margin-top:10px;">
+          <input id="driverLinkBox" readonly placeholder="driver link appears here" />
+          <button class="btn" id="copyDriverLinkBtn" type="button">Copy driver link</button>
+        </div>
+        <div class="muted" id="copyLinkStatus"></div>
+      </div>
+
+      <!-- Fund escrow / Pay now (Stripe Checkout) -->
+      <div class="card" id="fundEscrowCard">
+        <h3>Fund escrow (Pay now)</h3>
+        <p class="muted">After accepting an offer, fund escrow via Stripe Checkout. Required before release.</p>
+
+        <div class="row">
+          <div>
+            <label>Amount (NZD)</label>
+            <input id="fund_amount_nzd" type="number" step="0.01" min="0" placeholder="auto-filled after accept (if available)" />
           </div>
-          <div style="align-self:flex-end;">
-            <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
+          <div>
+            <label>&nbsp;</label>
+            <button class="btn" id="fundBtn" type="button">Pay now (Stripe Checkout)</button>
           </div>
         </div>
 
-        <div class="btn-row" style="margin-top:10px;">
-          <button class="btn" id="adminLoadPendingDriversBtn" type="button">Load pending drivers</button>
-          <span class="muted" id="adminDriversStatus"></span>
-        </div>
+        <div class="muted" id="fundStatus" style="margin-top:10px;"></div>
+        <pre id="fundOut">{}</pre>
+      </div>
 
-        <div id="adminDriversWrap" style="margin-top:12px;"></div>
-        <pre id="adminDriversOut">{}</pre>
-      </details>
+      <!-- Confirm delivery / release escrow -->
+      <div class="card" id="releaseEscrowCard">
+        <h3>Confirm delivery (release escrow)</h3>
+        <p class="muted">
+          Use this after the driver marks the request as <code>delivered</code>.
+          This releases escrow immediately. If you do nothing, escrow auto-releases after 24 hours.
+        </p>
+
+        <button class="btn" id="releaseBtn" type="button">Confirm delivery &amp; release payment</button>
+        <div class="muted" id="releaseStatus" style="margin-top:10px;"></div>
+
+        <h4 style="margin-top:16px;">Result</h4>
+        <pre id="releaseOut">{}</pre>
+      </div>
+
+      <h3>History</h3><pre id="viewHistory">[]</pre>
     </div>
   </div>
 
+  </div>
+
+<div id="page_driver" style="display:none;">
+<!-- ================= DRIVER ================= -->
+  <div id="driverSection" style="display:none;">
+  <div id="driverRegMount"></div>
+
+    <div class="card" id="driverProfileCard">
+      <div class="section-head">
+        <h2>Driver profile</h2>
+        <span class="pill">Pilot</span>
+      </div>
+      <div class="muted" id="driverProfileText">Not registered yet.</div>
+      <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;"></div>
+</div>
+
+<!-- Admin approvals are shown on #admin only -->
+<!-- View my job (driver) -->
+    <div class="card">
+      <h2>View my job</h2>
+      <form id="driverViewForm">
+        <div class="row">
+          <div><label>Request ID *</label><input id="dv_request_id" required /></div>
+          <div><label>Driver token *</label><input id="dv_driver_token" required /></div>
+        </div>
+        <button class="btn" id="dvLoadBtn">Load job</button>
+        <div class="muted" id="dvStatus"></div>
+      </form>
+
+      <h3>Job details</h3>
+      <pre id="dvRequest">{}</pre>
+
+      <h3>History</h3>
+      <pre id="dvHistory">[]</pre>
+    </div>
+
+    <div class="card">
+      <h2>Make offer</h2>
+      <form id="driverOfferForm">
+        <div class="row">
+          <div><label>Request ID *</label><input id="offer_request_id" required /></div>
+          <div><label>Price (NZD)</label><input id="offer_price_nzd" type="number" step="0.01" /></div>
+        </div>
+        <div class="row">
+          <div><label>Driver name *</label><input id="offer_driver_name" required /></div>
+          <div><label>Phone * (pilot)</label><input id="offer_driver_phone" required /></div>
+        </div>
+        <label>Note</label><textarea id="offer_note"></textarea>
+        <div class="card">
+          <strong class="muted">Driver acknowledgement</strong>
+          <div id="driverAckText" class="muted" style="white-space:pre-wrap;"></div>
+          <label><input type="checkbox" id="driverAckBox" /> I agree</label>
+        </div>
+        <button class="btn" id="offerBtn" disabled>Submit offer</button>
+        <div class="muted" id="offerStatus"></div>
+      </form>
+      <pre id="offerOut">{}</pre>
+    </div>
+
+    <div class="card" id="driverUpdateCard">
+      <h2>Update status</h2>
+      <form id="driverStatusForm">
+        <div class="row">
+          <div><label>Request ID *</label><input id="ds_request_id" required /></div>
+          <div><label>Status *</label>
+            <select id="ds_status">
+              <option value="picked_up">picked_up</option>
+              <option value="delivered">delivered</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div><label>Driver name *</label><input id="ds_driver_name" required /></div>
+          <div><label>Driver token *</label><input id="ds_driver_token" required /></div>
+        </div>
+        <button class="btn" id="dsUpdateBtn">Update</button>
+        <div class="muted" id="dsStatus"></div>
+      </form>
+      <pre id="dsOut">{}</pre>
+    </div>
+
+  
+</div>
+
+<div id="page_about" style="display:none;">
+  <div class="card">
+    <div class="section-head">
+      <h2>About</h2>
+      <span class="pill">DeliveryMate</span>
+    </div>
+    <p class="muted" style="margin-top:0;">
+      DeliveryMate is a facilitator for peer-to-peer deliveries in New Zealand. (You can replace this text later.)
+    </p>
+</div>
+</div>
+
+<div id="page_admin" style="display:none;">
+  
+<div class="card" id="adminDriverCard">
+  <details>
+    <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
+    <p class="muted">
+      Invite-only pilot: approve or disable driver registrations. This UI is only a convenience layer on top of the existing admin endpoints.
+    </p>
+    <div class="row">
+      <div style="flex:2;">
+        <label>Admin token *</label>
+        <input id="admin_token" placeholder="X-Admin-Token" />
+      </div>
+      <div style="align-self:flex-end;">
+        <button class="btn" id="adminSaveTokenBtn" type="button">Save token</button>
+      </div>
+    </div>
+<div class="card">
+    <div class="section-head">
+      <h2>Admin</h2>
+      <span class="pill">Pilot</span>
+    </div>
+    <p class="muted" style="margin-top:0;">Admin tools are hidden unless you provide a valid admin token.</p>
+    <!-- The existing admin approvals card stays in the document; this page link scrolls to it -->
+    <div class="row">
+      <button class="btn" type="button" id="scrollToAdminCardBtn">Go to Driver approvals</button>
+    </div>
+  </div>
+</div>
+</div>
 </div>
 
 <script>
@@ -736,6 +685,7 @@
       const senderPhoneInput = document.querySelector('input[name="sender_phone"]');
       if (senderPhoneInput && p && !String(senderPhoneInput.value||'').trim()) senderPhoneInput.value = p;
 
+      // offerDriverPhone/offerDriverName/dsDriverName are declared later, so guard with try
       try {
         if (window.offerDriverPhone && p && !String(window.offerDriverPhone.value||'').trim()) window.offerDriverPhone.value = p;
         if (window.offerDriverName && n && !String(window.offerDriverName.value||'').trim()) window.offerDriverName.value = n;
@@ -848,8 +798,8 @@
 
           if (uRegStatus) setNotice(uRegStatus, 'success', 'Success', 'Success');
           prefillFromStorage();
-          refreshIdentityBar();
-          try { storeUserFromRegisterResult(result); } catch (_) {}
+  refreshIdentityBar();
+  try { storeUserFromRegisterResult(result); } catch (_) {}
         } else {
           if (uRegStatus) setNotice(uRegStatus, 'error', 'Failure', 'Failure');
         }
@@ -942,6 +892,8 @@
     if (driverStatus) s2 += (s2 ? " · " : "") + "Driver: " + driverStatus;
     if (!s2) s2 = "Pilot account";
 
+    // Keep the role links visible
+    // (line2 already contains links, so prepend status text if present)
     const linksHtml = '<a href="#senderSection" id="idLinkSender">Sender</a> · <a href="#driverSection" id="idLinkDriver">Driver</a>';
     l2.innerHTML = escapeHtml(s2) + ' · ' + linksHtml;
   }
@@ -971,6 +923,7 @@
   }
 
   function bestEffortPendingReleaseAt(req, history) {
+    // Prefer explicit fields on request (best-effort across shapes)
     const cand =
       (req && (req.pending_release_at || req.escrow_pending_release_at || req.pending_release_started_at || req.pendingReleaseAt)) ||
       (req && req.escrow && (req.escrow.pending_release_at || req.escrow.pending_release_started_at)) ||
@@ -981,6 +934,7 @@
       if (typeof cand === 'number') return cand;
     }
 
+    // Fallback: scan history for entry that indicates pending_release
     const arr = (history && (history.history || history.items || history.events || history)) || [];
     if (Array.isArray(arr)) {
       for (let i = arr.length - 1; i >= 0; i--) {
@@ -1047,6 +1001,7 @@
       const u = Number(btn.dataset.cooldownUntil || "0");
       if (Date.now() >= u) {
         btn.dataset.cooldownUntil = "0";
+        // Re-enable only if allowed by canEnableFn (if provided)
         if (typeof canEnableFn === 'function') btn.disabled = !canEnableFn();
         else btn.disabled = false;
         return;
@@ -1106,15 +1061,18 @@
   const copyDriverTokenBtn = document.getElementById('copyDriverTokenBtn');
   const copyStatus = document.getElementById('copyStatus');
 
+  // NEW deep-link elements
   const driverLinkBox = document.getElementById('driverLinkBox');
   const copyDriverLinkBtn = document.getElementById('copyDriverLinkBtn');
   const copyLinkStatus = document.getElementById('copyLinkStatus');
 
+  // Fund escrow elements
   const fundAmount = document.getElementById('fund_amount_nzd');
   const fundBtn = document.getElementById('fundBtn');
   const fundStatus = document.getElementById('fundStatus');
   const fundOut = document.getElementById('fundOut');
 
+  // Release escrow elements
   const releaseBtn = document.getElementById('releaseBtn');
   const releaseStatus = document.getElementById('releaseStatus');
   const releaseOut = document.getElementById('releaseOut');
@@ -1139,157 +1097,185 @@
   const dsDriverToken = document.getElementById('ds_driver_token');
   const dsUpdateBtn = document.getElementById('dsUpdateBtn');
 
-  // Admin (pilot): driver approvals
-  const adminTokenInput = document.getElementById('admin_token');
-  const adminSaveTokenBtn = document.getElementById('adminSaveTokenBtn');
-  const adminLoadPendingDriversBtn = document.getElementById('adminLoadPendingDriversBtn');
-  const adminDriversStatus = document.getElementById('adminDriversStatus');
-  const adminDriversWrap = document.getElementById('adminDriversWrap');
-  const adminDriversOut = document.getElementById('adminDriversOut');
+// Driver registration (pilot)
+const driverRegForm = document.getElementById('driverRegForm');
+const drInviteCode = document.getElementById('dr_invite_code');
+const drFullName = document.getElementById('dr_full_name');
+const drPhone = document.getElementById('dr_phone');
+const drEmail = document.getElementById('dr_email');
+const drPlate = document.getElementById('dr_plate');
+const drLicLast6 = document.getElementById('dr_lic_last6');
+const drWofExpiry = document.getElementById('dr_wof_expiry');
+const drRegBtn = document.getElementById('drRegBtn');
+const drRegStatus = document.getElementById('drRegStatus');
+const drRegOut = document.getElementById('drRegOut');
 
-  // ===== Admin (pilot): driver approvals =====
-  function adminTokenValue() {
-    const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
-    if (t) return t;
-    try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
+// Admin (pilot): driver approvals
+const adminTokenInput = document.getElementById('admin_token');
+const adminSaveTokenBtn = document.getElementById('adminSaveTokenBtn');
+const adminLoadPendingDriversBtn = document.getElementById('adminLoadPendingDriversBtn');
+const adminDriversStatus = document.getElementById('adminDriversStatus');
+const adminDriversWrap = document.getElementById('adminDriversWrap');
+const adminDriversOut = document.getElementById('adminDriversOut');
+
+// ===== Admin (pilot): driver approvals (top-level wiring) =====
+// The backend requires X-Admin-Token header. This wiring is intentionally additive and does not affect user flows.
+function adminTokenValue() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (t) return t;
+  try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
+}
+function adminTokenSave() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (!t) return '';
+  try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
+  if (typeof updateAdminMode === 'function') updateAdminMode();
+  return t;
+}
+function adminSetStatusPlain(msg) {
+  if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
+}
+function adminSetStatus(kind, title, msg, details) {
+  // reuse existing notice renderer
+  if (typeof setNotice === 'function') setNotice(adminDriversStatus, kind, title, msg, details);
+  else adminSetStatusPlain(msg);
+}
+function adminSetOut(obj) {
+  if (!adminDriversOut) return;
+  adminDriversOut.textContent = JSON.stringify(obj || {}, null, 2);
+}
+function adminRenderDrivers(drivers) {
+  if (!adminDriversWrap) return;
+  if (!Array.isArray(drivers) || drivers.length === 0) {
+    adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
+    return;
   }
-  function adminTokenSave() {
-    const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
-    if (!t) return '';
-    try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
-    if (typeof updateAdminMode === 'function') updateAdminMode();
-    return t;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let table = '<table style="width:100%; border-collapse:collapse;">' +
+    '<thead><tr>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
+    '</tr></thead><tbody>';
+
+  for (const d of drivers) {
+    table += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status || '') + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
+        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
+      '</td>' +
+    '</tr>';
   }
-  function adminSetStatusPlain(msg) {
-    if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
-  }
-  function adminSetStatus(kind, title, msg, details) {
-    if (typeof setNotice === 'function') setNotice(adminDriversStatus, kind, title, msg, details);
-    else adminSetStatusPlain(msg);
-  }
-  function adminSetOut(obj) {
-    if (!adminDriversOut) return;
-    adminDriversOut.textContent = JSON.stringify(obj || {}, null, 2);
-  }
-  function adminRenderDrivers(drivers) {
-    if (!adminDriversWrap) return;
-    if (!Array.isArray(drivers) || drivers.length === 0) {
-      adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
-      return;
-    }
-    const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    let table = '<table style="width:100%; border-collapse:collapse;">' +
-      '<thead><tr>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
-      '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
-      '</tr></thead><tbody>';
+  table += '</tbody></table>';
+  adminDriversWrap.innerHTML = table;
 
-    for (const d of drivers) {
-      table += '<tr>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name || '') + '</td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone || '') + '</td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status || '') + '</code></td>' +
-        '<td style="border-bottom:1px solid #eee; padding:6px;">' +
-          '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
-          '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
-        '</td>' +
-      '</tr>';
-    }
-    table += '</tbody></table>';
-    adminDriversWrap.innerHTML = table;
+  adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-admin-action');
+      const id = btn.getAttribute('data-driver-id');
+      if (!action || !id) return;
 
-    adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const action = btn.getAttribute('data-admin-action');
-        const id = btn.getAttribute('data-driver-id');
-        if (!action || !id) return;
+      const tok = adminTokenValue();
+      if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
 
-        const tok = adminTokenValue();
-        if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
+      if (action === 'approve' && !window.confirm('Approve driver #' + id + '?')) return;
+      if (action === 'disable' && !window.confirm('Disable driver #' + id + '?')) return;
 
-        if (action === 'approve' && !window.confirm('Approve driver #' + id + '?')) return;
-        if (action === 'disable' && !window.confirm('Disable driver #' + id + '?')) return;
+      adminSetStatusPlain((action === 'approve' ? 'Approving' : 'Disabling') + ' driver #' + id + '…');
 
-        adminSetStatusPlain((action === 'approve' ? 'Approving' : 'Disabling') + ' driver #' + id + '…');
-
-        try {
-          const r = await fetch(API_BASE + '/admin/drivers/' + encodeURIComponent(id) + '/' + action, {
-            method: 'POST',
-            headers: { 'X-Admin-Token': tok }
-          });
-          const j = await safeJson(r);
-          adminSetOut(j);
-          if (j.ok) {
-            adminSetStatus('success', 'Updated', 'Done ✅', 'Driver #' + id + ' ' + action + 'd.');
-            await adminLoadPendingDrivers();
-          } else {
-            adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
-          }
-        } catch (err) {
-          adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
+      try {
+        const r = await fetch(API_BASE + '/admin/drivers/' + encodeURIComponent(id) + '/' + action, {
+          method: 'POST',
+          headers: { 'X-Admin-Token': tok }
+        });
+        const j = await safeJson(r);
+        adminSetOut(j);
+        if (j.ok) {
+          adminSetStatus('success', 'Updated', 'Done ✅', 'Driver #' + id + ' ' + action + 'd.');
+          await adminLoadPendingDrivers();
+        } else {
+          adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
         }
-      });
-    });
-  }
-
-  async function adminLoadPendingDrivers() {
-    const tok = adminTokenValue();
-    if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
-    adminSetStatusPlain('Loading pending drivers…');
-    adminSetOut({});
-    try {
-      const r = await fetch(API_BASE + '/admin/drivers?status=pending_review', {
-        headers: { 'X-Admin-Token': tok }
-      });
-      const j = await safeJson(r);
-      adminSetOut(j);
-      if (j.ok) {
-        adminRenderDrivers(j.drivers || []);
-        adminSetStatus('success', 'Loaded', 'Loaded ✅', 'Pending drivers: ' + (j.drivers ? j.drivers.length : 0));
-      } else {
-        adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
+      } catch (err) {
+        adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
       }
-    } catch (err) {
-      adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
-    }
-  }
-
-  if (adminSaveTokenBtn) {
-    adminSaveTokenBtn.addEventListener('click', () => {
-      const t = adminTokenSave();
-      if (!t) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter an admin token then click Save token.');
-      adminSetStatus('success', 'Saved', 'Saved ✅', 'Admin token stored locally for this browser.');
-      updateNavAdminVisibility();
     });
-  }
-  if (adminLoadPendingDriversBtn) {
-    adminLoadPendingDriversBtn.addEventListener('click', async () => {
-      if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, 'Please wait…')) return;
-      setCooldown(adminLoadPendingDriversBtn, 3000, () => true);
-      await adminLoadPendingDrivers();
-    });
-  }
-
+  });
+}
+async function adminLoadPendingDrivers() {
+  const tok = adminTokenValue();
+  if (!tok) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter and save an admin token first.');
+  adminSetStatusPlain('Loading pending drivers…');
+  adminSetOut({});
   try {
-    const saved = String(localStorage.getItem('dm_admin_token') || '').trim();
-    if (saved && adminTokenInput && !String(adminTokenInput.value || '').trim()) adminTokenInput.value = saved;
-  } catch (_) {}
-
-  function updateAdminMode(){
-    const tok = adminTokenValue();
-    if (tok) document.body.classList.add('admin-mode');
-    else document.body.classList.remove('admin-mode');
+    const r = await fetch(API_BASE + '/admin/drivers?status=pending_review', {
+      headers: { 'X-Admin-Token': tok }
+    });
+    const j = await safeJson(r);
+    adminSetOut(j);
+    if (j.ok) {
+      adminRenderDrivers(j.drivers || []);
+      adminSetStatus('success', 'Loaded', 'Loaded ✅', 'Pending drivers: ' + (j.drivers ? j.drivers.length : 0));
+    } else {
+      adminSetStatus('error', 'Request failed', 'Request failed', describeError(j, r));
+    }
+  } catch (err) {
+    adminSetStatus('error', 'Network error', 'Request failed', (err && err.message ? err.message : String(err)));
   }
-  updateAdminMode();
-  if (adminTokenInput) adminTokenInput.addEventListener('input', updateAdminMode);
+}
+
+// Wire admin buttons (top-level)
+if (adminSaveTokenBtn) {
+  adminSaveTokenBtn.addEventListener('click', () => {
+    const t = adminTokenSave();
+    if (!t) return adminSetStatus('error', 'Missing token', 'X-Admin-Token is required', 'Enter an admin token then click Save token.');
+    adminSetStatus('success', 'Saved', 'Saved ✅', 'Admin token stored locally for this browser.');
+  });
+}
+if (adminLoadPendingDriversBtn) {
+  adminLoadPendingDriversBtn.addEventListener('click', async () => {
+    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, 'Please wait…')) return;
+    setCooldown(adminLoadPendingDriversBtn, 3000, () => true);
+    await adminLoadPendingDrivers();
+  });
+}
+
+// Restore saved token into input (if present)
+try {
+  const saved = String(localStorage.getItem('dm_admin_token') || '').trim();
+  if (saved && adminTokenInput && !String(adminTokenInput.value || '').trim()) adminTokenInput.value = saved;
+} catch (_) {}
+
+(function restoreAdminToken(){
+  try {
+    const t = localStorage.getItem('dm_admin_token');
+    if (adminTokenInput && t) adminTokenInput.value = t;
+  } catch (_) {}
+})();
+
+// Admin mode toggles visibility of technical JSON blocks (<pre> outputs).
+function getAdminTokenValue(){
+  const t1 = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  if (t1) return t1;
+  try { return String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) { return ''; }
+}
+function updateAdminMode(){
+  const tok = getAdminTokenValue();
+  if (tok) document.body.classList.add('admin-mode');
+  else document.body.classList.remove('admin-mode');
+}
+updateAdminMode();
+if (adminTokenInput) adminTokenInput.addEventListener('input', updateAdminMode);
 
   const driverViewForm = document.getElementById('driverViewForm');
   const dvLoadBtn = document.getElementById('dvLoadBtn');
@@ -1299,6 +1285,7 @@
   const dvRequestId = document.getElementById('dv_request_id');
   const dvDriverToken = document.getElementById('dv_driver_token');
 
+  // Track last loaded request snapshots (for guardrails)
   let lastSenderReq = null;
   let lastSenderHistory = null;
   let lastDriverReq = null;
@@ -1313,7 +1300,9 @@
     return { "X-Role": "driver", "X-Driver-Token": driverToken };
   }
 
+  // ===== Role switch (helper) =====
   function setRole(role) {
+    // Update radio UI
     const senderRadio = document.querySelector('input[name="roleSwitch"][value="sender"]');
     const driverRadio = document.querySelector('input[name="roleSwitch"][value="driver"]');
     if (role === 'driver') {
@@ -1333,6 +1322,7 @@
     }
   }
 
+  // ===== Role switch events =====
   document.querySelectorAll('input[name="roleSwitch"]').forEach(radio => {
     radio.addEventListener('change', () => {
       if (radio.value === 'driver' && radio.checked) setRole('driver');
@@ -1340,6 +1330,7 @@
     });
   });
 
+  // ===== Deep-link helpers (NEW) =====
   function buildDriverLink(requestId, driverToken) {
     const base = window.location.origin + window.location.pathname;
     const h = `#driver=1&rid=${encodeURIComponent(String(requestId || ''))}&dtok=${encodeURIComponent(String(driverToken || ''))}`;
@@ -1368,12 +1359,17 @@
       setRole('driver');
       dvRequestId.value = rid;
       dvDriverToken.value = dtok;
+
+      // Convenience: also prefill update status form fields
       dsRequestId.value = rid;
       dsDriverToken.value = dtok;
+
+      // Auto-load job
       try { await loadDriverJob(rid, dtok); } catch (_) {}
     }
   }
 
+  // ===== Guardrails helpers (NEW, best-effort) =====
   function extractReq(payload) {
     if (!payload) return null;
     if (payload.request && typeof payload.request === 'object') return payload.request;
@@ -1386,6 +1382,7 @@
   }
 
   function getEscrowStatus(req) {
+    // best-effort across possible shapes
     const es =
       (req && (req.escrow_status || req.escrow_state || req.escrowStatus)) ||
       (req && req.escrow && (req.escrow.status || req.escrow.state)) ||
@@ -1396,8 +1393,12 @@
   function isEscrowFunded(req) {
     const es = getEscrowStatus(req).toLowerCase();
     if (['funded','held','pending_release','released','paid','payout_pending','payout_completed'].includes(es)) return true;
+
+    // sometimes request may carry fields like escrow_funded / funded_at / escrow_funded_at
     if (req && (req.escrow_funded === true)) return true;
     if (req && (req.escrow_funded_at || req.funded_at || req.escrowFundedAt)) return true;
+
+    // if we see an agreed price and a "funded" boolean in meta
     return false;
   }
 
@@ -1419,19 +1420,38 @@
     const released = isEscrowReleased(req);
     const pendingRel = isPendingRelease(req);
 
+    // Accept only when open (best-effort)
     const acceptAllowed = (st === 'open' || st === '');
+
+    // Fund allowed after accept (or anytime, but disable if already funded/released)
     const fundAllowed = !funded && !released;
+
+    // Release allowed only if delivered (or pending_release)
     const releaseAllowed = (st === 'delivered' || pendingRel) && funded && !released;
 
+    // Apply
     if (acceptBtn) acceptBtn.disabled = !acceptAllowed;
+    // also disable offer-list accept buttons
     document.querySelectorAll('#offersList button[data-offer-id]').forEach(b => { b.disabled = !acceptAllowed; });
 
     if (fundBtn) fundBtn.disabled = !fundAllowed;
     if (releaseBtn) releaseBtn.disabled = !releaseAllowed;
 
+    // Optional helpful hints (non-blocking)
+    if (!acceptAllowed && acceptStatus && acceptStatus.textContent === "") {
+      acceptStatus.textContent = "Accept disabled: request is not open.";
+    }
+    if (!fundAllowed && fundStatus && fundStatus.textContent === "") {
+      fundStatus.textContent = funded || released ? "Pay disabled: escrow already funded (or released)." : "";
+    }
+    if (!releaseAllowed && releaseStatus && releaseStatus.textContent === "") {
+      releaseStatus.textContent = "Release disabled until delivered (or pending_release) and funded.";
+    
+    // Terminal status lock (extra-safe UX)
     const cancelled = (st === 'cancelled' || st === 'canceled');
     const delivered = (st === 'delivered');
 
+    // If cancelled: hide all action cards
     if (cancelled) {
       showCard(offersListCard, false);
       showCard(acceptOfferCard, false);
@@ -1440,6 +1460,7 @@
       return;
     }
 
+    // If delivered: lock offer/accept (and usually funding), but keep confirm/release visible
     if (delivered) {
       showCard(offersListCard, false);
       showCard(acceptOfferCard, false);
@@ -1448,26 +1469,39 @@
       showCard(acceptOfferCard, true);
     }
 
+    // Show other cards by default
     showCard(fundEscrowCard, true);
     showCard(releaseEscrowCard, true);
+}
   }
 
   function driverGuardrails(req) {
     const st = getStatus(req).toLowerCase();
 
-    const canPickUp = (st === 'accepted' || st === 'picked_up' || st === 'open');
+    // Default: allow picked_up, allow delivered only after picked_up
+    const canPickUp = (st === 'accepted' || st === 'picked_up' || st === 'open'); // best-effort
     const canDeliver = (st === 'picked_up');
+
+    // If already delivered/cancelled, disable updates
     const terminal = (st === 'delivered' || st === 'cancelled' || st === 'canceled');
 
+    // Apply
     const optPicked = Array.from(dsNewStatus.options).find(o => o.value === 'picked_up');
     const optDelivered = Array.from(dsNewStatus.options).find(o => o.value === 'delivered');
     if (optPicked) optPicked.disabled = !canPickUp || terminal;
     if (optDelivered) optDelivered.disabled = !canDeliver || terminal;
 
+    // If delivered is selected but not allowed, force picked_up
     if (dsNewStatus.value === 'delivered' && (!canDeliver || terminal)) dsNewStatus.value = 'picked_up';
 
     if (dsUpdateBtn) dsUpdateBtn.disabled = terminal;
+
+    if (terminal && dsStatus && dsStatus.textContent === "") {
+      dsStatus.textContent = "Updates disabled: request is already terminal (delivered/cancelled).";
+    
+    // Terminal status lock (extra-safe UX)
     if (driverUpdateCard) showCard(driverUpdateCard, !terminal);
+}
   }
 
   // ===== Load acknowledgements =====
@@ -1496,6 +1530,202 @@
     statusEl.textContent = "Setup error: " + err.message;
     if (offerStatus) offerStatus.textContent = "Setup error: " + err.message;
   });
+
+  // ===== Sender create =====
+// ===== Driver registration (pilot) =====
+if (driverRegForm) {
+  driverRegForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (onCooldown(drRegBtn, drRegStatus, "Please wait…")) return;
+    setCooldown(drRegBtn, 5000, () => true);
+
+    setText(drRegStatus, "");
+    if (drRegOut) drRegOut.textContent = "{}";
+
+    const invite_code = String(drInviteCode.value || '').trim();
+    const full_name = String(drFullName.value || '').trim();
+    const phone = String(drPhone.value || '').trim();
+    const email = String(drEmail.value || '').trim();
+    const vehicle_plate = String(drPlate.value || '').trim();
+    const licence_last6 = String(drLicLast6.value || '').trim();
+    const wof_expiry = String(drWofExpiry.value || '').trim();
+
+    if (!invite_code || !full_name || !phone) {
+      setText(drRegStatus, "Invite code, full name and phone are required.");
+      return;
+    }
+
+    // Convenience: store phone and prefill offer form after registration
+    try { localStorage.setItem('dm_driver_phone', phone); } catch (_) {}
+
+    setText(drRegStatus, "Submitting registration…");
+
+    try {
+      const r = await fetch(API_BASE + "/drivers/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invite_code,
+          full_name,
+          phone,
+          email: email || undefined,
+          vehicle_plate: vehicle_plate || undefined,
+          licence_last6: licence_last6 || undefined,
+          wof_expiry: wof_expiry || undefined,
+        })
+      });
+
+      const j = await safeJson(r);
+      if (drRegOut) drRegOut.textContent = JSON.stringify(j, null, 2);
+
+      if (j.ok) {
+        setText(drRegStatus, (j.message || "Registered ✅"));
+        // Autofill offer phone if present
+        if (offerDriverPhone && phone && !String(offerDriverPhone.value || '').trim()) {
+          offerDriverPhone.value = phone;
+        }
+      } else {
+        setNotice(drRegStatus, 'error', 'Request failed', describeError(j, r));
+      }
+    } catch (err) {
+      setNotice(drRegStatus, 'error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
+    } finally {
+      if (drRegBtn && !cooldownActive(drRegBtn)) drRegBtn.disabled = false;
+    }
+  });
+
+// ===== Admin (pilot): driver approvals =====
+function getAdminToken() {
+  const t = adminTokenInput ? String(adminTokenInput.value || '').trim() : '';
+  return t;
+}
+function setAdminStatus(msg) {
+  if (adminDriversStatus) adminDriversStatus.textContent = msg || '';
+}
+function setAdminStatusRich(kind, title, msg, details) {
+  setNotice(adminDriversStatus, kind, title, msg, details);
+}
+function renderDriversTable(drivers) {
+  if (!adminDriversWrap) return;
+  if (!Array.isArray(drivers) || drivers.length === 0) {
+    adminDriversWrap.innerHTML = '<div class="muted">No pending drivers.</div>';
+    return;
+  }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let html = '<table style="width:100%; border-collapse:collapse;">' +
+             '<thead><tr>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Name</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Phone</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Email</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Plate</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+             '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Actions</th>' +
+             '</tr></thead><tbody>';
+
+  for (const d of drivers) {
+    html += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.full_name) + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.phone) + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.email || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(d.vehicle_plate || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(d.status) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn" type="button" data-admin-action="approve" data-driver-id="' + esc(d.id) + '">Approve</button> ' +
+        '<button class="btn" type="button" data-admin-action="disable" data-driver-id="' + esc(d.id) + '">Disable</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  html += '</tbody></table>';
+  adminDriversWrap.innerHTML = html;
+
+  // Wire buttons (event delegation)
+  adminDriversWrap.querySelectorAll('button[data-admin-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.getAttribute('data-admin-action');
+      const id = btn.getAttribute('data-driver-id');
+      if (!action || !id) return;
+
+      const token = getAdminToken();
+      if (!token) { setAdminStatus("Missing admin token."); return; }
+      if (action === 'approve') {
+        if (!window.confirm("Approve driver #" + id + "?")) return;
+      } else if (action === 'disable') {
+        if (!window.confirm("Disable driver #" + id + "? This will prevent this driver from using driver actions in the pilot.")) return;
+      }
+
+      // small cooldown per button
+      if (onCooldown(btn, adminDriversStatus, "Please wait…")) return;
+      setCooldown(btn, 3000, () => true);
+
+      setAdminStatus((action === 'approve' ? "Approving" : "Disabling") + " driver #" + id + "…");
+      try {
+        const r = await fetch(API_BASE + "/admin/drivers/" + encodeURIComponent(id) + "/" + action, {
+          method: "POST",
+          headers: { "X-Admin-Token": token }
+        });
+        const j = await safeJson(r);
+        if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
+        if (j.ok) {
+          setAdminStatus("Done ✅");
+          // reload pending list
+          await adminLoadPendingDrivers();
+        } else {
+          setAdminStatusRich('error', 'Request failed', describeError(j, r));
+        }
+      } catch (err) {
+        setAdminStatusRich('error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
+      } finally {
+        if (btn && !cooldownActive(btn)) btn.disabled = false;
+      }
+    });
+  });
+}
+
+async function adminLoadPendingDrivers() {
+  const token = getAdminToken();
+  if (!token) { setAdminStatus("Missing admin token."); return; }
+  setAdminStatus("Loading pending drivers…");
+  if (adminDriversOut) adminDriversOut.textContent = "{}";
+  try {
+    const r = await fetch(API_BASE + "/admin/drivers?status=pending_review", {
+      headers: { "X-Admin-Token": token }
+    });
+    const j = await safeJson(r);
+    if (adminDriversOut) adminDriversOut.textContent = JSON.stringify(j, null, 2);
+    if (j.ok) {
+      renderDriversTable(j.drivers || []);
+      setAdminStatus("Loaded ✅");
+    } else {
+      setAdminStatusRich('error', 'Request failed', describeError(j, r));
+    }
+  } catch (err) {
+    setAdminStatusRich('error', 'Request failed', 'Network error', (err && err.message ? err.message : err));
+  } finally {
+    if (adminLoadPendingDriversBtn && !cooldownActive(adminLoadPendingDriversBtn)) adminLoadPendingDriversBtn.disabled = false;
+  }
+}
+
+if (adminSaveTokenBtn && adminTokenInput) {
+  adminSaveTokenBtn.addEventListener('click', () => {
+    const t = getAdminToken();
+    if (!t) { setAdminStatus("Missing admin token."); return; }
+    try { localStorage.setItem('dm_admin_token', t); } catch (_) {}
+    setAdminStatus("Saved ✅");
+  });
+}
+
+if (adminLoadPendingDriversBtn) {
+  adminLoadPendingDriversBtn.addEventListener('click', async () => {
+    if (onCooldown(adminLoadPendingDriversBtn, adminDriversStatus, "Please wait…")) return;
+    setCooldown(adminLoadPendingDriversBtn, 4000, () => true);
+    await adminLoadPendingDrivers();
+  });
+}
+
+}
 
   // ===== Sender create =====
   ackBox.addEventListener('change', () => {
@@ -1535,8 +1765,7 @@
       });
       const j = await safeJson(r);
       out.textContent = JSON.stringify(j, null, 2);
-      if (j.ok) setNotice(statusEl, 'success', 'Created', 'Request created successfully.');
-      else setNotice(statusEl, 'error', 'Create failed', (j.error || 'Unknown error'));
+      if (j.ok) setNotice(statusEl, 'success', 'Created', 'Request created successfully.'); else setNotice(statusEl, 'error', 'Create failed', (j.error || 'Unknown error'));
     } catch (err) {
       setNotice(statusEl, 'error', 'Request failed', 'Network error', err && err.message ? err.message : err);
     } finally {
@@ -1607,6 +1836,7 @@
       box.appendChild(row);
     });
 
+    // Apply guardrails to newly rendered buttons if we already have a request loaded
     if (lastSenderReq) senderGuardrails(lastSenderReq);
   }
 
@@ -1666,7 +1896,10 @@
       viewHistory.textContent = JSON.stringify(j3, null, 2);
       lastSenderHistory = j3;
 
+      // Read-only escrow status + ETA
       renderEscrowReadOnly(lastSenderReq, lastSenderHistory);
+
+      // Guardrails based on current request state
       senderGuardrails(lastSenderReq);
 
       viewStatus.textContent = "Loaded ✅";
@@ -1748,6 +1981,7 @@
     driverTokenBox.value = t;
     if (t) dsDriverToken.value = t;
 
+    // NEW: build and show driver link
     const rid = String(viewRequestId.value || '').trim();
     if (rid && t) {
       driverLinkBox.value = buildDriverLink(rid, t);
@@ -1774,6 +2008,7 @@
       return;
     }
 
+    // Guardrail: if we have a loaded request and it isn't open, block accept locally
     if (lastSenderReq) {
       const st = getStatus(lastSenderReq).toLowerCase();
       if (st && st !== 'open') {
@@ -1811,6 +2046,7 @@
       acceptStatus.textContent = "Accepted ✅";
       if (j.driver_token) setDriverToken(j.driver_token);
 
+      // Update guardrails with freshest request if present
       if (j.request) lastSenderReq = extractReq(j);
       if (lastSenderReq) senderGuardrails(lastSenderReq);
 
@@ -1823,6 +2059,7 @@
         if (fundAmount && amt != null) fundAmount.value = String(amt);
       } catch (_) {}
 
+      // Guardrail: if already funded, don't auto-pay
       if (lastSenderReq && isEscrowFunded(lastSenderReq)) {
         fundStatus.textContent = "Escrow already funded ✅";
         senderGuardrails(lastSenderReq);
@@ -1863,6 +2100,7 @@
     }
   });
 
+  // NEW: copy driver link
   copyDriverLinkBtn.addEventListener('click', async () => {
     const link = String(driverLinkBox.value || '').trim();
     if (!link) { copyLinkStatus.textContent = "No driver link yet. Accept an offer first."; return; }
@@ -1891,6 +2129,7 @@
         return;
       }
 
+      // Guardrail: only allow release if delivered/pending_release & funded
       if (lastSenderReq) {
         senderGuardrails(lastSenderReq);
         if (releaseBtn.disabled) {
@@ -1922,6 +2161,7 @@
 
         if (j.ok) {
           releaseStatus.textContent = "Released ✅";
+          // Update guardrails if server returned request
           if (j.request) lastSenderReq = extractReq(j);
         } else {
           setNotice(releaseStatus, 'error', 'Release failed', (j.error || 'Unknown error'));
@@ -1936,7 +2176,7 @@
     });
   }
 
-  // ===== Driver: load job =====
+  // ===== Driver: load job (extracted so deep-link can call it) =====
   async function loadDriverJob(id, token) {
     dvStatus.textContent = "";
     dvRequest.textContent = "{}";
@@ -1971,7 +2211,9 @@
       const j2 = await safeJson(r2);
       dvHistory.textContent = JSON.stringify(j2, null, 2);
 
+      // Apply driver guardrails
       driverGuardrails(lastDriverReq);
+
       dvStatus.textContent = "Loaded ✅";
     } catch (err) {
       setNotice(dvStatus, 'error', 'Load failed', 'Network error', err && err.message ? err.message : err);
@@ -1980,12 +2222,14 @@
     }
   }
 
+  // ===== Driver view my job =====
   if (driverViewForm) {
     driverViewForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = String(dvRequestId.value || '').trim();
       const token = String(dvDriverToken.value || '').trim();
 
+      // Convenience: prefill update status form fields
       dsRequestId.value = id;
       dsDriverToken.value = token;
 
@@ -2032,8 +2276,7 @@
       });
       const j = await safeJson(r);
       offerOut.textContent = JSON.stringify(j, null, 2);
-      if (j.ok) setNotice(offerStatus, 'success', 'Offer submitted', 'Offer sent successfully.');
-      else setNotice(offerStatus, 'error', 'Offer failed', (j.error || 'Unknown error'));
+      if (j.ok) setNotice(offerStatus, 'success', 'Offer submitted', 'Offer sent successfully.'); else setNotice(offerStatus, 'error', 'Offer failed', (j.error || 'Unknown error'));
     } catch (err) {
       setNotice(offerStatus, 'error', 'Offer failed', 'Network error', err && err.message ? err.message : err);
     } finally {
@@ -2064,6 +2307,7 @@
       return;
     }
 
+    // Guardrail: enforce delivered only after picked_up when we have a loaded request
     if (lastDriverReq) {
       driverGuardrails(lastDriverReq);
       const st = getStatus(lastDriverReq).toLowerCase();
@@ -2095,6 +2339,7 @@
 
       if (j.ok) {
         dsStatus.textContent = "Updated ✅";
+        // Update loaded request snapshot if server returned it
         if (j.request) lastDriverReq = extractReq(j);
         if (lastDriverReq) driverGuardrails(lastDriverReq);
       } else {
@@ -2107,176 +2352,439 @@
     }
   });
 
+  // ===== On page load: try deep-link autofill (NEW) =====
   window.addEventListener('DOMContentLoaded', () => {
+    // Keep your default role as sender unless hash says driver
     try {
       const p = localStorage.getItem('dm_driver_phone');
       if (p && offerDriverPhone && !String(offerDriverPhone.value||'').trim()) offerDriverPhone.value = p;
     } catch (_) {}
-    maybeAutofillFromHash();
+
+        maybeAutofillFromHash();
   });
 
-  // ===================== Pilot pages (single-file routing) =====================
-  function showPage(page) {
-    const pages = ['home','quickstart','sender','driver','about','admin'];
-    document.body.classList.remove('page-home','page-quickstart','page-sender','page-driver','page-about','page-admin');
-    document.body.classList.add('page-' + page);
-    for (const p of pages) {
-      const el = document.getElementById('page_' + p);
-      if (el) el.style.display = (p === page) ? '' : 'none';
-    }
-    if (page === 'sender') setRole('sender');
-    if (page === 'driver') setRole('driver');
-    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
+// ===================== Pilot pages (single-file routing) =====================
+function showPage(page) {
+  const pages = ['home','sender','driver','about','admin'];
+  document.body.classList.remove('page-home','page-sender','page-driver','page-about','page-admin');
+  document.body.classList.add('page-' + page);
+  for (const p of pages) {
+    const el = document.getElementById('page_' + p);
+    if (el) el.style.display = (p === page) ? '' : 'none';
+  }
+  // helpful role sync
+  if (page === 'sender') setRole('sender');
+  if (page === 'driver') setRole('driver');
+  // keep URL tidy
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
+}
+
+function route() {
+  const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  const page = (h.split('?')[0] || '').trim();
+  if (page === 'sender' || page === 'driver' || page === 'about' || page === 'admin') showPage(page);
+  else showPage('home');
+}
+
+window.addEventListener('hashchange', route);
+route();
+
+const goSenderBtn = document.getElementById('goSenderBtn');
+const goDriverBtn = document.getElementById('goDriverBtn');
+if (goSenderBtn) goSenderBtn.addEventListener('click', () => { window.location.hash = 'sender'; });
+if (goDriverBtn) goDriverBtn.addEventListener('click', () => { window.location.hash = 'driver'; });
+  const goQuickstartBtn = document.getElementById('goQuickstartBtn');
+  if (goQuickstartBtn) goQuickstartBtn.addEventListener('click', () => { window.location.hash = 'quickstart'; });
+
+const scrollToAdminCardBtn = document.getElementById('scrollToAdminCardBtn');
+if (scrollToAdminCardBtn) {
+  scrollToAdminCardBtn.addEventListener('click', () => {
+    window.location.hash = 'driver'; // admin approvals card lives in driver section in this build
+    setTimeout(() => {
+      const el = document.getElementById('adminDriverCard');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  });
+}
+
+// Show Admin tab if token exists (uses the admin token storage introduced in previous fixes)
+function updateNavAdminVisibility() {
+  const navAdmin = document.getElementById('navAdmin');
+  if (!navAdmin) return;
+  let tok = '';
+  try { tok = String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) {}
+  navAdmin.style.display = tok ? '' : 'none';
+}
+updateNavAdminVisibility();
+
+// ===================== Driver: Available jobs list =====================
+const driverRefreshJobsBtn = document.getElementById('driverRefreshJobsBtn');
+const driverJobsStatus = document.getElementById('driverJobsStatus');
+const driverJobsWrap = document.getElementById('driverJobsWrap');
+
+function renderDriverJobs(requests) {
+  if (!driverJobsWrap) return;
+  const open = (Array.isArray(requests) ? requests : []).filter(r => String(r.status || '').toLowerCase() === 'open').slice(0, 25);
+
+  if (!open.length) {
+    driverJobsWrap.innerHTML = '<div class="muted">No open requests found.</div>';
+    return;
   }
 
-  function route() {
-    const raw = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
-    const page = (raw.split('?')[0] || '').trim();
-    if (page === 'sender' || page === 'driver' || page === 'about' || page === 'admin' || page === 'quickstart') showPage(page);
-    else showPage('home');
-  }
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let rows = '<table style="width:100%; border-collapse:collapse;">' +
+    '<thead><tr>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">ID</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Pickup</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Dropoff</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Status</th>' +
+    '<th style="text-align:left; border-bottom:1px solid #ddd; padding:6px;">Action</th>' +
+    '</tr></thead><tbody>';
 
-  window.addEventListener('hashchange', route);
-  route();
-
-  const goSenderBtn = document.getElementById('goSenderBtn');
-  const goDriverBtn = document.getElementById('goDriverBtn');
-  if (goSenderBtn) goSenderBtn.addEventListener('click', () => { window.location.hash = 'sender'; });
-  if (goDriverBtn) goDriverBtn.addEventListener('click', () => { window.location.hash = 'driver'; });
-
-  function updateNavAdminVisibility() {
-    const navAdmin = document.getElementById('navAdmin');
-    if (!navAdmin) return;
-    let tok = '';
-    try { tok = String(localStorage.getItem('dm_admin_token') || '').trim(); } catch (_) {}
-    navAdmin.style.display = tok ? '' : 'none';
+  for (const r of open) {
+    rows += '<tr>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(r.id) + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(r.pickup_suburb || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' + esc(r.dropoff_suburb || '') + '</td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;"><code>' + esc(r.status || '') + '</code></td>' +
+      '<td style="border-bottom:1px solid #eee; padding:6px;">' +
+        '<button class="btn secondary" type="button" data-pick-job="' + esc(r.id) + '" data-pickup="' + esc(r.pickup_suburb || '') + '" data-dropoff="' + esc(r.dropoff_suburb || '') + '">Make offer</button>' +
+      '</td>' +
+    '</tr>';
   }
-  updateNavAdminVisibility();
+  rows += '</tbody></table>';
+  driverJobsWrap.innerHTML = rows;
 
-  // ===================== User bar + logout (pilot) =====================
-  function getStoredUser() {
-    try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
-  }
-  function clearSession() {
-    try { localStorage.removeItem('dm_user'); } catch (_) {}
-    try { localStorage.removeItem('dm_user_name'); } catch (_) {}
-    try { localStorage.removeItem('dm_user_phone'); } catch (_) {}
-    try { localStorage.removeItem('dm_user_email'); } catch (_) {}
-    try { localStorage.removeItem('dm_driver_token'); } catch (_) {}
-    try { localStorage.removeItem('dm_driver_phone'); } catch (_) {}
-    try { localStorage.removeItem('dm_driver_status'); } catch (_) {}
-  }
-  function updateUserBarVisibility() {
-    const ub = document.getElementById('userBar');
-    const txt = document.getElementById('userBarText');
-    if (!ub || !txt) return;
-    const u = getStoredUser();
-    const hash = String(window.location.hash || '').toLowerCase();
-    const onSender = hash.startsWith('#sender');
-    const onDriver = hash.startsWith('#driver');
-    const show = onSender || onDriver;
-    ub.style.display = show ? 'flex' : 'none';
-    if (!u) {
-      txt.textContent = 'Not signed in';
-      return;
-    }
-    const roleBits = [];
-    if (u.sender_enabled) roleBits.push('Sender');
-    const ds = String(u.driver_status || 'none');
-    if (ds && ds !== 'none') roleBits.push('Driver: ' + ds.replace('_',' '));
-    txt.textContent = (u.full_name || 'User') + ' · ' + maskPhone(u.phone) + (roleBits.length ? ' · ' + roleBits.join(' · ') : '');
-  }
-  window.addEventListener('hashchange', updateUserBarVisibility);
-  setTimeout(updateUserBarVisibility, 50);
-
-  const logoutLink = document.getElementById('logoutLink');
-  if (logoutLink) {
-    logoutLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (!window.confirm('Log out from this device?')) return;
-      clearSession();
-      window.location.hash = 'home';
-      setTimeout(() => window.location.reload(), 50);
+  driverJobsWrap.querySelectorAll('button[data-pick-job]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-pick-job');
+      if (!id) return;
+      // prefill existing offer form inputs if present
+      const offerRequestId = document.getElementById('offer_request_id');
+      if (offerRequestId) offerRequestId.value = id;
+      // scroll to offer form
+      const offerCard = document.getElementById('driverOfferCard');
+      if (offerCard) offerCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-  }
+  });
+}
 
-  // ===================== Profile panels + gating (pilot UX) =====================
-  function getCurrentUserFromStorage() {
-    try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
-  }
-  function formatUserLine(u) {
-    if (!u) return 'Not registered yet.';
-    const phone = (typeof maskPhone === 'function') ? maskPhone(u.phone) : (u.phone || '');
-    const bits = [];
-    if (u.full_name) bits.push(u.full_name);
-    if (phone) bits.push(phone);
-    if (u.email) bits.push(u.email);
-    return bits.join(' · ');
-  }
-  function refreshProfilePanels() {
-    const u = getCurrentUserFromStorage();
-
-    const sText = document.getElementById('senderProfileText');
-    const sNotice = document.getElementById('senderNeedRegNotice');
-    const createCard = document.getElementById('senderCreateCard');
-
-    if (sText) sText.textContent = formatUserLine(u);
-    const senderOk = !!(u && u.sender_enabled);
-    if (sNotice) sNotice.style.display = senderOk ? 'none' : '';
-    if (createCard) createCard.style.display = senderOk ? '' : 'none';
-
-    const dText = document.getElementById('driverProfileText');
-    const dNotice = document.getElementById('driverNeedRegNotice');
-    if (dText) {
-      let extra = '';
-      if (u && u.driver_status && u.driver_status !== 'none') extra = ' · Driver: ' + String(u.driver_status).replace('_',' ');
-      dText.textContent = formatUserLine(u) + extra;
-    }
-    const driverApplied = !!(u && u.driver_status && u.driver_status !== 'none');
-    if (dNotice) dNotice.style.display = driverApplied ? 'none' : '';
-  }
-  window.addEventListener('hashchange', refreshProfilePanels);
-  setTimeout(refreshProfilePanels, 80);
-
-  function storeUserFromRegisterResult(result) {
-    try {
-      const u = result && result.register && result.register.user ? result.register.user : null;
-      if (u) localStorage.setItem('dm_user', JSON.stringify(u));
-    } catch (_) {}
-    try { if (typeof refreshIdentityBar === 'function') refreshIdentityBar(); } catch (_) {}
-    refreshProfilePanels();
-    updateUserBarVisibility();
-  }
-
-  // ===== Registration card mounting (Sender / Driver) =====
-  function getStoredUserSafe() {
-    try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); }
-    catch (_) { return null; }
-  }
-
-  function mountRegistrationCard() {
-    const regCard = document.getElementById('userRegCard');
-    const senderMount = document.getElementById('senderRegMount');
-    const driverMount = document.getElementById('driverRegMount');
-    if (!regCard || !senderMount || !driverMount) return;
-
-    const user = getStoredUserSafe();
-    const raw = String(window.location.hash || '').toLowerCase().replace(/^#/, '');
-    const page = raw.split(/[&=?]/)[0];
-
-    if (!user) {
-      if (page === 'driver') driverMount.appendChild(regCard);
-      else senderMount.appendChild(regCard);
-      regCard.style.display = '';
+async function loadDriverJobs() {
+  if (!driverJobsStatus) return;
+  driverJobsStatus.textContent = 'Loading…';
+  try {
+    const r = await fetch(API_BASE + '/requests');
+    const j = await safeJson(r);
+    if (!j.ok) {
+      driverJobsStatus.textContent = '';
+      setNotice(driverJobsStatus, 'error', 'Load failed', (j.error || 'Unknown error'));
       return;
     }
+    renderDriverJobs(j.requests || []);
+    driverJobsStatus.textContent = 'Updated ✅';
+  } catch (err) {
+    driverJobsStatus.textContent = '';
+    setNotice(driverJobsStatus, 'error', 'Load failed', 'Network error', err && err.message ? err.message : err);
+  }
+}
 
-    senderMount.appendChild(regCard);
-    regCard.style.display = 'none';
+if (driverRefreshJobsBtn) {
+  driverRefreshJobsBtn.addEventListener('click', async () => {
+    if (onCooldown(driverRefreshJobsBtn, driverJobsStatus, 'Please wait…')) return;
+    setCooldown(driverRefreshJobsBtn, 3000, () => true);
+    await loadDriverJobs();
+  });
+}
+// auto-load when driver page is shown (lightweight)
+setTimeout(() => { if (window.location.hash === '#driver') loadDriverJobs(); }, 200);
+
+// ===================== Sender: Google Geocoding helper (optional) =====================
+const gmapsKeyInput = document.getElementById('gmapsKeyInput');
+const gmapsSaveKeyBtn = document.getElementById('gmapsSaveKeyBtn');
+const gmapsKeyStatus = document.getElementById('gmapsKeyStatus');
+
+function getGmapsKey() {
+  const t = gmapsKeyInput ? String(gmapsKeyInput.value || '').trim() : '';
+  if (t) return t;
+  try { return String(localStorage.getItem('dm_gmaps_key') || '').trim(); } catch (_) { return ''; }
+}
+function saveGmapsKey() {
+  const k = getGmapsKey();
+  if (!k) return '';
+  try { localStorage.setItem('dm_gmaps_key', k); } catch (_) {}
+  if (gmapsKeyInput) gmapsKeyInput.value = k;
+  if (gmapsKeyStatus) gmapsKeyStatus.textContent = 'Saved ✅';
+  return k;
+}
+if (gmapsSaveKeyBtn) gmapsSaveKeyBtn.addEventListener('click', () => {
+  const k = saveGmapsKey();
+  if (!k && gmapsKeyStatus) gmapsKeyStatus.textContent = 'No key provided.';
+});
+try {
+  const saved = String(localStorage.getItem('dm_gmaps_key') || '').trim();
+  if (saved && gmapsKeyInput && !String(gmapsKeyInput.value || '').trim()) gmapsKeyInput.value = saved;
+} catch (_) {}
+
+function extractSuburbFromGeocodeResult(result) {
+  // Prefer NZ-relevant: suburb, sublocality, locality (city), administrative_area_level_2, etc.
+  const comps = (result && result.address_components) ? result.address_components : [];
+  const pick = (type) => {
+    const c = comps.find(x => Array.isArray(x.types) && x.types.includes(type));
+    return c ? (c.long_name || c.short_name || '') : '';
+  };
+  return (
+    pick('sublocality') ||
+    pick('sublocality_level_1') ||
+    pick('locality') ||
+    pick('postal_town') ||
+    pick('administrative_area_level_2') ||
+    pick('administrative_area_level_1') ||
+    ''
+  );
+}
+
+async function geocodeAddressToSuburb(address) {
+  const key = getGmapsKey();
+  if (!key) throw new Error('Google Maps API key not set');
+  const url = 'https://maps.googleapis.com/maps/api/geocode/json?address=' + encodeURIComponent(address) + '&key=' + encodeURIComponent(key);
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.status !== 'OK' || !j.results || !j.results[0]) {
+    const msg = j.error_message ? (j.status + ': ' + j.error_message) : ('Geocoding failed: ' + (j.status || 'unknown'));
+    throw new Error(msg);
+  }
+  const top = j.results[0];
+  const suburb = extractSuburbFromGeocodeResult(top);
+  const loc = top.geometry && top.geometry.location ? top.geometry.location : null;
+  return {
+    suburb: suburb || '',
+    formatted: top.formatted_address || '',
+    lat: loc ? loc.lat : null,
+    lng: loc ? loc.lng : null
+  };
+}
+
+const pickupAddress = document.getElementById('pickupAddress');
+const dropoffAddress = document.getElementById('dropoffAddress');
+const pickupGeocodeBtn = document.getElementById('pickupGeocodeBtn');
+const dropoffGeocodeBtn = document.getElementById('dropoffGeocodeBtn');
+const pickupGeoMeta = document.getElementById('pickupGeoMeta');
+const dropoffGeoMeta = document.getElementById('dropoffGeoMeta');
+
+function setGeoMeta(el, info) {
+  if (!el) return;
+  if (!info) { el.textContent = ''; return; }
+  const bits = [];
+  if (info.formatted) bits.push(info.formatted);
+  if (info.lat != null && info.lng != null) bits.push('(' + info.lat + ', ' + info.lng + ')');
+  el.textContent = bits.join(' ');
+}
+
+function setSuburbField(name, value) {
+  const input = document.querySelector('input[name="' + name + '"]');
+  if (input) input.value = value || '';
+}
+
+if (pickupGeocodeBtn) {
+  pickupGeocodeBtn.addEventListener('click', async () => {
+    const addr = pickupAddress ? String(pickupAddress.value || '').trim() : '';
+    if (!addr) { if (pickupGeoMeta) pickupGeoMeta.textContent = 'Enter an address first.'; return; }
+    pickupGeocodeBtn.disabled = true;
+    if (pickupGeoMeta) pickupGeoMeta.textContent = 'Looking up…';
+    try {
+      const info = await geocodeAddressToSuburb(addr);
+      if (info.suburb) setSuburbField('pickup_suburb', info.suburb);
+      setGeoMeta(pickupGeoMeta, info);
+    } catch (e) {
+      if (pickupGeoMeta) pickupGeoMeta.textContent = (e && e.message) ? e.message : String(e);
+    } finally {
+      pickupGeocodeBtn.disabled = false;
+    }
+  });
+}
+
+if (dropoffGeocodeBtn) {
+  dropoffGeocodeBtn.addEventListener('click', async () => {
+    const addr = dropoffAddress ? String(dropoffAddress.value || '').trim() : '';
+    if (!addr) { if (dropoffGeoMeta) dropoffGeoMeta.textContent = 'Enter an address first.'; return; }
+    dropoffGeocodeBtn.disabled = true;
+    if (dropoffGeoMeta) dropoffGeoMeta.textContent = 'Looking up…';
+    try {
+      const info = await geocodeAddressToSuburb(addr);
+      if (info.suburb) setSuburbField('dropoff_suburb', info.suburb);
+      setGeoMeta(dropoffGeoMeta, info);
+    } catch (e) {
+      if (dropoffGeoMeta) dropoffGeoMeta.textContent = (e && e.message) ? e.message : String(e);
+    } finally {
+      dropoffGeocodeBtn.disabled = false;
+    }
+  });
+}
+
+// ===================== User bar + logout (pilot) =====================
+function maskPhone(p) {
+  const s = String(p || '');
+  if (s.length < 6) return s;
+  return s.slice(0, 3) + '****' + s.slice(-3);
+}
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
+}
+function setStoredUser(u) {
+  try { localStorage.setItem('dm_user', JSON.stringify(u || null)); } catch (_) {}
+}
+function clearSession() {
+  // Clear pilot session artifacts (frontend only)
+  try { localStorage.removeItem('dm_user'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_name'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_phone'); } catch (_) {}
+  try { localStorage.removeItem('dm_user_email'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_token'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_phone'); } catch (_) {}
+  try { localStorage.removeItem('dm_driver_status'); } catch (_) {}
+  // keep dm_admin_token; admin is separate
+}
+function updateUserBarVisibility() {
+  const ub = document.getElementById('userBar');
+  const txt = document.getElementById('userBarText');
+  if (!ub || !txt) return;
+  const u = getStoredUser();
+  const hash = String(window.location.hash || '').toLowerCase();
+  const onSender = hash === '#sender';
+  const onDriver = hash === '#driver';
+  const show = onSender || onDriver;
+  ub.style.display = show ? 'flex' : 'none';
+  if (!u) {
+    txt.textContent = 'Not signed in';
+    return;
+  }
+  const roleBits = [];
+  if (u.sender_enabled) roleBits.push('Sender');
+  const ds = String(u.driver_status || 'none');
+  if (ds && ds !== 'none') roleBits.push('Driver: ' + ds.replace('_',' '));
+  txt.textContent = (u.full_name || 'User') + ' · ' + maskPhone(u.phone) + (roleBits.length ? ' · ' + roleBits.join(' · ') : '');
+}
+window.addEventListener('hashchange', updateUserBarVisibility);
+setTimeout(updateUserBarVisibility, 50);
+
+const logoutLink = document.getElementById('logoutLink');
+if (logoutLink) {
+  logoutLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!window.confirm('Log out from this device?')) return;
+    clearSession();
+    // Reset any visible user-only state (keep minimal)
+    window.location.hash = 'home';
+    setTimeout(() => window.location.reload(), 50);
+  });
+}
+
+// Hook into registration success to store user in localStorage (if register handler exposes result JSON in `j.register.user`).
+// This is additive: if the variable names differ, nothing breaks.
+
+// ===================== Profile panels + gating (pilot UX) =====================
+function getCurrentUserFromStorage() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); } catch (_) { return null; }
+}
+function formatUserLine(u) {
+  if (!u) return 'Not registered yet.';
+  const phone = (typeof maskPhone === 'function') ? maskPhone(u.phone) : (u.phone || '');
+  const bits = [];
+  if (u.full_name) bits.push(u.full_name);
+  if (phone) bits.push(phone);
+  if (u.email) bits.push(u.email);
+  return bits.join(' · ');
+}
+function refreshProfilePanels() {
+  const u = getCurrentUserFromStorage();
+
+  const sText = document.getElementById('senderProfileText');
+  const sNotice = document.getElementById('senderNeedRegNotice');
+  const createCard = document.getElementById('senderCreateCard');
+
+  if (sText) sText.textContent = formatUserLine(u);
+  const senderOk = !!(u && u.sender_enabled);
+  if (sNotice) sNotice.style.display = senderOk ? 'none' : '';
+  if (createCard) createCard.style.display = senderOk ? '' : 'none';
+
+  const dText = document.getElementById('driverProfileText');
+  const dNotice = document.getElementById('driverNeedRegNotice');
+  if (dText) {
+    let extra = '';
+    if (u && u.driver_status && u.driver_status !== 'none') extra = ' · Driver: ' + String(u.driver_status).replace('_',' ');
+    dText.textContent = formatUserLine(u) + extra;
+  }
+  const driverApplied = !!(u && u.driver_status && u.driver_status !== 'none');
+  if (dNotice) dNotice.style.display = driverApplied ? 'none' : '';
+}
+window.addEventListener('hashchange', refreshProfilePanels);
+setTimeout(refreshProfilePanels, 80);
+
+// After successful registration, store dm_user and refresh panels (additive)
+function storeUserFromRegisterResult(result) {
+  try {
+    const u = result && result.register && result.register.user ? result.register.user : null;
+    if (u) localStorage.setItem('dm_user', JSON.stringify(u));
+  } catch (_) {}
+  try {
+    if (typeof refreshIdentityBar === 'function') refreshIdentityBar();
+  } catch (_) {}
+  refreshProfilePanels();
+}
+
+// ===== Registration card mounting (Sender / Driver) =====
+function getStoredUserSafe() {
+  try { return JSON.parse(localStorage.getItem('dm_user') || 'null'); }
+  catch (_) { return null; }
+}
+
+function mountRegistrationCard() {
+  const regCard = document.getElementById('userRegCard');
+  const senderMount = document.getElementById('senderRegMount');
+  const driverMount = document.getElementById('driverRegMount');
+  if (!regCard || !senderMount || !driverMount) return;
+
+  const user = getStoredUserSafe();
+
+  // Support hashes like "#driver", "#driver=1&rid=..", "#sender", "#home"
+  const raw = String(window.location.hash || '').toLowerCase().replace(/^#/, '');
+  const page = raw.split(/[&=?]/)[0]; // take the first token
+
+  if (!user) {
+    if (page === 'driver') driverMount.appendChild(regCard);
+    else senderMount.appendChild(regCard); // default
+    regCard.style.display = '';
+    return;
   }
 
-  window.addEventListener('hashchange', mountRegistrationCard);
-  setTimeout(mountRegistrationCard, 50);
+  // Registered: keep reg card hidden (mounted under sender for stability)
+  senderMount.appendChild(regCard);
+  regCard.style.display = 'none';
+}
+
+window.addEventListener('hashchange', mountRegistrationCard);
+setTimeout(mountRegistrationCard, 50);
+// ===== Driver page: helper to go to registration =====
+const driverGoRegisterBtn = document.getElementById('driverGoRegisterBtn');
+
+if (driverGoRegisterBtn) {
+  driverGoRegisterBtn.addEventListener('click', () => {
+    // Ensure driver page is selected (may already be on it)
+    if (String(window.location.hash || '') !== '#driver') {
+      window.location.hash = 'driver';
+    }
+    // Make sure the registration card is mounted to the current page
+    try { mountRegistrationCard(); } catch (_) {}
+
+    // Scroll to the registration form
+    setTimeout(() => {
+      try { mountRegistrationCard(); } catch (_) {}
+      const reg = document.getElementById('userRegCard');
+      if (reg) reg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  });
+}
+
 </script>
 
 </body>
