@@ -5,5 +5,6 @@ export function alertSuccess(msg) {
 }
 
 export function alertError(msg) {
-  return `<div class="alert error">${msg}</div>`;
+  const text = typeof msg === "string" ? msg : "Something went wrong";
+  return `<div class="alert error">${text}</div>`;
 }
