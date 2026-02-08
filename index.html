@@ -310,6 +310,21 @@ body.page-home #userRegCard { display:none !important; }
       <div class="notice">If you don’t have an invite code, ask the pilot organiser for access.</div>
   </div>
 
+    <div class="card compact" id="supportCard">
+      <div class="section-head">
+        <h2>Pilot support</h2>
+        <span class="pill">Invite-only</span>
+      </div>
+      <p class="muted" style="margin-top:0;">
+        Need an invite code or help? Email <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
+      </p>
+      <div class="notice">
+        When reporting an issue, please include the Request ID and a screenshot.
+      </div>
+    </div>
+
+
+
   <!-- Account registration (pilot; required for sender + optional driver capability) -->
   <!-- userRegCard moved to Sender page -->
 
@@ -391,11 +406,27 @@ body.page-home #userRegCard { display:none !important; }
         <h2>Sender profile</h2>
         <span class="pill">Pilot</span>
       </div>
-      <div class="muted" id="senderProfileText">Not registered yet.</div>
+      <div class="muted" id="senderLoggedInLine"></div>
+        <div class="muted" id="senderProfileText">Not registered yet.</div>
       <div class="notice" id="senderNeedRegNotice" style="margin-top:10px;">Please register to create a delivery request.</div>
     </div>
 
-    <!-- Create -->
+
+    <div class="card compact" id="senderSupportCard">
+      <div class="section-head">
+        <h2>Pilot support</h2>
+        <span class="pill">Invite-only</span>
+      </div>
+      <p class="muted" style="margin-top:0;">
+        Need an invite code or help? Email <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
+      </p>
+      <div class="notice">
+        When reporting an issue, please include the Request ID and a screenshot.
+      </div>
+    </div>
+
+
+      <!-- Create -->
     <div class="card" id="senderCreateCard">
       <h2>Create delivery</h2>
       <form id="createForm">
@@ -534,7 +565,23 @@ body.page-home #userRegCard { display:none !important; }
         <h2>Driver profile</h2>
         <span class="pill">Pilot</span>
       </div>
-      <div class="muted" id="driverProfileText">Not registered yet.</div>
+
+    <div class="card compact" id="driverSupportCard">
+      <div class="section-head">
+        <h2>Pilot support</h2>
+        <span class="pill">Invite-only</span>
+      </div>
+      <p class="muted" style="margin-top:0;">
+        Need an invite code or help? Email <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.
+      </p>
+      <div class="notice">
+        When reporting an issue, please include the Request ID and a screenshot.
+      </div>
+    </div>
+
+
+      <div class="muted" id="driverStatusLine"></div>
+        <div class="muted" id="driverProfileText">Not registered yet.</div>
       <div class="notice" id="driverNeedRegNotice" style="margin-top:10px;"></div>
 </div>
 
@@ -620,7 +667,51 @@ body.page-home #userRegCard { display:none !important; }
 
 <div id="page_admin" style="display:none;">
   
-<div class="card" id="adminDriverCard">
+
+    <div class="card" id="adminDashboardCard">
+      <details open>
+        <summary><strong>Admin (pilot): Dashboard</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
+        <p class="muted">Quick visibility for the invite-only pilot. This does not change any escrow or payment logic.</p>
+
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" id="adminRefreshDashboardBtn" type="button">Refresh dashboard</button>
+          <span class="muted" id="adminDashboardStatus"></span>
+        </div>
+
+        <div class="grid" style="margin-top:12px;">
+          <div class="card compact" style="margin:0;">
+            <div class="muted">Pending drivers</div>
+            <div style="font-size:26px; font-weight:800;" id="adminCountPendingDrivers">—</div>
+          </div>
+          <div class="card compact" style="margin:0;">
+            <div class="muted">Approved drivers</div>
+            <div style="font-size:26px; font-weight:800;" id="adminCountApprovedDrivers">—</div>
+          </div>
+          <div class="card compact" style="margin:0;">
+            <div class="muted">Disabled drivers</div>
+            <div style="font-size:26px; font-weight:800;" id="adminCountDisabledDrivers">—</div>
+          </div>
+        </div>
+
+        <div class="card compact" style="margin-top:12px;">
+          <h3 style="margin:0 0 8px;">Request ledger lookup</h3>
+          <div class="row">
+            <div>
+              <label>Request ID</label>
+              <input id="adminLedgerRequestId" placeholder="e.g. 123" />
+            </div>
+            <div style="align-self:flex-end;">
+              <button class="btn" id="adminLoadLedgerBtn" type="button">Load ledger</button>
+            </div>
+          </div>
+          <div class="muted" id="adminLedgerStatus" style="margin-top:8px;"></div>
+          <pre id="adminLedgerOut">{}</pre>
+        </div>
+      </details>
+    </div>
+
+
+    <div class="card" id="adminDriverCard">
   <details>
     <summary><strong>Admin (pilot): Driver approvals</strong> <span class="muted">(requires X-Admin-Token)</span></summary>
     <p class="muted">
@@ -2366,39 +2457,25 @@ if (adminLoadPendingDriversBtn) {
 // ===================== Pilot pages (single-file routing) =====================
 function showPage(page) {
   const pages = ['home','quickstart','sender','driver','about','admin'];
-
-  document.body.classList.remove(
-    'page-home',
-    'page-quickstart',
-    'page-sender',
-    'page-driver',
-    'page-about',
-    'page-admin'
-  );
+  document.body.classList.remove('page-home','page-quickstart','page-sender','page-driver','page-about','page-admin');
   document.body.classList.add('page-' + page);
-
-  pages.forEach(p => {
+  for (const p of pages) {
     const el = document.getElementById('page_' + p);
     if (el) el.style.display = (p === page) ? '' : 'none';
-  });
-
+  }
+  // helpful role sync
   if (page === 'sender') setRole('sender');
   if (page === 'driver') setRole('driver');
-
-  window.scrollTo({ top: 0 });
+  // keep URL tidy
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) {}
 }
 
 function route() {
-  const raw = (window.location.hash || '#home').replace('#','');
-  const page = raw.split(/[?&=]/)[0];
-
-  if (['home','quickstart','sender','driver','about','admin'].includes(page)) {
-    showPage(page);
-  } else {
-    showPage('home');
-  }
+  const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+  const page = (h.split('?')[0] || '').trim();
+  if (page === 'quickstart' || page === 'sender' || page === 'driver' || page === 'about' || page === 'admin') showPage(page);
+  else showPage('home');
 }
-
 
 window.addEventListener('hashchange', route);
 route();
@@ -2711,6 +2788,21 @@ function formatUserLine(u) {
 }
 function refreshProfilePanels() {
   const u = getCurrentUserFromStorage();
+
+    // Tiny UI texts: logged-in lines
+    const senderLoggedInLine = document.getElementById('senderLoggedInLine');
+    if (senderLoggedInLine) {
+      if (u && (u.full_name || u.phone)) senderLoggedInLine.textContent = 'You are logged in as: ' + (u.full_name || 'User') + ' · ' + maskPhone(u.phone);
+      else senderLoggedInLine.textContent = '';
+    }
+
+    const driverStatusLine = document.getElementById('driverStatusLine');
+    if (driverStatusLine) {
+      const ds = (u && u.driver_status) ? String(u.driver_status) : 'none';
+      const label = (ds === 'approved') ? 'Approved' : (ds === 'pending_review' ? 'Pending review' : (ds === 'disabled' ? 'Disabled' : 'Not applied'));
+      driverStatusLine.textContent = 'Driver status: ' + label;
+    }
+
 
   const sText = document.getElementById('senderProfileText');
   const sNotice = document.getElementById('senderNeedRegNotice');
