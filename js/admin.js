@@ -1,7 +1,7 @@
 // public/js/admin.js
 
 import { api } from "./api.js";
-import { $, pretty, saveAdminToken } from "./utils.js";
+import { $, pretty, saveAdminToken, scrollToElement } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 
 export function initAdminPage() {
@@ -69,6 +69,9 @@ function setupDriverActions() {
       const id = e.target.dataset.id;
       const res = await api(`/admin/drivers/${id}/approve`, { method: "POST" });
 
+      out.textContent = pretty(res);
+      scrollToElement(out);
+
       if (res.ok) {
         e.target.insertAdjacentHTML("afterend", alertSuccess("Driver approved"));
       } else {
@@ -79,6 +82,9 @@ function setupDriverActions() {
     if (e.target.matches(".disable-driver")) {
       const id = e.target.dataset.id;
       const res = await api(`/admin/drivers/${id}/disable`, { method: "POST" });
+
+      out.textContent = pretty(res);
+      scrollToElement(out);
 
       if (res.ok) {
         e.target.insertAdjacentHTML("afterend", alertSuccess("Driver disabled"));
@@ -109,6 +115,7 @@ function setupLedgerLookup() {
     const res = await api(`/admin/ledger/${id}`);
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (!res.ok) {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to load ledger"));
@@ -144,6 +151,6 @@ function setupDashboardRefresh() {
     disabledEl.textContent = res.disabled_drivers ?? "—";
 
     statusEl.textContent = "Updated";
+    scrollToElement(statusEl);
   });
-
 }
