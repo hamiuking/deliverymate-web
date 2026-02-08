@@ -33,6 +33,7 @@ function setupDriverRegistration() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok && res.driver_token) {
       saveDriverToken(res.driver_token);
@@ -137,4 +138,5 @@ function setupUpdateStatus() {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to update status"));
     }
   });
+
 }
