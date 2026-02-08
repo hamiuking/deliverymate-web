@@ -1,7 +1,7 @@
 // public/js/sender.js
 
 import { api } from "./api.js";
-import { $, pretty, saveSenderToken } from "./utils.js";
+import { $, pretty, saveSenderToken, scrollToElement } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 
@@ -65,6 +65,7 @@ function setupCreateRequest() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Request created"));
@@ -91,12 +92,15 @@ function setupViewRequest() {
 
     const req = await api(`/requests/${id}`);
     reqOut.textContent = pretty(req);
+    scrollToElement(reqOut);
 
     const offers = await api(`/requests/${id}/offers`);
     offersOut.textContent = pretty(offers);
+    scrollToElement(offersOut);
 
     const hist = await api(`/requests/${id}/history`);
     historyOut.textContent = pretty(hist);
+    scrollToElement(historyOut);
   });
 }
 
@@ -120,6 +124,7 @@ function setupAcceptOffer() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Offer accepted"));
@@ -134,14 +139,13 @@ function setupAcceptOffer() {
 --------------------------------------------------------- */
 function setupFundEscrow() {
   const btn = $("#fundEscrowBtn");
-  const amountInput = $("#fundAmount");
   const out = $("#fundEscrowOut");
 
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
     const requestId = $("#fundRequestId").value;
-    const amount = amountInput.value;
+    const amount = $("#fundAmount").value;
 
     const res = await api(`/requests/${requestId}/escrow/fund`, {
       method: "POST",
@@ -149,6 +153,7 @@ function setupFundEscrow() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok && res.checkout_url) {
       window.location.href = res.checkout_url;
@@ -175,6 +180,7 @@ function setupReleaseEscrow() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Escrow released"));
@@ -182,5 +188,4 @@ function setupReleaseEscrow() {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to release escrow"));
     }
   });
-
 }
