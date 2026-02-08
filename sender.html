@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DeliveryMate — Sender</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <script type="module" src="/js/app.js"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <nav class="nav">
+      <a href="/index.html">Home</a>
+      <a href="/sender.html" class="active">Sender</a>
+      <a href="/driver.html">Driver</a>
+      <a href="/about.html">About</a>
+      <a href="/admin.html" id="navAdmin">Admin</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Sender</h1>
+
+    <section class="card">
+      <h2>Register</h2>
+      <form id="senderRegForm">
+        <label>Invite code</label>
+        <input name="invite_code" required />
+
+        <label>Full name</label>
+        <input name="full_name" />
+
+        <label>Phone</label>
+        <input name="phone" required />
+
+        <label>Email</label>
+        <input name="email" />
+
+        <button class="btn" type="submit">Register</button>
+      </form>
+      <pre id="senderRegOut">{}</pre>
+    </section>
+
+    <section class="card">
+      <h2>Create Delivery Request</h2>
+      <form id="createRequestForm">
+        <label>Pickup suburb</label>
+        <input name="pickup_suburb" required />
+
+        <label>Drop-off suburb</label>
+        <input name="dropoff_suburb" required />
+
+        <label>Description</label>
+        <textarea name="item_description"></textarea>
+
+        <label>Weight (kg)</label>
+        <input name="weight_kg" type="number" step="0.1" />
+
+        <label>Suggested price (NZD)</label>
+        <input name="suggested_price_nzd" type="number" step="0.01" />
+
+        <button class="btn" type="submit">Create</button>
+      </form>
+      <pre id="senderOutput">{}</pre>
+    </section>
+
+    <section class="card">
+      <h2>View My Request</h2>
+      <form id="viewRequestForm">
+        <label>Request ID</label>
+        <input name="request_id" required />
+
+        <button class="btn" type="submit">Load</button>
+      </form>
+
+      <h3>Request</h3>
+      <pre id="viewRequestOut">{}</pre>
+
+      <h3>Offers</h3>
+      <pre id="viewOffersOut">[]</pre>
+
+      <h3>History</h3>
+      <pre id="viewHistoryOut">[]</pre>
+    </section>
+
+    <section class="card">
+      <h2>Accept Offer</h2>
+      <form id="acceptOfferForm">
+        <label>Request ID</label>
+        <input name="request_id" required />
+
+        <label>Offer ID</label>
+        <input name="offer_id" required />
+
+        <button class="btn" type="submit">Accept</button>
+      </form>
+      <pre id="acceptOfferOut">{}</pre>
+    </section>
+
+    <section class="card">
+      <h2>Fund Escrow</h2>
+      <label>Request ID</label>
+      <input id="fundRequestId" />
+
+      <label>Amount (NZD)</label>
+      <input id="fundAmount" type="number" step="0.01" />
+
+      <button class="btn" id="fundEscrowBtn">Pay Now</button>
+      <pre id="fundEscrowOut">{}</pre>
+    </section>
+
+    <section class="card">
+      <h2>Release Escrow</h2>
+      <label>Request ID</label>
+      <input id="releaseRequestId" />
+
+      <button class="btn" id="releaseEscrowBtn">Confirm Delivery</button>
+      <pre id="releaseEscrowOut">{}</pre>
+    </section>
+  </main>
+</body>
+</html>
