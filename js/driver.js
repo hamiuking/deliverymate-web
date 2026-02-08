@@ -1,7 +1,7 @@
 // public/js/driver.js
 
 import { api } from "./api.js";
-import { $, pretty, saveDriverToken } from "./utils.js";
+import { $, pretty, saveDriverToken, scrollToElement } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 
@@ -66,6 +66,7 @@ function setupMakeOffer() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Offer submitted"));
@@ -93,9 +94,11 @@ function setupViewJob() {
 
     const req = await api(`/requests/${requestId}`);
     reqOut.textContent = pretty(req);
+    scrollToElement(reqOut);
 
     const hist = await api(`/requests/${requestId}/history`);
     histOut.textContent = pretty(hist);
+    scrollToElement(histOut);
 
     if (!req.ok) {
       statusLine.textContent = "Failed to load job";
@@ -131,6 +134,7 @@ function setupUpdateStatus() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Status updated"));
@@ -138,5 +142,4 @@ function setupUpdateStatus() {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to update status"));
     }
   });
-
 }
