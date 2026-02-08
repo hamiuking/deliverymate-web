@@ -2365,8 +2365,8 @@ if (adminLoadPendingDriversBtn) {
 
 // ===================== Pilot pages (single-file routing) =====================
 function showPage(page) {
-  const pages = ['home','sender','driver','about','admin'];
-  document.body.classList.remove('page-home','page-sender','page-driver','page-about','page-admin');
+  const pages = ['home','quickstart','sender','driver','about','admin'];
+  document.body.classList.remove('page-home','page-quickstart','page-sender','page-driver','page-about','page-admin');
   document.body.classList.add('page-' + page);
   for (const p of pages) {
     const el = document.getElementById('page_' + p);
@@ -2382,7 +2382,7 @@ function showPage(page) {
 function route() {
   const h = String(window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
   const page = (h.split('?')[0] || '').trim();
-  if (page === 'sender' || page === 'driver' || page === 'about' || page === 'admin') showPage(page);
+  if (page === 'quickstart' || page === 'sender' || page === 'driver' || page === 'about' || page === 'admin') showPage(page);
   else showPage('home');
 }
 
