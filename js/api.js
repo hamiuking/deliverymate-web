@@ -1,5 +1,7 @@
 // public/js/api.js
 
+import { startLoading, finishLoading } from "./utils.js";
+
 export const API_BASE = "https://deliverymate.onrender.com";
 
 // Token getters
@@ -15,20 +17,19 @@ export function getAdminToken() {
 
 // Core API wrapper
 export async function api(path, { method = "GET", body = null, headers = {} } = {}) {
+  startLoading();
+
   const opts = { method, headers: { ...headers } };
 
-  // Idempotency for write operations
   if (method !== "GET") {
     opts.headers["Idempotency-Key"] = crypto.randomUUID();
   }
 
-  // JSON body
   if (body) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
 
-  // Attach tokens
   const sender = getSenderToken();
   const driver = getDriverToken();
   const admin = getAdminToken();
@@ -37,16 +38,13 @@ export async function api(path, { method = "GET", body = null, headers = {} } = 
   if (driver) opts.headers["X-Driver-Token"] = driver;
   if (admin) opts.headers["X-Admin-Token"] = admin;
 
-  let res;
   try {
-    res = await fetch(API_BASE + path, opts);
+    const res = await fetch(API_BASE + path, opts);
+    const json = await res.json();
+    finishLoading();
+    return json;
   } catch (err) {
-    return { ok: false, error: "Network error. Please try again." };
-  }
-
-  try {
-    return await res.json();
-  } catch {
-    return { ok: false, error: "Invalid JSON from server" };
+    finishLoading();
+    return { ok: false, error: "Network error" };
   }
 }
