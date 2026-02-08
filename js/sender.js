@@ -35,6 +35,7 @@ function setupRegistration() {
     });
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (res.ok && res.sender_token) {
       saveSenderToken(res.sender_token);
@@ -181,4 +182,5 @@ function setupReleaseEscrow() {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to release escrow"));
     }
   });
+
 }
