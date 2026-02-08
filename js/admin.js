@@ -48,6 +48,7 @@ function setupLoadPendingDrivers() {
     const res = await api("/admin/drivers/pending");
 
     out.textContent = pretty(res);
+    scrollToElement(out);
 
     if (!res.ok) {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to load pending drivers"));
@@ -144,4 +145,5 @@ function setupDashboardRefresh() {
 
     statusEl.textContent = "Updated";
   });
+
 }
