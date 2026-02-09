@@ -59,3 +59,27 @@ function injectPilotBanner() {
 }
 
 initApp();
+
+// Copy-to-clipboard helper (pilot templates)
+document.addEventListener('click', async (e) => {
+  const btn = e.target && e.target.closest && e.target.closest('button[data-copy]');
+  if (!btn) return;
+  const sel = btn.getAttribute('data-copy');
+  if (!sel) return;
+  const el = document.querySelector(sel);
+  if (!el) return;
+  const text = el.textContent || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    const old = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => (btn.textContent = old), 1200);
+  } catch {
+    // Fallback: select text so user can copy manually
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(range);
+  }
+});
