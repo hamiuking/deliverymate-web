@@ -22,6 +22,30 @@
 
   <main class="container">
     <h1>Driver</h1>
+    <div id="driverAuthStatus" class="muted"></div>
+
+    <section class="card" id="driverAuthControls">
+      <h2>Log in</h2>
+      <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
+
+      <form id="driverLoginForm">
+        <label>Phone</label>
+        <input name="phone" placeholder="e.g. 021..." required />
+
+        <label>Invite code</label>
+        <input name="invite_code" placeholder="Pilot invite code" required />
+
+        <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
+      </form>
+
+      <div class="btn-row mt-2">
+        <button class="btn secondary" type="button" id="driverContinueBtn">Continue on this device</button>
+        <button class="btn secondary" type="button" id="driverLogoutBtn">Log out</button>
+      </div>
+
+      <div class="muted mt-2" id="driverAuthHint"></div>
+    </section>
+
 
 
     <section class="card">
