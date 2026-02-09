@@ -10,12 +10,67 @@ export function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
+  enforceSenderGate();
   setupCreateRequest();
   setupViewRequest();
   setupAcceptOffer();
   setupFundEscrow();
   setupReleaseEscrow();
   setupIssueReport_sender();
+}
+
+
+// Store sender tokens per request (pilot convenience).
+function saveSenderTokenForRequest(requestId, token) {
+  if (!requestId || !token) return;
+  try {
+    const key = 'dm_sender_tokens';
+    const obj = JSON.parse(localStorage.getItem(key) || '{}');
+    obj[String(requestId)] = String(token);
+    localStorage.setItem(key, JSON.stringify(obj));
+    // Also set as current sender token for API calls
+    sessionStorage.setItem('dm_sender_token', String(token));
+  } catch (_) {
+    // Fallback: at least set session token
+    sessionStorage.setItem('dm_sender_token', String(token));
+  }
+}
+
+function loadSenderTokenForRequest(requestId) {
+  if (!requestId) return '';
+  try {
+    const obj = JSON.parse(localStorage.getItem('dm_sender_tokens') || '{}');
+    return obj[String(requestId)] || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function markSenderRegistered(user) {
+  sessionStorage.setItem('dm_sender_registered', '1');
+  if (user) sessionStorage.setItem('dm_user', JSON.stringify(user));
+}
+
+function isSenderRegistered() {
+  return sessionStorage.getItem('dm_sender_registered') === '1';
+}
+
+function enforceSenderGate() {
+  const status = document.getElementById('senderAuthStatus');
+  const locked = !isSenderRegistered();
+
+  // Apply a CSS gate to hide non-essential sections until registration completes.
+  document.body.classList.toggle('locked', locked);
+
+  if (status) {
+    if (locked) {
+      status.textContent = 'Pilot: please register first to enable request creation and offer acceptance on this device.';
+    } else {
+      let phone = '';
+      try { phone = (JSON.parse(sessionStorage.getItem('dm_user') || 'null') || {}).phone || ''; } catch(_) {}
+      status.textContent = phone ? `Registered: ${phone}` : 'Registered';
+    }
+  }
 }
 
 /* ---------------------------------------------------------
@@ -97,7 +152,9 @@ function renderCreateRequestInfo(res) {
     const box = document.getElementById('senderCreateInfo');
     if (!box) return;
     const id = res?.request?.id;
+    const tok = res?.sender_token;
     if (!id) return;
+    if (tok) saveSenderTokenForRequest(id, tok);
 
     // Autofill common fields to reduce pilot friction
     const viewForm = document.getElementById('viewRequestForm');
@@ -157,6 +214,10 @@ function setupViewRequest() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = form.request_id.value;
+
+    // Ensure sender token is loaded for this request (needed for accept/release).
+    const tok = loadSenderTokenForRequest(id);
+    if (tok) sessionStorage.setItem('dm_sender_token', tok);
 
     const req = await api(`/requests/${id}`);
     reqOut.textContent = pretty(req);
