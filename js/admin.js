@@ -135,26 +135,84 @@ function setupLedgerLookup() {
 /* ---------------------------------------------------------
    5. Dashboard Refresh
 --------------------------------------------------------- */
+
 function setupDashboardRefresh() {
-  const btn = $("#adminRefreshDashboardBtn");
+  const refreshBtn = $("#adminRefreshDashboardBtn");
+  const runTickBtn = $("#adminRunTickBtn");
+
   const pendingEl = $("#adminCountPendingDrivers");
   const approvedEl = $("#adminCountApprovedDrivers");
   const disabledEl = $("#adminCountDisabledDrivers");
+
+  const overdueReleaseEl = $("#adminCountOverdueRelease");
+  const failedPayoutsEl = $("#adminCountFailedPayouts");
+  const oldPendingPayoutsEl = $("#adminCountOldPendingPayouts");
+
   const statusEl = $("#adminDashboardStatus");
+  const runTickOutEl = $("#adminRunTickOut");
+  const actionItemsEl = $("#adminActionItemsOut");
+  const recentEl = $("#adminRecentRequestsOut");
 
-  if (!btn) return;
+  if (!refreshBtn) return;
 
-  btn.addEventListener("click", async () => {
+  refreshBtn.addEventListener("click", async () => {
+    await refreshDashboard();
+  });
+
+  if (runTickBtn) {
+    runTickBtn.addEventListener("click", async () => {
+      runTickOutEl.textContent = "Running tick…";
+      const r = await api("/admin/cron/tick", { method: "POST" });
+      if (!r.ok) {
+        runTickOutEl.textContent = "";
+        runTickBtn.insertAdjacentHTML("afterend", alertError(r.error || "Tick failed"));
+        return;
+      }
+      const done = (r.processed_count ?? "—");
+      const skipped = (r.skipped_count ?? "—");
+      runTickOutEl.textContent = `Tick complete. processed=${done}, skipped=${skipped}`;
+      // Refresh stats after running tick
+      await refreshDashboard();
+    });
+  }
+
+  // Retry payout buttons (event delegation)
+  document.addEventListener("click", async (e) => {
+    const btn = e.target && e.target.closest && e.target.closest("button[data-retry-payout]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-retry-payout");
+    if (!id) return;
+
+    btn.disabled = true;
+    const r = await api(`/admin/requests/${encodeURIComponent(id)}/payout/retry`, { method: "POST" });
+    if (!r.ok) {
+      btn.disabled = false;
+      btn.insertAdjacentHTML("afterend", alertError(r.error || "Retry failed"));
+      return;
+    }
+    btn.insertAdjacentHTML("afterend", alertSuccess(`Retry requested for request #${id}`));
+    await refreshDashboard();
+    btn.disabled = false;
+  });
+
+  async function refreshDashboard() {
     statusEl.textContent = "Loading…";
 
-    // Backend does not have a single /admin/dashboard endpoint; compute counts from existing endpoints.
+    // Drivers (existing endpoints)
     const p = await api("/admin/drivers?status=pending_review");
     const a = await api("/admin/drivers?status=approved");
     const d = await api("/admin/drivers?status=disabled");
 
-    if (!p.ok || !a.ok || !d.ok) {
+    // Trial monitoring
+    const s = await api("/admin/trial/summary");
+    const t = await api("/admin/trial/action-items");
+
+    if (!p.ok || !a.ok || !d.ok || !s.ok || !t.ok) {
       statusEl.textContent = "";
-      btn.insertAdjacentHTML("afterend", alertError((p.error || a.error || d.error || "Failed to load dashboard")));
+      refreshBtn.insertAdjacentHTML(
+        "afterend",
+        alertError((p.error || a.error || d.error || s.error || t.error || "Failed to load dashboard"))
+      );
       return;
     }
 
@@ -162,9 +220,113 @@ function setupDashboardRefresh() {
     approvedEl.textContent = Array.isArray(a.drivers) ? a.drivers.length : "—";
     disabledEl.textContent = Array.isArray(d.drivers) ? d.drivers.length : "—";
 
-    statusEl.textContent = "Updated";
-  });
+    // Summary alerts
+    overdueReleaseEl.textContent = s.alerts?.pending_release_overdue ?? "—";
+    oldPendingPayoutsEl.textContent = s.alerts?.payouts_pending_old ?? "—";
+
+    // Action items counts
+    const failedCount = Array.isArray(t.payouts_failed) ? t.payouts_failed.length : 0;
+    failedPayoutsEl.textContent = failedCount;
+
+    statusEl.textContent = `Updated • ${s.now || ""} • build ${s.build_id || ""}`;
+
+    // Render action items
+    actionItemsEl.innerHTML = renderActionItems(t);
+
+    // Render recent requests table (compact)
+    recentEl.innerHTML = renderRecentRequestsTable(s.recent_requests || []);
+  }
+
+  // Auto-load once on page open (nice for ops)
+  refreshDashboard();
 }
+
+function renderActionItems(t) {
+  const overdue = Array.isArray(t.overdue_release) ? t.overdue_release : [];
+  const pendingOld = Array.isArray(t.payouts_pending_old) ? t.payouts_pending_old : [];
+  const failed = Array.isArray(t.payouts_failed) ? t.payouts_failed : [];
+
+  const parts = [];
+
+  // Overdue releases
+  parts.push(`<div class="card compact">
+    <div class="muted">Overdue pending_release (should auto-release)</div>
+    ${overdue.length ? actionTableOverdue(overdue) : `<div>None</div>`}
+  </div>`);
+
+  // Old pending payouts
+  parts.push(`<div class="card compact mt-2">
+    <div class="muted">Pending payouts (2h+)</div>
+    ${pendingOld.length ? actionTablePending(pendingOld) : `<div>None</div>`}
+  </div>`);
+
+  // Failed payouts
+  parts.push(`<div class="card compact mt-2">
+    <div class="muted">Failed payouts</div>
+    ${failed.length ? actionTableFailed(failed) : `<div>None</div>`}
+  </div>`);
+
+  return parts.join("");
+}
+
+function actionTableOverdue(rows) {
+  const head = `<table class="table">
+    <thead><tr><th>Request</th><th>Deadline</th></tr></thead><tbody>`;
+  const body = rows.map(r => `<tr>
+      <td>#${escapeHtml(r.id)}</td>
+      <td>${escapeHtml(r.escrow_dispute_deadline_at || "")}</td>
+    </tr>`).join("");
+  return head + body + `</tbody></table>`;
+}
+
+function actionTablePending(rows) {
+  const head = `<table class="table">
+    <thead><tr><th>Request</th><th>Payout created</th><th>Amount</th></tr></thead><tbody>`;
+  const body = rows.map(r => `<tr>
+      <td>#${escapeHtml(r.id)}</td>
+      <td>${escapeHtml(r.payout_created_at || "")}</td>
+      <td>${escapeHtml(r.payout_amount_nzd ?? "")}</td>
+    </tr>`).join("");
+  return head + body + `</tbody></table>`;
+}
+
+function actionTableFailed(rows) {
+  const head = `<table class="table">
+    <thead><tr><th>Request</th><th>Failed at</th><th>Reason</th><th></th></tr></thead><tbody>`;
+  const body = rows.map(r => `<tr>
+      <td>#${escapeHtml(r.id)}</td>
+      <td>${escapeHtml(r.payout_failed_at || "")}</td>
+      <td>${escapeHtml(r.payout_fail_reason || "")}</td>
+      <td><button class="btn" data-retry-payout="${escapeHtml(r.id)}">Retry payout</button></td>
+    </tr>`).join("");
+  return head + body + `</tbody></table>`;
+}
+
+function renderRecentRequestsTable(rows) {
+  if (!Array.isArray(rows) || !rows.length) return `<div class="muted">No recent requests</div>`;
+
+  const head = `<table class="table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Escrow</th>
+        <th>Payout</th>
+        <th>Created</th>
+      </tr>
+    </thead><tbody>`;
+
+  const body = rows.map(r => `<tr>
+      <td>#${escapeHtml(r.id)}</td>
+      <td>${escapeHtml(r.status || "")}</td>
+      <td>${escapeHtml(r.escrow_status || "")}</td>
+      <td>${escapeHtml(r.payout_status || "")}</td>
+      <td>${escapeHtml(r.created_at || "")}</td>
+    </tr>`).join("");
+
+  return head + body + `</tbody></table>`;
+}
+
 
 function escapeHtml(s) {
   return String(s)
