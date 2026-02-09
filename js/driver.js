@@ -13,6 +13,7 @@ export function initDriverPage() {
   setupMakeOffer();
   setupViewJob();
   setupUpdateStatus();
+  setupIssueReport_driver();
 }
 
 /* ---------------------------------------------------------
@@ -245,5 +246,48 @@ function setupUpdateStatus() {
     } else {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to update status"));
     }
+  });
+}
+
+/* ---------------------------------------------------------
+   Pilot: Report an issue helper
+--------------------------------------------------------- */
+function setupIssueReport_driver() {
+  const form = document.getElementById('driverIssueForm');
+  const out = document.getElementById('driverIssueOut');
+  if (!form || !out) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const requestId = String(fd.get('request_id') || '').trim();
+    const note = String(fd.get('note') || '').trim();
+
+    let snapshot = '';
+    if (requestId) {
+      // Try to load request + (optional) offers/history where relevant
+      const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: 'driver' });
+      if (req && req.ok && req.request) {
+        const r = req.request;
+        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(r.pickup_suburb)}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
+      } else {
+        snapshot = `Status snapshot: (unable to load request)`;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const url = window.location.origin;
+    const msg = [
+      `DeliveryMate pilot issue report`,
+      `Time: ${now}`,
+      `Role: driver`,
+      requestId ? `Request ID: ${requestId}` : `Request ID: (not provided)`,
+      snapshot ? `\n${snapshot}\n` : '',
+      note ? `Note: ${note}` : 'Note: (none)',
+      `\nPlease include a screenshot if possible.`,
+      `Site: ${url}`
+    ].join('\n');
+
+    out.textContent = msg;
   });
 }
