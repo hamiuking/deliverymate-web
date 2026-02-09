@@ -83,11 +83,61 @@ function setupCreateRequest() {
 
     if (res.ok) {
       out.insertAdjacentHTML("beforebegin", alertSuccess("Request created"));
+      renderCreateRequestInfo(res);
     } else {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to create request"));
     }
   });
 }
+
+
+function renderCreateRequestInfo(res) {
+  try {
+    const box = document.getElementById('senderCreateInfo');
+    if (!box) return;
+    const id = res?.request?.id;
+    if (!id) return;
+
+    // Autofill common fields to reduce pilot friction
+    const viewForm = document.getElementById('viewRequestForm');
+    if (viewForm && viewForm.request_id) viewForm.request_id.value = String(id);
+
+    const relInput = document.getElementById('releaseRequestId');
+    if (relInput) relInput.value = String(id);
+
+    box.innerHTML = `
+      <div class="card compact" style="border:1px solid rgba(15,23,42,.12);">
+        <div><strong>Save your Request ID:</strong> <span id="createdRequestId">${safeText(id)}</span></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn secondary" type="button" id="copyRequestIdBtn">Copy ID</button>
+          <button class="btn" type="button" id="loadCreatedRequestBtn">Load request</button>
+        </div>
+        <div class="muted" id="copyRequestIdNote" style="margin-top:6px;"></div>
+      </div>
+    `;
+
+    const copyBtn = document.getElementById('copyRequestIdBtn');
+    const loadBtn = document.getElementById('loadCreatedRequestBtn');
+    const note = document.getElementById('copyRequestIdNote');
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(String(id));
+          if (note) note.textContent = 'Copied.';
+        } catch {
+          if (note) note.textContent = 'Copy failed. Please select and copy manually.';
+        }
+      });
+    }
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => {
+        if (viewForm) viewForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      });
+    }
+  } catch (_) {}
+}
+
 
 /* ---------------------------------------------------------
    3. View Request + Offers + History
