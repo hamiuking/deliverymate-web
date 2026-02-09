@@ -164,6 +164,30 @@
         <pre id="releaseEscrowOut">{}</pre>
       </details>
     </section>
+  
+    <section class="card">
+      <h2>Report an issue (pilot)</h2>
+      <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+
+      <form id="senderIssueForm">
+        <label>Request ID</label>
+        <input name="request_id" placeholder="e.g. 123" />
+
+        <label>What happened?</label>
+        <textarea name="note" placeholder="One or two sentences"></textarea>
+
+        <button class="btn" type="submit">Generate message</button>
+      </form>
+
+      <div class="mt-2">
+        <div class="muted">Message</div>
+        <pre id="senderIssueOut"></pre>
+        <div class="btn-row mt-2">
+          <button class="btn secondary" type="button" data-copy="#senderIssueOut">Copy message</button>
+        </div>
+      </div>
+    </section>
+
   </main>
 </body>
 </html>
