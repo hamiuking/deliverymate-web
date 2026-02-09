@@ -23,6 +23,22 @@
   <main class="container">
     <h1>Sender</h1>
 
+
+    <section class="card">
+      <h2>Pilot guide (Sender)</h2>
+      <ol>
+        <li><strong>Create a request</strong> (pickup, drop‑off, item, suggested price).</li>
+        <li><strong>Review offers</strong> and accept one driver.</li>
+        <li><strong>Fund escrow</strong> when prompted (Stripe test mode during pilot).</li>
+        <li><strong>After delivery</strong>: confirm to release escrow immediately, or it auto‑releases after 24 hours.</li>
+      </ol>
+      <p class="muted">
+        DeliveryMate is a facilitator only. We do not provide dispute resolution, refunds, or reversals after release.
+      </p>
+    </section>
+
+
+
     <section class="card">
       <h2>Register</h2>
       <form id="senderRegForm">
@@ -48,6 +64,7 @@
 
     <section class="card">
       <h2>Create Delivery Request</h2>
+      <p class="muted">After you create a request, save the Request ID. You will use it to view offers and confirm delivery.</p>
       <form id="createRequestForm">
         <label>Pickup suburb</label>
         <input name="pickup_suburb" required />
@@ -74,6 +91,7 @@
 
     <section class="card">
       <h2>View My Request</h2>
+      <p class="muted">Use your Request ID to load the current status, offers, and history. After the driver marks <strong>delivered</strong>, you can confirm to release escrow immediately.</p>
       <form id="viewRequestForm">
         <label>Request ID</label>
         <input name="request_id" required />

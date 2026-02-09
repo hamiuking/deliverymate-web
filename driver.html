@@ -23,8 +23,25 @@
   <main class="container">
     <h1>Driver</h1>
 
+
+    <section class="card">
+      <h2>Pilot guide (Driver)</h2>
+      <ol>
+        <li><strong>Apply</strong> to become a driver (admin approval required).</li>
+        <li><strong>Browse and submit offers</strong> for open requests.</li>
+        <li><strong>If selected</strong>, update status: picked up → delivered.</li>
+        <li><strong>Payout</strong> is initiated after delivery and escrow release (immediate on sender confirmation, or auto‑release after 24 hours).</li>
+      </ol>
+      <p class="muted">
+        Drivers are independent. DeliveryMate is not an employer, courier, or agent.
+      </p>
+    </section>
+
+
+
     <section class="card">
       <h2>Register as Driver</h2>
+      <p class="muted">Invite‑only pilot. Your application must be approved by an admin before you can submit offers.</p>
       <form id="driverRegForm">
         <label>Invite code</label>
         <input name="invite_code" required />
@@ -106,6 +123,7 @@
 
     <section class="card">
       <h2>Update Status</h2>
+      <p class="muted">Update status only after you have actually picked up or delivered the item. After <strong>delivered</strong>, escrow moves to pending release.</p>
       <form id="driverStatusForm">
         <label>Request ID</label>
         <input name="request_id" required />
