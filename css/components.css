@@ -169,3 +169,11 @@ pre {
 
 /* Issue report output */
 #senderIssueOut, #driverIssueOut { min-height: 80px; white-space: pre-wrap; }
+
+
+/* Sender/Driver gating (pilot convenience) */
+.locked .requires-sender { display: none; }
+
+#senderAuthControls, #driverAuthControls { margin-top: 10px; }
+
+.hidden{ display:none; }
