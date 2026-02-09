@@ -22,9 +22,10 @@
 
   <main class="container">
     <h1>Sender</h1>
+    <div id="senderAuthStatus" class="muted"></div>
 
 
-    <section class="card">
+    <section class="card"  class="card requires-sender">
       <h2>Pilot guide (Sender)</h2>
       <ol>
         <li><strong>Create a request</strong> (pickup, drop‑off, item, suggested price).</li>
@@ -39,7 +40,7 @@
 
 
 
-    <section class="card">
+    <section class="card"  class="card requires-sender">
       <h2>Register</h2>
       <form id="senderRegForm">
         <label>Invite code</label>
@@ -63,7 +64,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card"  class="card requires-sender">
       <h2>Create Delivery Request</h2>
       <p class="muted">After you create a request, save the Request ID. You will use it to view offers and confirm delivery.</p>
       <form id="createRequestForm">
@@ -91,7 +92,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card"  class="card requires-sender">
       <h2>View My Request</h2>
       <p class="muted">Use your Request ID to load the current status, offers, and history. After the driver marks <strong>delivered</strong>, you can confirm to release escrow immediately.</p>
       <form id="viewRequestForm">
@@ -120,7 +121,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card"  class="card requires-sender">
       <h2>Accept Offer</h2>
       <form id="acceptOfferForm">
         <label>Request ID</label>
@@ -138,7 +139,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card requires-sender">
       <h2>Fund Escrow</h2>
       <label>Request ID</label>
       <input id="fundRequestId" />
@@ -153,7 +154,7 @@
       </details>
     </section>
 
-    <section class="card">
+    <section class="card requires-sender">
       <h2>Release Escrow</h2>
       <label>Request ID</label>
       <input id="releaseRequestId" />
