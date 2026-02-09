@@ -195,6 +195,25 @@ function setupDashboardRefresh() {
     btn.disabled = false;
   });
 
+  // Simulate payout success buttons (test-mode ops; event delegation)
+  document.addEventListener("click", async (e) => {
+    const btn = e.target && e.target.closest && e.target.closest("button[data-sim-success]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-sim-success");
+    if (!id) return;
+
+    btn.disabled = true;
+    const r = await api(`/admin/requests/${encodeURIComponent(id)}/payout/simulate_success`, { method: "POST" });
+    if (!r.ok) {
+      btn.disabled = false;
+      btn.insertAdjacentHTML("afterend", alertError(r.error || "Simulate payout failed"));
+      return;
+    }
+    btn.insertAdjacentHTML("afterend", alertSuccess(`Payout marked completed for request #${id}`));
+    await refreshDashboard();
+    btn.disabled = false;
+  });
+
   async function refreshDashboard() {
     statusEl.textContent = "Loading…";
 
@@ -281,11 +300,12 @@ function actionTableOverdue(rows) {
 
 function actionTablePending(rows) {
   const head = `<table class="table">
-    <thead><tr><th>Request</th><th>Payout created</th><th>Amount</th></tr></thead><tbody>`;
+    <thead><tr><th>Request</th><th>Payout created</th><th>Amount</th><th></th></tr></thead><tbody>`;
   const body = rows.map(r => `<tr>
       <td>#${escapeHtml(r.id)}</td>
       <td>${escapeHtml(r.payout_created_at || "")}</td>
       <td>${escapeHtml(r.payout_amount_nzd ?? "")}</td>
+      <td><button class="btn" data-sim-success="${escapeHtml(r.id)}">Mark completed</button></td>
     </tr>`).join("");
   return head + body + `</tbody></table>`;
 }
