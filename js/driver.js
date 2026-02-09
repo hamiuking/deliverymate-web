@@ -134,6 +134,52 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
       <div class="muted" style="margin-top:10px;">
         Request #${safeText(r.id)} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
       </div>
+
+      <div clas
+
+  // Autofill Update Status form with loaded request id and driver name (if present)
+  const statusForm = document.getElementById('driverStatusForm');
+  if (statusForm && statusForm.request_id) {
+    statusForm.request_id.value = String(r.id);
+  }
+  if (statusForm && statusForm.driver_name && !statusForm.driver_name.value && r.driver_name) {
+    statusForm.driver_name.value = String(r.driver_name);
+  }
+
+  const noteEl = document.getElementById('qaNote');
+  const pickedBtn = document.getElementById('qaPickedUpBtn');
+  const delBtn = document.getElementById('qaDeliveredBtn');
+
+  const canPicked = (r.status === 'accepted' || r.status === 'open'); // open if driver already assigned in your flow
+  const canDelivered = (r.status === 'picked_up');
+
+  if (pickedBtn) pickedBtn.disabled = !canPicked;
+  if (delBtn) delBtn.disabled = !canDelivered;
+
+  if (pickedBtn) {
+    pickedBtn.addEventListener('click', () => {
+      if (!statusForm) return;
+      statusForm.status.value = 'picked_up';
+      if (noteEl) noteEl.textContent = 'Submitting status update…';
+      statusForm.querySelector('button[type="submit"]')?.click();
+    });
+  }
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      if (!statusForm) return;
+      statusForm.status.value = 'delivered';
+      if (noteEl) noteEl.textContent = 'Submitting status update…';
+      statusForm.querySelector('button[type="submit"]')?.click();
+    });
+  }
+s="mt-2">
+        <div class="muted">Quick actions</div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="btn secondary" id="qaPickedUpBtn" type="button">Mark picked up</button>
+          <button class="btn" id="qaDeliveredBtn" type="button">Mark delivered</button>
+        </div>
+        <div class="muted" id="qaNote" style="margin-top:6px;"></div>
+      </div>
     </div>
   `);
 

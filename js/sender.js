@@ -150,7 +150,36 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
         Request #${r.id} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
       </div>
     </div>
-  `);
+  `)
+
+  // Prominent sender CTA: confirm delivery when eligible
+  const canConfirm = (r.status === 'delivered' || r.escrow_status === 'pending_release');
+  if (canConfirm) {
+    summary.insertAdjacentHTML('beforeend', `
+      <div class="card" style="border:1px solid rgba(15,23,42,.12);">
+        <h3 style="margin-top:0;">Confirm delivery</h3>
+        <p class="muted">
+          Confirming will release escrow immediately. If you do nothing, escrow will auto‑release after 24 hours.
+        </p>
+        <button class="btn" id="ctaConfirmDeliveryBtn">Confirm delivery & release escrow</button>
+        <div class="muted" id="ctaConfirmDeliveryNote" style="margin-top:8px;"></div>
+      </div>
+    `);
+
+    const ctaBtn = document.getElementById('ctaConfirmDeliveryBtn');
+    if (ctaBtn) {
+      ctaBtn.addEventListener('click', () => {
+        const rid = String(r.id);
+        const input = document.getElementById('releaseRequestId');
+        const btn = document.getElementById('releaseEscrowBtn');
+        const note = document.getElementById('ctaConfirmDeliveryNote');
+        if (input) input.value = rid;
+        if (note) note.textContent = 'Releasing escrow…';
+        if (btn) btn.click();
+      });
+    }
+  }
+;
 
   // Offers list
   const arr = offers && offers.ok && Array.isArray(offers.offers) ? offers.offers : [];
