@@ -143,3 +143,26 @@ pre {
   overflow: auto;
   border: 1px solid rgba(255,255,255,.08);
 }
+
+/* Utility spacing */
+.mt-2 { margin-top: 10px; }
+
+/* Tables (admin dashboard) */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.10);
+  text-align: left;
+  vertical-align: top;
+  font-size: 14px;
+}
+
+.table thead th {
+  font-weight: 600;
+  color: rgba(15,23,42,.72);
+}
