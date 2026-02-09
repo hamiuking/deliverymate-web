@@ -166,3 +166,6 @@ pre {
   font-weight: 600;
   color: rgba(15,23,42,.72);
 }
+
+/* Issue report output */
+#senderIssueOut, #driverIssueOut { min-height: 80px; white-space: pre-wrap; }
