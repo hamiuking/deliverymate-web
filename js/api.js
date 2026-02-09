@@ -3,6 +3,9 @@
 export const API_BASE = "https://deliverymate.onrender.com";
 
 // Token getters
+export function getUserToken() {
+  return sessionStorage.getItem("dm_user_token") || localStorage.getItem("dm_user_token") || "";
+}
 export function getSenderToken() {
   return sessionStorage.getItem("dm_sender_token") || "";
 }
@@ -34,10 +37,12 @@ export async function api(path, { method = "GET", body = null, headers = {}, rol
   }
 
   // Attach tokens
+  const userTok = getUserToken();
   const sender = getSenderToken();
   const driver = getDriverToken();
   const admin = getAdminToken();
 
+  if (userTok) opts.headers["X-User-Token"] = userTok;
   if (sender) opts.headers["X-Sender-Token"] = sender;
   if (driver) opts.headers["X-Driver-Token"] = driver;
   if (admin) opts.headers["X-Admin-Token"] = admin;

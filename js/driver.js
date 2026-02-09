@@ -6,10 +6,57 @@ import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
 
+
+function markDriverRegistered(user) {
+  localStorage.setItem('dm_driver_registered', '1');
+  if (user) {
+    localStorage.setItem('dm_user_driver', JSON.stringify(user));
+    sessionStorage.setItem('dm_user_driver', JSON.stringify(user));
+  }
+}
+
+function isDriverRegistered() {
+  return localStorage.getItem('dm_driver_registered') === '1';
+}
+
+function getSavedDriverUser() {
+  try {
+    const raw = localStorage.getItem('dm_user_driver');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function enforceDriverGate() {
+  const status = document.getElementById('driverAuthStatus');
+  const u = getSavedDriverUser();
+  if (status) {
+    status.textContent = isDriverRegistered() && u?.phone ? `Registered: ${u.phone}` : 'Pilot: register once, then you can “Continue on this device” next time.';
+  }
+
+  // Optional: hide registration form if already registered (still accessible via logout)
+  const regCard = document.querySelector('section.card');
+  const form = document.getElementById('driverRegForm');
+  if (form) {
+    form.closest('section')?.classList.toggle('hidden', isDriverRegistered());
+  }
+}
+
+
+function saveUserToken(tok) {
+  if (!tok) return;
+  localStorage.setItem('dm_user_token', String(tok));
+  sessionStorage.setItem('dm_user_token', String(tok));
+}
+
 export function initDriverPage() {
   console.log("Driver page loaded");
 
   setupDriverRegistration();
+  enforceDriverGate();
+  setupDriverAuthControls();
   setupMakeOffer();
   setupViewJob();
   setupUpdateStatus();
@@ -38,7 +85,10 @@ function setupDriverRegistration() {
 
     if (res.ok) {
       if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Driver application submitted"));
+      out.insertAdjacentHTML("beforebegin", alertSuccess("Driver application submitted")
+      ;saveUserToken(res.user_token || res.userToken || res.auth_token);
+      markDriverRegistered(res.user);
+      enforceDriverGate(););
     } else {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Registration failed"));
     }
@@ -289,5 +339,75 @@ function setupIssueReport_driver() {
     ].join('\n');
 
     out.textContent = msg;
+  });
+}
+
+
+function setupDriverAuthControls() {
+  setupDriverLogin();
+  const continueBtn = document.getElementById('driverContinueBtn');
+  const logoutBtn = document.getElementById('driverLogoutBtn');
+  const hint = document.getElementById('driverAuthHint');
+
+  const u = getSavedDriverUser();
+  if (hint) hint.textContent = u?.phone ? `Saved on this device: ${u.phone}` : 'No saved login on this device yet.';
+
+  if (continueBtn) {
+    continueBtn.addEventListener('click', () => {
+      const u2 = getSavedDriverUser();
+      if (!u2) {
+        if (hint) hint.textContent = 'No saved login found. Please register below.';
+        return;
+      }
+      localStorage.setItem('dm_driver_registered', '1');
+      sessionStorage.setItem('dm_user_driver', JSON.stringify(u2));
+      enforceDriverGate();
+      if (hint) hint.textContent = `Continuing as ${u2.phone}`;
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('dm_driver_registered');
+      localStorage.removeItem('dm_user_driver');
+      sessionStorage.removeItem('dm_user_driver');
+      sessionStorage.removeItem('dm_driver_token');
+      sessionStorage.removeItem('dm_user_token');
+      localStorage.removeItem('dm_user_token');
+      enforceDriverGate();
+      // show registration again
+      const form = document.getElementById('driverRegForm');
+      if (form) form.closest('section')?.classList.remove('hidden');
+      if (hint) hint.textContent = 'Logged out. Please register again to use this device.';
+    });
+  }
+}
+
+
+function setupDriverLogin() {
+  const form = document.getElementById('driverLoginForm');
+  const hint = document.getElementById('driverAuthHint');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get('phone') || '').trim();
+    const invite_code = String(fd.get('invite_code') || '').trim();
+
+    if (hint) hint.textContent = 'Logging in…';
+
+    const res = await api('/users/login', { method: 'POST', body: { phone, invite_code } });
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || 'Login failed';
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markDriverRegistered(res.user);
+    sessionStorage.setItem('dm_user_driver', JSON.stringify(res.user));
+    enforceDriverGate();
+
+    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
   });
 }

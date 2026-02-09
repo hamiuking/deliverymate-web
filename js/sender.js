@@ -11,6 +11,7 @@ export function initSenderPage() {
 
   setupRegistration();
   enforceSenderGate();
+  setupSenderAuthControls();
   setupCreateRequest();
   setupViewRequest();
   setupAcceptOffer();
@@ -47,12 +48,12 @@ function loadSenderTokenForRequest(requestId) {
 }
 
 function markSenderRegistered(user) {
-  sessionStorage.setItem('dm_sender_registered', '1');
-  if (user) sessionStorage.setItem('dm_user', JSON.stringify(user));
+  localStorage.setItem('dm_sender_registered', '1');
+  if (user) { localStorage.setItem('dm_user', JSON.stringify(user)); sessionStorage.setItem('dm_user', JSON.stringify(user)); }
 }
 
 function isSenderRegistered() {
-  return sessionStorage.getItem('dm_sender_registered') === '1';
+  return localStorage.getItem('dm_sender_registered') === '1';
 }
 
 function enforceSenderGate() {
@@ -67,7 +68,7 @@ function enforceSenderGate() {
       status.textContent = 'Pilot: please register first to enable request creation and offer acceptance on this device.';
     } else {
       let phone = '';
-      try { phone = (JSON.parse(sessionStorage.getItem('dm_user') || 'null') || {}).phone || ''; } catch(_) {}
+      try { phone = (JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null')) || {}).phone || ''; } catch(_) {}
       status.textContent = phone ? `Registered: ${phone}` : 'Registered';
     }
   }
@@ -123,7 +124,7 @@ function setupCreateRequest() {
 
     // If user profile exists, use it as defaults (pilot convenience)
     try {
-      const u = JSON.parse(sessionStorage.getItem('dm_user') || 'null');
+      const u = JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null'));
       if (u && u.phone) data.sender_phone = data.sender_phone || u.phone;
       if (u && u.full_name) data.sender_name = data.sender_name || u.full_name;
       if (u && u.phone) data.sender_phone = data.sender_phone || u.phone;
@@ -485,5 +486,96 @@ function setupIssueReport_sender() {
     ].join('\n');
 
     out.textContent = msg;
+  });
+}
+
+
+function setupSenderAuthControls() {
+  setupSenderLogin();
+  const continueBtn = document.getElementById('senderContinueBtn');
+  const logoutBtn = document.getElementById('senderLogoutBtn');
+  const hint = document.getElementById('senderAuthHint');
+
+  if (hint) {
+    const u = getSavedUser();
+    hint.textContent = u?.phone ? `Saved on this device: ${u.phone}` : 'No saved login on this device yet.';
+  }
+
+  if (continueBtn) {
+    continueBtn.addEventListener('click', () => {
+      const u = getSavedUser();
+      if (!u) {
+        if (hint) hint.textContent = 'No saved login found. Please register below.';
+        return;
+      }
+      // Mark registered and restore to session for convenience
+      localStorage.setItem('dm_sender_registered', '1');
+      sessionStorage.setItem('dm_sender_registered', '1');
+      sessionStorage.setItem('dm_user', JSON.stringify(u));
+      enforceSenderGate();
+      if (hint) hint.textContent = `Continuing as ${u.phone}`;
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      // Keep sender_tokens map; only clear identity
+      localStorage.removeItem('dm_sender_registered');
+      localStorage.removeItem('dm_user');
+      sessionStorage.removeItem('dm_sender_registered');
+      sessionStorage.removeItem('dm_user');
+      sessionStorage.removeItem('dm_sender_token');
+      sessionStorage.removeItem('dm_user_token');
+      localStorage.removeItem('dm_user_token');
+      enforceSenderGate();
+      if (hint) hint.textContent = 'Logged out. Please register again to use this device.';
+    });
+  }
+}
+
+
+function saveUserToken(tok) {
+  if (!tok) return;
+  localStorage.setItem('dm_user_token', String(tok));
+  sessionStorage.setItem('dm_user_token', String(tok));
+}
+
+function getSavedUser() {
+  try {
+    const raw = localStorage.getItem('dm_user');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+
+function setupSenderLogin() {
+  const form = document.getElementById('senderLoginForm');
+  const hint = document.getElementById('senderAuthHint');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get('phone') || '').trim();
+    const invite_code = String(fd.get('invite_code') || '').trim();
+
+    if (hint) hint.textContent = 'Logging in…';
+
+    const res = await api('/users/login', { method: 'POST', body: { phone, invite_code } });
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || 'Login failed';
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markSenderRegistered(res.user);
+    // Also restore to session for convenience
+    sessionStorage.setItem('dm_user', JSON.stringify(res.user));
+    enforceSenderGate();
+
+    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
   });
 }
