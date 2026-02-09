@@ -49,7 +49,10 @@
 
         <button class="btn" type="submit">Apply</button>
       </form>
-      <pre id="driverRegOut">{}</pre>
+      <details class="debug">
+        <summary>Debug JSON</summary>
+        <pre id="driverRegOut">{}</pre>
+      </details>
     </section>
 
     <section class="card">
@@ -72,7 +75,10 @@
 
         <button class="btn" type="submit">Submit Offer</button>
       </form>
-      <pre id="driverOfferOut">{}</pre>
+      <details class="debug">
+        <summary>Debug JSON</summary>
+        <pre id="driverOfferOut">{}</pre>
+      </details>
     </section>
 
     <section class="card">
@@ -84,13 +90,18 @@
         <button class="btn" type="submit">Load Job</button>
       </form>
 
-      <h3>Job Details</h3>
-      <pre id="dvRequest">{}</pre>
+      <div id="driverJobSummary"></div>
 
       <h3>History</h3>
-      <pre id="dvHistory">[]</pre>
+      <div id="driverHistoryList"></div>
 
-      <div class="muted" id="dvStatus"></div>
+      <details class="debug">
+        <summary>Debug JSON</summary>
+        <h4>Job Details</h4>
+        <pre id="dvRequest">{}</pre>
+        <h4>History</h4>
+        <pre id="dvHistory">[]</pre>
+      </details>
     </section>
 
     <section class="card">
@@ -110,7 +121,10 @@
 
         <button class="btn" type="submit">Update</button>
       </form>
-      <pre id="dsOut">{}</pre>
+      <details class="debug">
+        <summary>Debug JSON</summary>
+        <pre id="dsOut">{}</pre>
+      </details>
     </section>
   </main>
 </body>
