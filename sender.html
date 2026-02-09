@@ -28,7 +28,7 @@
       <h2>Log in</h2>
       <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
 
-      <form id="senderLoginForm">
+      <form id="senderLoginForm" onsubmit="return false">
         <label>Phone</label>
         <input name="phone" placeholder="e.g. 021..." required />
 
@@ -65,7 +65,7 @@
 
     <section class="card"  class="card requires-sender">
       <h2>Register</h2>
-      <form id="senderRegForm">
+      <form id="senderRegForm" onsubmit="return false">
         <label>Invite code</label>
         <input name="invite_code" required />
 
@@ -80,8 +80,7 @@
 
         <button class="btn" type="submit">Register</button>
       </form>
-      <div id="senderCreateInfo"></div>
-      <details class="debug">
+<details class="debug">
         <summary>Debug JSON</summary>
         <pre id="senderRegOut">{}</pre>
       </details>
@@ -90,7 +89,7 @@
     <section class="card"  class="card requires-sender">
       <h2>Create Delivery Request</h2>
       <p class="muted">After you create a request, save the Request ID. You will use it to view offers and confirm delivery.</p>
-      <form id="createRequestForm">
+      <form id="createRequestForm" onsubmit="return false">
         <label>Pickup suburb</label>
         <input name="pickup_suburb" required />
 
@@ -109,7 +108,8 @@
         <button class="btn" type="submit">Create</button>
       </form>
       <div id="senderCreateInfo"></div>
-      <details class="debug">
+
+<details class="debug">
         <summary>Debug JSON</summary>
         <pre id="senderOutput">{}</pre>
       </details>
@@ -118,7 +118,7 @@
     <section class="card"  class="card requires-sender">
       <h2>View My Request</h2>
       <p class="muted">Use your Request ID to load the current status, offers, and history. After the driver marks <strong>delivered</strong>, you can confirm to release escrow immediately.</p>
-      <form id="viewRequestForm">
+      <form id="viewRequestForm" onsubmit="return false">
         <label>Request ID</label>
         <input name="request_id" required />
 
@@ -146,7 +146,7 @@
 
     <section class="card"  class="card requires-sender">
       <h2>Accept Offer</h2>
-      <form id="acceptOfferForm">
+      <form id="acceptOfferForm" onsubmit="return false">
         <label>Request ID</label>
         <input name="request_id" required />
 
@@ -155,8 +155,7 @@
 
         <button class="btn" type="submit">Accept</button>
       </form>
-      <div id="senderCreateInfo"></div>
-      <details class="debug">
+<details class="debug">
         <summary>Debug JSON</summary>
         <pre id="acceptOfferOut">{}</pre>
       </details>
@@ -193,7 +192,7 @@
       <h2>Report an issue (pilot)</h2>
       <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
 
-      <form id="senderIssueForm">
+      <form id="senderIssueForm" onsubmit="return false">
         <label>Request ID</label>
         <input name="request_id" placeholder="e.g. 123" />
 
