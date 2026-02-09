@@ -45,7 +45,9 @@
     <section class="card">
       <h2>Dashboard Stats</h2>
       <button class="btn" id="adminRefreshDashboardBtn">Refresh</button>
+      <button class="btn" id="adminRunTickBtn">Run tick now</button>
       <div class="muted" id="adminDashboardStatus"></div>
+      <div class="muted" id="adminRunTickOut"></div>
 
       <div class="grid">
         <div class="card compact">
@@ -62,7 +64,30 @@
           <div class="muted">Disabled drivers</div>
           <div id="adminCountDisabledDrivers">—</div>
         </div>
+
+        <div class="card compact">
+          <div class="muted">Overdue pending release</div>
+          <div id="adminCountOverdueRelease">—</div>
+        </div>
+
+        <div class="card compact">
+          <div class="muted">Failed payouts</div>
+          <div id="adminCountFailedPayouts">—</div>
+        </div>
+
+        <div class="card compact">
+          <div class="muted">Old pending payouts (2h+)</div>
+          <div id="adminCountOldPendingPayouts">—</div>
+        </div>
       </div>
+
+      <h3>Action Items</h3>
+      <div id="adminActionItemsOut" class="muted">—</div>
+
+      <details class="mt-2">
+        <summary>Recent requests (last 20)</summary>
+        <div id="adminRecentRequestsOut" class="mt-2"></div>
+      </details>
     </section>
   </main>
 </body>
