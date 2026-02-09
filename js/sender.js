@@ -4,6 +4,7 @@ import { api } from "./api.js";
 import { $, pretty } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
+import { statusPill, timeline, nextActionText } from "./components/status.js";
 
 export function initSenderPage() {
   console.log("Sender page loaded");
@@ -98,6 +99,9 @@ function setupViewRequest() {
   const reqOut = $("#viewRequestOut");
   const offersOut = $("#viewOffersOut");
   const historyOut = $("#viewHistoryOut");
+  const summary = $("#senderReqSummary");
+  const offersList = $("#senderOffersList");
+  const historyList = $("#senderHistoryList");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -111,7 +115,106 @@ function setupViewRequest() {
 
     const hist = await api(`/requests/${id}/history`);
     historyOut.textContent = pretty(hist);
+
+    // Friendly summary (no raw JSON). Debug JSON remains available in <details>.
+    renderSenderSummary({ req, offers, hist, summary, offersList, historyList });
   });
+}
+
+function renderSenderSummary({ req, offers, hist, summary, offersList, historyList }) {
+  if (!summary || !offersList || !historyList) return;
+  summary.innerHTML = '';
+  offersList.innerHTML = '';
+  historyList.innerHTML = '';
+
+  if (!req || !req.ok || !req.request) {
+    summary.insertAdjacentHTML('beforeend', alertError(req?.error || 'Failed to load request'));
+    return;
+  }
+
+  const r = req.request;
+  const pill = statusPill({
+    request_status: r.status,
+    escrow_status: r.escrow_status,
+    payout_status: r.payout_status,
+  });
+  const tl = timeline({ request_status: r.status, escrow_status: r.escrow_status });
+  const next = nextActionText({ role: 'sender', request_status: r.status, escrow_status: r.escrow_status });
+
+  summary.insertAdjacentHTML('beforeend', `
+    <div class="card compact">
+      ${pill}
+      ${tl}
+      ${next ? `<div class="next-action"><strong>What happens next:</strong> ${next}</div>` : ''}
+      <div class="muted" style="margin-top:10px;">
+        Request #${r.id} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
+      </div>
+    </div>
+  `);
+
+  // Offers list
+  const arr = offers && offers.ok && Array.isArray(offers.offers) ? offers.offers : [];
+  if (offers && !offers.ok) {
+    offersList.insertAdjacentHTML('beforeend', alertError(offers.error || 'Failed to load offers'));
+  } else if (arr.length === 0) {
+    offersList.insertAdjacentHTML('beforeend', `<div class="muted">No offers yet.</div>`);
+  } else {
+    offersList.insertAdjacentHTML('beforeend', `
+      <div class="card compact">
+        <table class="table" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th align="left">Offer</th>
+              <th align="left">Driver</th>
+              <th align="left">Price</th>
+              <th align="left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${arr.map(o => `
+              <tr>
+                <td>#${safeText(o.id)}</td>
+                <td>${safeText(o.driver_name || '')}</td>
+                <td>${o.price_nzd != null ? `$${safeText(o.price_nzd)}` : ''}</td>
+                <td>${safeText(o.status || '')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="muted" style="margin-top:10px;">To accept, copy the Offer ID into “Accept Offer”.</div>
+      </div>
+    `);
+  }
+
+  // History list
+  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
+  if (hist && !hist.ok) {
+    historyList.insertAdjacentHTML('beforeend', alertError(hist.error || 'Failed to load history'));
+  } else if (h.length === 0) {
+    historyList.insertAdjacentHTML('beforeend', `<div class="muted">No history yet.</div>`);
+  } else {
+    historyList.insertAdjacentHTML('beforeend', `
+      <div class="card compact">
+        <ul style="margin:0; padding-left:18px;">
+          ${h.slice(0, 12).map(ev => {
+            const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : '';
+            const note = ev.note || `${ev.from_status || ''} → ${ev.to_status || ''}`;
+            return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
+          }).join('')}
+        </ul>
+        ${h.length > 12 ? `<div class="muted" style="margin-top:8px;">Showing latest 12 events (debug JSON contains full history).</div>` : ''}
+      </div>
+    `);
+  }
+}
+
+function safeText(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /* ---------------------------------------------------------

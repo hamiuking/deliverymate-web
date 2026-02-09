@@ -30,7 +30,32 @@ export function initApp() {
       }
     } catch (_) {}
   })();
+
+  // Pilot banner + facilitator-only reminder (copy-only; no logic)
+  try {
+    injectPilotBanner();
+  } catch (_) {}
   initRouter();
+}
+
+function injectPilotBanner() {
+  // Place banner at the top of the main container, if present.
+  const main = document.querySelector('main.container');
+  if (!main) return;
+
+  // Avoid duplicating if app.js is loaded more than once.
+  if (main.querySelector('[data-dm-banner="pilot"]')) return;
+
+  const div = document.createElement('div');
+  div.className = 'banner';
+  div.setAttribute('data-dm-banner', 'pilot');
+  div.innerHTML = `
+    <strong>Invite-only pilot (NZ).</strong> Please do not use for urgent or high-value deliveries.
+    <div class="muted" style="margin-top:6px;">
+      DeliveryMate is a facilitator only — not a courier, employer, or agent. No dispute resolution.
+    </div>
+  `;
+  main.insertBefore(div, main.firstChild);
 }
 
 initApp();

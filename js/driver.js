@@ -4,6 +4,7 @@ import { api } from "./api.js";
 import { $, pretty } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
+import { statusPill, timeline, nextActionText } from "./components/status.js";
 
 export function initDriverPage() {
   console.log("Driver page loaded");
@@ -96,7 +97,8 @@ function setupViewJob() {
 
   const reqOut = $("#dvRequest");
   const histOut = $("#dvHistory");
-  const statusLine = $("#dvStatus");
+  const summary = $("#driverJobSummary");
+  const historyList = $("#driverHistoryList");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -109,13 +111,60 @@ function setupViewJob() {
     const hist = await api(`/requests/${requestId}/history`);
     histOut.textContent = pretty(hist);
 
-    if (!req.ok) {
-      statusLine.textContent = "Failed to load job";
-      return;
-    }
-
-    statusLine.textContent = `Status: ${req.status}`;
+    renderDriverSummary({ req, hist, summary, historyList });
   });
+}
+
+function renderDriverSummary({ req, hist, summary, historyList }) {
+  if (!summary || !historyList) return;
+  summary.innerHTML = '';
+  historyList.innerHTML = '';
+
+  if (!req || !req.ok || !req.request) {
+    summary.insertAdjacentHTML('beforeend', alertError(req?.error || 'Failed to load job'));
+    return;
+  }
+
+  const r = req.request;
+  summary.insertAdjacentHTML('beforeend', `
+    <div class="card compact">
+      ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
+      ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
+      <div class="next-action"><strong>What happens next:</strong> ${nextActionText({ role: 'driver', request_status: r.status, escrow_status: r.escrow_status })}</div>
+      <div class="muted" style="margin-top:10px;">
+        Request #${safeText(r.id)} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
+      </div>
+    </div>
+  `);
+
+  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
+  if (hist && !hist.ok) {
+    historyList.insertAdjacentHTML('beforeend', alertError(hist.error || 'Failed to load history'));
+  } else if (h.length === 0) {
+    historyList.insertAdjacentHTML('beforeend', `<div class="muted">No history yet.</div>`);
+  } else {
+    historyList.insertAdjacentHTML('beforeend', `
+      <div class="card compact">
+        <ul style="margin:0; padding-left:18px;">
+          ${h.slice(0, 12).map(ev => {
+            const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : '';
+            const note = ev.note || `${ev.from_status || ''} → ${ev.to_status || ''}`;
+            return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
+          }).join('')}
+        </ul>
+        ${h.length > 12 ? `<div class="muted" style="margin-top:8px;">Showing latest 12 events (debug JSON contains full history).</div>` : ''}
+      </div>
+    `);
+  }
+}
+
+function safeText(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /* ---------------------------------------------------------
