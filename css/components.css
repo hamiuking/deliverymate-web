@@ -177,3 +177,8 @@ pre {
 #senderAuthControls, #driverAuthControls { margin-top: 10px; }
 
 .hidden{ display:none; }
+
+/* Auth-gated dashboards */
+.locked #senderDashboard, .locked #driverDashboard { display: none; }
+.unlocked #senderAuthArea, .unlocked #driverAuthArea { display: none; }
+.hidden{ display:none; }
