@@ -85,10 +85,10 @@ function setupDriverRegistration() {
 
     if (res.ok) {
       if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Driver application submitted")
-      ;saveUserToken(res.user_token || res.userToken || res.auth_token);
+      out.insertAdjacentHTML("beforebegin", alertSuccess("Driver application submitted"));
+      saveUserToken(res.user_token || res.userToken || res.auth_token);
       markDriverRegistered(res.user);
-      enforceDriverGate(););
+      enforceDriverGate();
     } else {
       out.insertAdjacentHTML("beforebegin", alertError(res.error || "Registration failed"));
     }
