@@ -89,6 +89,22 @@
         <div id="adminRecentRequestsOut" class="mt-2"></div>
       </details>
     </section>
-  </main>
+  
+  <section class="card">
+    <h2>Mark payout as paid (pilot)</h2>
+    <p class="muted">Use this after you have paid the driver manually. This only updates the platform ledger; it does not send money.</p>
+    <form id="markPaidForm" onsubmit="return false">
+      <label>Request ID</label>
+      <input name="request_id" placeholder="e.g. 123" required />
+      <label>Reference (optional)</label>
+      <input name="reference" placeholder="Bank transfer reference" />
+      <div class="btn-row">
+        <button class="btn" type="submit">Mark paid</button>
+      </div>
+    </form>
+    <pre class="code" id="markPaidOut"></pre>
+  </section>
+
+</main>
 </body>
 </html>
