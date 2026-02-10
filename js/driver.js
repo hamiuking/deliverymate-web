@@ -248,7 +248,22 @@ function setupUpdateStatus() {
 
     const requestId = form.request_id.value;
     const status = form.status.value;
-    const driverName = form.driver_name.value;
+   const requestId = form.request_id.value;
+const status = form.status.value;
+
+// Auto-fill driver_name from saved login profile (no retyping)
+let driverName = String(form.driver_name?.value || '').trim();
+if (!driverName) {
+  try {
+    const u =
+      JSON.parse(sessionStorage.getItem('dm_user_driver') || 'null') ||
+      JSON.parse(localStorage.getItem('dm_user_driver') || 'null') ||
+      JSON.parse(sessionStorage.getItem('dm_user') || 'null') ||
+      JSON.parse(localStorage.getItem('dm_user') || 'null');
+    driverName = String(u?.full_name || u?.name || '').trim();
+  } catch (_) {}
+}
+
 
     const res = await api(`/requests/${requestId}/status`, {
       method: "PATCH",
