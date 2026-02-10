@@ -64,6 +64,7 @@ export function initDriverPage() {
   setupMakeOffer();
   setupViewJob();
   setupUpdateStatus();
+  setupDriverPayoutMethod();
   setupIssueReport_driver();
 }
 
@@ -413,5 +414,31 @@ function setupDriverLogin() {
     enforceDriverGate();
 
     if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+  });
+}
+
+
+function setupDriverPayoutMethod() {
+  const form = document.getElementById('driverPayoutForm');
+  const out = document.getElementById('driverPayoutOut');
+  if (!form || !out) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    out.textContent = '';
+
+    const fd = new FormData(form);
+    const method = String(fd.get('method') || 'manual').trim();
+    const bank_name = String(fd.get('bank_name') || '').trim();
+    const account_name = String(fd.get('account_name') || '').trim();
+    const bank_account = String(fd.get('bank_account') || '').trim();
+
+    const res = await api('/drivers/payout-method', {
+      method: 'POST',
+      body: { method, bank_name, account_name, bank_account },
+      role: 'driver'
+    });
+
+    out.textContent = JSON.stringify(res, null, 2);
   });
 }

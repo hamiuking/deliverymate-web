@@ -356,3 +356,26 @@ function escapeHtml(s) {
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
+
+function setupMarkPaid() {
+  const form = document.getElementById('markPaidForm');
+  const out = document.getElementById('markPaidOut');
+  if (!form || !out) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    out.textContent = '';
+
+    const fd = new FormData(form);
+    const request_id = String(fd.get('request_id') || '').trim();
+    const reference = String(fd.get('reference') || '').trim();
+
+    const res = await api(`/admin/requests/${encodeURIComponent(request_id)}/payout/mark_paid`, {
+      method: 'POST',
+      body: { reference },
+      role: 'admin'
+    });
+
+    out.textContent = JSON.stringify(res, null, 2);
+  });
+}
