@@ -62,6 +62,7 @@ function enforceSenderGate() {
 
   // Apply a CSS gate to hide non-essential sections until registration completes.
   document.body.classList.toggle('locked', locked);
+  document.body.classList.toggle('unlocked', !locked);
 
   if (status) {
     if (locked) {
