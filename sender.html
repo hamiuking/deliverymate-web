@@ -24,6 +24,7 @@
     <h1>Sender</h1>
     <div id="senderAuthStatus" class="muted"></div>
 
+    <div id="senderAuthArea">
     <section class="card" id="senderAuthControls">
       <h2>Log in</h2>
       <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
@@ -85,6 +86,7 @@
         <pre id="senderRegOut">{}</pre>
       </details>
     </section>
+</div>
 
     <section class="card"  class="card requires-sender">
       <h2>Create Delivery Request</h2>
@@ -160,6 +162,8 @@
         <pre id="acceptOfferOut">{}</pre>
       </details>
     </section>
+  <div id="senderDashboard">
+
 
     <section class="card requires-sender">
       <h2>Fund Escrow</h2>
@@ -188,7 +192,7 @@
       </details>
     </section>
   
-    <section class="card">
+    <section class="card" requires-sender>
       <h2>Report an issue (pilot)</h2>
       <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
 
@@ -211,6 +215,7 @@
       </div>
     </section>
 
-  </main>
+  </div>
+</main>
 </body>
 </html>
