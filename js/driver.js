@@ -5,9 +5,19 @@
 */
 
 import { api } from './api.js';
-import { $, safeText } from './utils.js';
+import { $ } from './utils.js';
 import { alertError, alertSuccess } from './components/alerts.js';
 import { statusPill, timeline, nextActionText } from './components/status.js';
+function safeText(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 
 /* ---------------------------------------------------------
    Shared: user token storage (login)
