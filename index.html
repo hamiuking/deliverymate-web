@@ -44,24 +44,6 @@
       </div>
     </div>
 
-<div class="card">
-  <h2>Request lifecycle (simple)</h2>
-  <ol>
-    <li><strong>Create a request</strong> — you receive offers from approved drivers.</li>
-    <li><strong>Accept an offer</strong> — this assigns the driver.</li>
-    <li><strong>Fund escrow</strong> — Stripe Checkout (test mode during pilot).</li>
-    <li><strong>Driver updates status</strong> — picked up → delivered.</li>
-    <li><strong>Escrow enters pending release</strong> — after driver marks delivered.</li>
-    <li><strong>Sender confirms delivery</strong> → immediate release.</li>
-    <li>If sender does nothing → <strong>auto‑release after 24 hours</strong>.</li>
-    <li><strong>Payout (pilot)</strong> — admin marks paid manually.</li>
-  </ol>
-
-  <p class="muted" style="margin-top:10px;">
-    Always save your Request ID. DeliveryMate is a facilitator only — not a courier, employer, or agent.
-  </p>
-</div>
-
   </main>
 </body>
 </html>
