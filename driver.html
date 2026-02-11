@@ -25,91 +25,78 @@
     <div id="driverAuthStatus" class="muted"></div>
 
     <div id="driverAuthArea">
-    <section class="card" id="driverAuthControls">
-      <h2>Log in</h2>
-      <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
+      <section class="card" id="driverAuthControls">
+        <h2>Log in</h2>
+        <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
 
-      <form id="driverLoginForm">
-        <label>Phone</label>
-        <input name="phone" placeholder="e.g. 021..." required />
+        <form id="driverLoginForm">
+          <label>Phone</label>
+          <input name="phone" placeholder="e.g. 021..." required />
 
-        <label>Invite code</label>
-        <input name="invite_code" placeholder="Pilot invite code" required />
+          <label>Invite code</label>
+          <input name="invite_code" placeholder="Pilot invite code" required />
 
-        <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
-      </form>
+          <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
+        </form>
 
-      <div class="btn-row mt-2">
-        <button class="btn secondary" type="button" id="driverContinueBtn">Continue on this device</button>
-        <button class="btn secondary" type="button" id="driverLogoutBtn">Log out</button>
-      </div>
+        <div class="btn-row mt-2">
+          <button class="btn secondary" type="button" id="driverContinueBtn">Continue on this device</button>
+          <button class="btn secondary" type="button" id="driverLogoutBtn">Log out</button>
+        </div>
 
-      <div class="muted mt-2" id="driverAuthHint"></div>
-    </section>
+        <div class="muted mt-2" id="driverAuthHint"></div>
+      </section>
 
+      <section class="card">
+        <h2>Pilot guide (Driver)</h2>
+        <ol>
+          <li><strong>Apply</strong> to become a driver (admin approval required).</li>
+          <li><strong>Browse and submit offers</strong> for open requests.</li>
+          <li><strong>If selected</strong>, update status: picked up → delivered.</li>
+          <li><strong>Payout</strong> is initiated after delivery and escrow release (immediate on sender confirmation, or auto‑release after 24 hours).</li>
+        </ol>
+        <p class="muted">
+          Drivers are independent. DeliveryMate is not an employer, courier, or agent.
+        </p>
+      </section>
 
+      <section class="card">
+        <h2>Register as Driver</h2>
+        <p class="muted">Invite‑only pilot. Your application must be approved by an admin before you can submit offers.</p>
+        <form id="driverRegForm">
+          <label>Invite code</label>
+          <input name="invite_code" required />
 
-    <section class="card">
-      <h2>Pilot guide (Driver)</h2>
-      <ol>
-        <li><strong>Apply</strong> to become a driver (admin approval required).</li>
-        <li><strong>Browse and submit offers</strong> for open requests.</li>
-        <li><strong>If selected</strong>, update status: picked up → delivered.</li>
-        <li><strong>Payout</strong> is initiated after delivery and escrow release (immediate on sender confirmation, or auto‑release after 24 hours).</li>
-      </ol>
-      <p class="muted">
-        Drivers are independent. DeliveryMate is not an employer, courier, or agent.
-      </p>
-    </section>
+          <label>Full name</label>
+          <input name="full_name" />
 
+          <label>Phone</label>
+          <input name="phone" required />
 
+          <label>Email</label>
+          <input name="email" />
 
-    <section class="card">
-      <h2>Register as Driver</h2>
-      <p class="muted">Invite‑only pilot. Your application must be approved by an admin before you can submit offers.</p>
-      <form id="driverRegForm">
-        <label>Invite code</label>
-        <input name="invite_code" required />
+          <label>Vehicle plate</label>
+          <input name="vehicle_plate" />
 
-        <label>Full name</label>
-        <input name="full_name" />
+          <label>Licence number (optional)</label>
+          <input name="license_number" />
 
-        <label>Phone</label>
-        <input name="phone" required />
+          <label>WOF expiry (optional)</label>
+          <input name="wof_expiry" placeholder="YYYY-MM-DD" />
 
-        <label>Email</label>
-        <input name="email" />
-
-        <label>Vehicle plate</label>
-        <input name="vehicle_plate" />
-
-        <label>Licence number (optional)</label>
-        <input name="license_number" />
-
-        <label>WOF expiry (optional)</label>
-        <input name="wof_expiry" placeholder="YYYY-MM-DD" />
-
-        <button class="btn" type="submit">Apply</button>
-      </form>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="driverRegOut">{}</pre>
-      </details>
-      <div class="result" id="driverRegResult"></div>
-    </section>
-</div>
+          <button class="btn" type="submit">Apply</button>
+        </form>
+        <div class="result" id="driverRegResult"></div>
+      </section>
+    </div>
 
     <section class="card">
       <h2>Make Offer</h2>
+      <p class="muted">Your name and phone will be taken from your saved driver profile.</p>
       <form id="driverOfferForm">
         <label>Request ID</label>
         <input name="request_id" required />
-
-        <label>Your name</label>
-        <input name="driver_name" placeholder="(auto-filled if registered)" />
-
-        <label>Your phone (required in pilot)</label>
-        <input name="driver_phone" placeholder="(auto-filled if registered)" />
 
         <label>Price (NZD)</label>
         <input name="price_nzd" type="number" step="0.01" />
@@ -119,25 +106,20 @@
 
         <button class="btn" type="submit">Submit Offer</button>
       </form>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="driverOfferOut">{}</pre>
-      </details>
       <div class="result" id="driverOfferResult"></div>
     </section>
 
-    
     <section class="card">
       <h2>Recent jobs</h2>
       <div class="btn-row">
         <select id="driverRecentSelect"></select>
         <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
-        <button class="btn ghost" id="driverRecentClearBtn" type="button">Clear</button>
+        <button class="btn secondary" id="driverRecentClearBtn" type="button">Clear</button>
       </div>
       <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
     </section>
 
-<section class="card" requires-driver>
+    <section class="card" requires-driver>
       <h2>View My Job</h2>
       <form id="driverViewForm">
         <label>Request ID</label>
@@ -151,13 +133,6 @@
       <h3>History</h3>
       <div id="driverHistoryList"></div>
 
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <h4>Job Details</h4>
-        <pre id="dvRequest">{}</pre>
-        <h4>History</h4>
-        <pre id="dvHistory">[]</pre>
-      </details>
       <div class="result" id="driverViewResult"></div>
     </section>
 
@@ -179,13 +154,9 @@
 
         <button class="btn" type="submit">Update</button>
       </form>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="dsOut">{}</pre>
-      </details>
       <div class="result" id="driverStatusResult"></div>
     </section>
-  
+
     <section class="card" requires-driver>
       <h2>Report an issue (pilot)</h2>
       <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
@@ -208,8 +179,6 @@
         </div>
       </div>
     </section>
-
-  </div>
-</main>
+  </main>
 </body>
 </html>
