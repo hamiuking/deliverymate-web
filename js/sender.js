@@ -125,7 +125,7 @@ function enforceSenderGate() {
 /* ---------------------------------------------------------
    Sender acknowledgement gate (before creating request)
 --------------------------------------------------------- */
-const SENDER_ACK_VERSION = 'sender_ack_v1';
+const SENDER_ACK_VERSION = 'sender_terms_2026-01-06';
 const SENDER_ACK_KEY = 'dm_sender_ack_v1_ts';
 
 function setupSenderAckGate() {
@@ -134,8 +134,18 @@ function setupSenderAckGate() {
   const a2 = document.getElementById('sAck2');
   const a3 = document.getElementById('sAck3');
   const a4 = document.getElementById('sAck4');
+  const lastEl = document.getElementById('senderAckLast');
 
   if (!btn || !a1 || !a2 || !a3 || !a4) return;
+
+  const renderLast = () => {
+    if (!lastEl) return;
+    const ts = localStorage.getItem(SENDER_ACK_KEY);
+    if (!ts) { lastEl.textContent = ''; return; }
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) { lastEl.textContent = ''; return; }
+    lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
+  };
 
   // If previously acknowledged on this device, pre-check for convenience
   const prevTs = localStorage.getItem(SENDER_ACK_KEY);
@@ -147,6 +157,7 @@ function setupSenderAckGate() {
     const ok = a1.checked && a2.checked && a3.checked && a4.checked;
     btn.disabled = !ok;
     if (ok) localStorage.setItem(SENDER_ACK_KEY, new Date().toISOString());
+    renderLast();
   };
 
   a1.addEventListener('change', refresh);
@@ -361,15 +372,6 @@ function setupCreateRequest() {
 
     // Add ack meta
     Object.assign(data, getSenderAckMeta());
-
-    // Keep your existing ack version pattern too (if already used elsewhere)
-    if (!data.sender_ack_version) data.sender_ack_version = SENDER_ACK_VERSION;
-
-    try {
-      const u = JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null'));
-      if (u && u.phone) data.sender_phone = data.sender_phone || u.phone;
-      if (u && u.full_name) data.sender_name = data.sender_name || u.full_name;
-    } catch (_) {}
 
     const res = await api("/requests", { method: "POST", body: data, role: 'sender' });
 
