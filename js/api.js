@@ -1,6 +1,10 @@
 // public/js/api.js
 
-export const API_BASE = "https://deliverymate.onrender.com";
+// Default to same-origin (works if frontend is served by the backend).
+// Allow override in localStorage for testing: localStorage.setItem('dm_api_base','https://deliverymate.onrender.com')
+export const API_BASE =
+  (localStorage.getItem('dm_api_base') || '').trim() ||
+  window.location.origin;
 
 // Token getters
 export function getUserToken() {
@@ -20,23 +24,17 @@ export function getAdminToken() {
 export async function api(path, { method = "GET", body = null, headers = {}, role = "" } = {}) {
   const opts = { method, headers: { ...headers } };
 
-  // Role header (backend uses x-role to distinguish sender vs driver)
-  if (role) {
-    opts.headers["X-Role"] = role;
-  }
+  if (role) opts.headers["X-Role"] = role;
 
-  // Idempotency for write operations
   if (method !== "GET") {
     opts.headers["Idempotency-Key"] = crypto.randomUUID();
   }
 
-  // JSON body
   if (body) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
 
-  // Attach tokens
   const userTok = getUserToken();
   const sender = getSenderToken();
   const driver = getDriverToken();
