@@ -126,7 +126,18 @@
       <div class="result" id="driverOfferResult"></div>
     </section>
 
-    <section class="card" requires-driver>
+    
+    <section class="card">
+      <h2>Recent jobs</h2>
+      <div class="btn-row">
+        <select id="driverRecentSelect"></select>
+        <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
+        <button class="btn ghost" id="driverRecentClearBtn" type="button">Clear</button>
+      </div>
+      <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
+    </section>
+
+<section class="card" requires-driver>
       <h2>View My Job</h2>
       <form id="driverViewForm">
         <label>Request ID</label>
