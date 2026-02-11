@@ -86,6 +86,75 @@ function saveUserToken(tok) {
   sessionStorage.setItem('dm_user_token', String(tok));
 }
 
+// --- Recent jobs (local-only; pilot convenience) ---
+const DRIVER_RECENT_KEY = 'dm_driver_recent_requests';
+
+function loadDriverRecent() {
+  try { return JSON.parse(localStorage.getItem(DRIVER_RECENT_KEY) || '[]'); } catch { return []; }
+}
+
+function saveDriverRecent(list) {
+  try { localStorage.setItem(DRIVER_RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
+function addDriverRecent(item) {
+  const id = item?.id ? String(item.id) : (item?.request_id ? String(item.request_id) : '');
+  if (!id) return;
+  const rec = {
+    id,
+    pickup: item.pickup_suburb || '',
+    dropoff: item.dropoff_suburb || '',
+    status: item.status || '',
+    ts: item.updated_at || item.created_at || new Date().toISOString()
+  };
+  const list = loadDriverRecent().filter(x => String(x.id) !== id);
+  list.unshift(rec);
+  saveDriverRecent(list.slice(0, 10));
+  renderDriverRecent();
+}
+
+function renderDriverRecent() {
+  const sel = document.getElementById('driverRecentSelect');
+  if (!sel) return;
+  const list = loadDriverRecent();
+  sel.innerHTML = '';
+  const opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = list.length ? 'Select a recent request…' : 'No recent jobs yet';
+  sel.appendChild(opt0);
+  for (const it of list) {
+    const o = document.createElement('option');
+    o.value = String(it.id);
+    const route = (it.pickup || it.dropoff) ? ` — ${it.pickup} → ${it.dropoff}` : '';
+    const st = it.status ? ` [${it.status}]` : '';
+    o.textContent = `#${it.id}${st}${route}`;
+    sel.appendChild(o);
+  }
+}
+
+function applyDriverRecent(requestId) {
+  if (!requestId) return;
+  const id = String(requestId);
+  const forms = ['driverOfferForm','driverViewForm','driverStatusForm','driverIssueForm'];
+  for (const formId of forms) {
+    const f = document.getElementById(formId);
+    if (f && f.request_id) f.request_id.value = id;
+  }
+}
+
+function setupDriverRecentUI() {
+  const sel = document.getElementById('driverRecentSelect');
+  const useBtn = document.getElementById('driverRecentUseBtn');
+  const clearBtn = document.getElementById('driverRecentClearBtn');
+  if (!sel) return;
+  renderDriverRecent();
+
+  if (useBtn) useBtn.addEventListener('click', () => applyDriverRecent(sel.value));
+  sel.addEventListener('change', () => { if (sel.value) applyDriverRecent(sel.value); });
+  if (clearBtn) clearBtn.addEventListener('click', () => { saveDriverRecent([]); renderDriverRecent(); });
+}
+
+
 export function initDriverPage() {
   console.log("Driver page loaded");
 
@@ -94,6 +163,7 @@ export function initDriverPage() {
   setupDriverAuthControls();
   setupMakeOffer();
   setupViewJob();
+  setupDriverRecentUI();
   setupUpdateStatus();
   setupDriverPayoutMethod();
   setupIssueReport_driver();
@@ -214,6 +284,7 @@ function setupViewJob() {
     const hist = await api(`/requests/${requestId}/history`);
     histOut.textContent = pretty(hist);
 
+    if (req && req.ok && req.request) addDriverRecent(req.request);
     renderDriverSummary({ req, hist, summary, historyList });
 
     done(!!req.ok);

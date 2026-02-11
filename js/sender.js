@@ -49,6 +49,7 @@ export function initSenderPage() {
   setupAcceptOffer();
   setupFundEscrow();
   setupReleaseEscrow();
+  setupSenderRecentUI();
   setupIssueReport_sender();
 }
 
@@ -68,6 +69,97 @@ function saveSenderTokenForRequest(requestId, token) {
     sessionStorage.setItem('dm_sender_token', String(token));
   }
 }
+
+// --- Recent requests (local-only; pilot convenience) ---
+const SENDER_RECENT_KEY = 'dm_sender_recent_requests';
+
+function loadSenderRecent() {
+  try { return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || '[]'); } catch { return []; }
+}
+
+function saveSenderRecent(list) {
+  try { localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list)); } catch {}
+}
+
+function addSenderRecent(req) {
+  if (!req?.id) return;
+  const id = String(req.id);
+  const item = {
+    id,
+    pickup: req.pickup_suburb || '',
+    dropoff: req.dropoff_suburb || '',
+    status: req.status || '',
+    ts: req.created_at || new Date().toISOString()
+  };
+  const list = loadSenderRecent().filter(x => String(x.id) !== id);
+  list.unshift(item);
+  saveSenderRecent(list.slice(0, 10));
+  renderSenderRecent();
+}
+
+function renderSenderRecent() {
+  const sel = document.getElementById('senderRecentSelect');
+  if (!sel) return;
+  const list = loadSenderRecent();
+  sel.innerHTML = '';
+  const opt0 = document.createElement('option');
+  opt0.value = '';
+  opt0.textContent = list.length ? 'Select a recent request…' : 'No recent requests yet';
+  sel.appendChild(opt0);
+  for (const it of list) {
+    const o = document.createElement('option');
+    o.value = String(it.id);
+    const route = (it.pickup || it.dropoff) ? ` — ${it.pickup} → ${it.dropoff}` : '';
+    const st = it.status ? ` [${it.status}]` : '';
+    o.textContent = `#${it.id}${st}${route}`;
+    sel.appendChild(o);
+  }
+}
+
+function applySenderRecent(requestId) {
+  if (!requestId) return;
+  const id = String(requestId);
+  // Fill common request_id fields across sender actions
+  const ids = [
+    'viewRequestForm',
+    'acceptOfferForm',
+    'fundEscrowForm',
+    'releaseEscrowForm',
+    'senderIssueForm'
+  ];
+  for (const formId of ids) {
+    const f = document.getElementById(formId);
+    if (f && f.request_id) f.request_id.value = id;
+  }
+  // Some pages use direct inputs
+  const rel = document.getElementById('releaseRequestId');
+  if (rel) rel.value = id;
+}
+
+function setupSenderRecentUI() {
+  const sel = document.getElementById('senderRecentSelect');
+  const useBtn = document.getElementById('senderRecentUseBtn');
+  const clearBtn = document.getElementById('senderRecentClearBtn');
+  if (!sel) return;
+  renderSenderRecent();
+
+  if (useBtn) {
+    useBtn.addEventListener('click', () => applySenderRecent(sel.value));
+  }
+  if (sel) {
+    sel.addEventListener('change', () => {
+      // Auto-fill immediately on change (pilot-friendly)
+      if (sel.value) applySenderRecent(sel.value);
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      saveSenderRecent([]);
+      renderSenderRecent();
+    });
+  }
+}
+
 
 function loadSenderTokenForRequest(requestId) {
   if (!requestId) return '';
@@ -119,9 +211,9 @@ function setupRegistration() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-   const btn = form.querySelector('button[type="submit"]');
-const done = setWorking(btn, "Loading…");
-setResult(result, '');
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Loading…");
+    setResult(result, '');
     const data = getFormData(form);
 
     const res = await api("/users/register", {
@@ -198,6 +290,8 @@ function renderCreateRequestInfo(res) {
     const tok = res?.sender_token;
     if (!id) return;
     if (tok) saveSenderTokenForRequest(id, tok);
+    // Record in local recent list for quick access
+    addSenderRecent(res.request);
 
     // Autofill common fields to reduce pilot friction
     const viewForm = document.getElementById('viewRequestForm');
@@ -279,6 +373,7 @@ function setupViewRequest() {
     done(!!req.ok);
     if (req.ok) {
       setResult(result, alertSuccess("Loaded"));
+      if (res.request) addSenderRecent(res.request);
     } else {
       setResult(result, alertError(req.error || "Failed"));
       // open debug details for request
@@ -424,9 +519,9 @@ function setupAcceptOffer() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-const btn = form.querySelector('button[type="submit"]');
-const done = setWorking(btn, "Loading…");
-setResult(result, '');
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, '');
 
     const requestId = form.request_id.value;
     const offerId = form.offer_id.value;
