@@ -31,6 +31,30 @@ function setWorking(btn, workingText = "Working…") {
   };
 }
 
+
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB (base file size, before base64 overhead)
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  });
+}
+
+function validateImageFile(file, label) {
+  if (!file) throw new Error(`${label} is required`);
+  if (!file.type || !file.type.startsWith("image/")) throw new Error(`${label} must be an image`);
+  if (file.size > MAX_IMAGE_BYTES) throw new Error(`${label} is too large (max 6MB)`);
+}
+
+function maybeOpenDetails(outEl, open) {
+  const d = outEl && outEl.closest && outEl.closest("details");
+  if (d) d.open = !!open;
+}
+
 function markDriverRegistered(user) {
   localStorage.setItem("dm_driver_registered", "1");
   if (user) {
@@ -53,12 +77,6 @@ function getSavedDriverUser() {
   }
 }
 
-function saveUserToken(tok) {
-  if (!tok) return;
-  localStorage.setItem("dm_user_token", String(tok));
-  sessionStorage.setItem("dm_user_token", String(tok));
-}
-
 function enforceDriverGate() {
   const locked = !isDriverRegistered();
   document.body.classList.toggle("locked", locked);
@@ -67,34 +85,47 @@ function enforceDriverGate() {
   const status = document.getElementById("driverAuthStatus");
   const u = getSavedDriverUser();
   if (status) {
-    status.textContent = locked
-      ? "Please register or log in to access the driver dashboard."
-      : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
+    status.textContent =
+      isDriverRegistered() && u?.phone
+        ? `Registered: ${u.phone}`
+        : "Pilot: register once, then you can “Continue on this device” next time.";
   }
 
-  const reg = document.getElementById("driverRegisterSection");
-  if (reg) reg.classList.toggle("hidden", !locked);
-
-  const logoutBtn = document.getElementById("driverLogoutBtn");
-  if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
-
-  const hint = document.getElementById("driverAuthHint");
-  if (hint) hint.textContent = locked ? "" : (u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+  const form = document.getElementById("driverRegForm");
+  if (form) {
+    form.closest("section")?.classList.toggle("hidden", isDriverRegistered());
+  }
 }
 
-// --- Recent jobs (local-only) ---
+function saveUserToken(tok) {
+  if (!tok) return;
+  localStorage.setItem("dm_user_token", String(tok));
+  sessionStorage.setItem("dm_user_token", String(tok));
+}
+
+// --- Recent jobs (local-only; pilot convenience) ---
 const DRIVER_RECENT_KEY = "dm_driver_recent_requests";
 
 function loadDriverRecent() {
-  try { return JSON.parse(localStorage.getItem(DRIVER_RECENT_KEY) || "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(DRIVER_RECENT_KEY) || "[]");
+  } catch {
+    return [];
+  }
 }
+
 function saveDriverRecent(list) {
-  try { localStorage.setItem(DRIVER_RECENT_KEY, JSON.stringify(list)); }
-  catch {}
+  try {
+    localStorage.setItem(DRIVER_RECENT_KEY, JSON.stringify(list));
+  } catch {}
 }
+
 function addDriverRecent(item) {
-  const id = item?.id ? String(item.id) : (item?.request_id ? String(item.request_id) : "");
+  const id = item?.id
+    ? String(item.id)
+    : item?.request_id
+    ? String(item.request_id)
+    : "";
   if (!id) return;
   const rec = {
     id,
@@ -108,6 +139,7 @@ function addDriverRecent(item) {
   saveDriverRecent(list.slice(0, 10));
   renderDriverRecent();
 }
+
 function renderDriverRecent() {
   const sel = document.getElementById("driverRecentSelect");
   if (!sel) return;
@@ -115,306 +147,171 @@ function renderDriverRecent() {
   sel.innerHTML = "";
   const opt0 = document.createElement("option");
   opt0.value = "";
-  opt0.textContent = list.length ? "Select a recent request…" : "No recent jobs yet";
+  opt0.textContent = list.length
+    ? "Select a recent request…"
+    : "No recent jobs yet";
   sel.appendChild(opt0);
   for (const it of list) {
     const o = document.createElement("option");
     o.value = String(it.id);
-    const route = (it.pickup || it.dropoff) ? ` — ${it.pickup} → ${it.dropoff}` : "";
+    const route =
+      it.pickup || it.dropoff ? ` — ${it.pickup} → ${it.dropoff}` : "";
     const st = it.status ? ` [${it.status}]` : "";
     o.textContent = `#${it.id}${st}${route}`;
     sel.appendChild(o);
   }
 }
+
 function applyDriverRecent(requestId) {
   if (!requestId) return;
   const id = String(requestId);
-  const forms = ["driverOfferForm", "driverViewForm", "driverStatusForm", "driverIssueForm"];
+  const forms = [
+    "driverOfferForm",
+    "driverViewForm",
+    "driverStatusForm",
+    "driverIssueForm",
+  ];
   for (const formId of forms) {
     const f = document.getElementById(formId);
     if (f && f.request_id) f.request_id.value = id;
   }
 }
+
 function setupDriverRecentUI() {
   const sel = document.getElementById("driverRecentSelect");
   const useBtn = document.getElementById("driverRecentUseBtn");
   const clearBtn = document.getElementById("driverRecentClearBtn");
   if (!sel) return;
   renderDriverRecent();
+
   if (useBtn) useBtn.addEventListener("click", () => applyDriverRecent(sel.value));
-  sel.addEventListener("change", () => { if (sel.value) applyDriverRecent(sel.value); });
-  if (clearBtn) clearBtn.addEventListener("click", () => { saveDriverRecent([]); renderDriverRecent(); });
-}
-
-/* ---------------------------------------------------------
-   Driver acknowledgement gate
---------------------------------------------------------- */
-const DRIVER_ACK_VERSION = "driver_terms_2026-01-06";
-const DRIVER_ACK_KEY = "dm_driver_ack_v1_ts";
-
-function setupDriverAckGate() {
-  const a1 = document.getElementById("dAck1");
-  const a2 = document.getElementById("dAck2");
-  const a3 = document.getElementById("dAck3");
-  const offerBtn = document.getElementById("driverOfferBtn");
-  const statusBtn = document.getElementById("driverStatusBtn");
-  const lastEl = document.getElementById("driverAckLast");
-
-  if (!a1 || !a2 || !a3) return;
-
-  const renderLast = () => {
-    if (!lastEl) return;
-    const ts = localStorage.getItem(DRIVER_ACK_KEY);
-    if (!ts) { lastEl.textContent = ""; return; }
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) { lastEl.textContent = ""; return; }
-    lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
-  };
-
-  const prevTs = localStorage.getItem(DRIVER_ACK_KEY);
-  if (prevTs) { a1.checked = true; a2.checked = true; a3.checked = true; }
-
-  const refresh = () => {
-    const ok = a1.checked && a2.checked && a3.checked;
-    if (offerBtn) offerBtn.disabled = !ok;
-    if (statusBtn) statusBtn.disabled = !ok;
-    if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
-    renderLast();
-  };
-
-  a1.addEventListener("change", refresh);
-  a2.addEventListener("change", refresh);
-  a3.addEventListener("change", refresh);
-
-  refresh();
-}
-
-function getDriverAckMeta() {
-  const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
-  return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
-}
-
-/* ---------------------------------------------------------
-   Helpers: image compression + size limits (6MB original, 2MB final)
---------------------------------------------------------- */
-const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024; // 6MB
-const MAX_FINAL_BYTES = 2 * 1024 * 1024;    // 2MB after compression
-const MAX_WIDTH = 1600;
-const JPEG_QUALITY = 0.75;
-
-async function fileToDataUrl(file) {
-  if (!file) throw new Error("No photo selected");
-  if (file.size > MAX_ORIGINAL_BYTES) throw new Error("Photo too large (max 6MB). Please use a smaller image.");
-
-  const img = await loadImage(file);
-  const scale = Math.min(1, MAX_WIDTH / img.width);
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, width, height);
-
-  const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-
-  const base64 = dataUrl.split(",")[1] || "";
-  const byteSize = Math.ceil((base64.length * 3) / 4);
-  if (byteSize > MAX_FINAL_BYTES) throw new Error("Photo is still too large after compression (max 2MB). Please use a smaller image.");
-
-  return dataUrl;
-}
-
-function loadImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Invalid image file"));
-      img.src = String(reader.result || "");
-    };
-    reader.onerror = () => reject(new Error("Failed to read image"));
-    reader.readAsDataURL(file);
+  sel.addEventListener("change", () => {
+    if (sel.value) applyDriverRecent(sel.value);
   });
+  if (clearBtn)
+    clearBtn.addEventListener("click", () => {
+      saveDriverRecent([]);
+      renderDriverRecent();
+    });
 }
 
-/* ---------------------------------------------------------
-   Init
---------------------------------------------------------- */
 export function initDriverPage() {
   console.log("Driver page loaded");
 
   setupDriverRegistration();
-  setupDriverLogin();
-  setupDriverLogout();
-
   enforceDriverGate();
-
-  setupDriverAckGate();
+  setupDriverAuthControls();
   setupMakeOffer();
   setupViewJob();
   setupDriverRecentUI();
   setupUpdateStatus();
+  setupDriverPayoutMethod();
   setupIssueReport_driver();
 }
 
 /* ---------------------------------------------------------
-   Registration / Login / Logout
+   1. Driver Registration
 --------------------------------------------------------- */
 function setupDriverRegistration() {
   const form = $("#driverRegForm");
   const result = $("#driverRegResult");
-  if (!form) return;
 
-  const frontInput = document.getElementById("driver_license_front_file");
-  const backInput = document.getElementById("driver_license_back_file");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Applying…");
+    const done = setWorking(btn);
     setResult(result, "");
-
     const data = getFormData(form);
 
-    // Enforce required fields (in addition to HTML required attributes)
-    const license = String(data.license_number || "").trim();
-    const wof = String(data.wof_expiry || "").trim();
-    if (!license) {
-      done(false);
-      setResult(result, alertError("Licence number is required."));
-      form.license_number?.focus?.();
-      return;
-    }
-    if (!wof) {
-      done(false);
-      setResult(result, alertError("WOF expiry is required."));
-      form.wof_expiry?.focus?.();
-      return;
-    }
-
-    const frontFile = frontInput?.files?.[0];
-    const backFile = backInput?.files?.[0];
-    if (!frontFile || !backFile) {
-      done(false);
-      setResult(result, alertError("Please upload both front and back photos of your driver licence."));
-      return;
-    }
-
+    // Licence photos (required)
     try {
-      data.driver_license_front_base64 = await fileToDataUrl(frontFile);
-      data.driver_license_back_base64 = await fileToDataUrl(backFile);
+      const frontFile = document.getElementById("license_front_file")?.files?.[0] || null;
+      const backFile = document.getElementById("license_back_file")?.files?.[0] || null;
+      validateImageFile(frontFile, "Licence front photo");
+      validateImageFile(backFile, "Licence back photo");
+      data.license_front_b64 = await fileToDataUrl(frontFile);
+      data.license_back_b64 = await fileToDataUrl(backFile);
     } catch (err) {
       done(false);
-      setResult(result, alertError(err?.message || "Failed to process licence photos"));
+      setResult(result, alertError(err?.message || "Invalid licence photo"));
       return;
     }
 
-    const res = await api("/users/driver/apply", { method: "POST", body: data });
+    const res = await api("/users/driver/apply", {
+      method: "POST",
+      body: data,
+    });
 
     done(!!res.ok);
+
     if (res.ok) {
+      if (res.user)
+        sessionStorage.setItem("dm_user", JSON.stringify(res.user));
+      setResult(result, alertSuccess("Submitted"));
       saveUserToken(res.user_token || res.userToken || res.auth_token);
       markDriverRegistered(res.user);
       enforceDriverGate();
-      setResult(result, alertSuccess("Submitted"));
     } else {
       setResult(result, alertError(res.error || "Failed"));
     }
   });
 }
 
-function setupDriverLogin() {
-  const form = document.getElementById("driverLoginForm");
-  const hint = document.getElementById("driverAuthHint");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const phone = String(fd.get("phone") || "").trim();
-    const invite_code = String(fd.get("invite_code") || "").trim();
-
-    if (hint) hint.textContent = "Logging in…";
-
-    const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
-    if (!res.ok) {
-      if (hint) hint.textContent = res.error || "Login failed";
-      return;
-    }
-
-    saveUserToken(res.user_token);
-    markDriverRegistered(res.user);
-    enforceDriverGate();
-
-    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
-  });
-}
-
-function setupDriverLogout() {
-  const btn = document.getElementById("driverLogoutBtn");
-  const hint = document.getElementById("driverAuthHint");
-  if (!btn) return;
-
-  btn.addEventListener("click", () => {
-    localStorage.removeItem("dm_driver_registered");
-    localStorage.removeItem("dm_user_driver");
-    sessionStorage.removeItem("dm_user_driver");
-    sessionStorage.removeItem("dm_driver_token");
-    sessionStorage.removeItem("dm_user_token");
-    localStorage.removeItem("dm_user_token");
-
-    enforceDriverGate();
-    if (hint) hint.textContent = "";
-  });
-}
-
 /* ---------------------------------------------------------
-   Make Offer (requires ack)
+   2. Make Offer
 --------------------------------------------------------- */
 function setupMakeOffer() {
   const form = $("#driverOfferForm");
   const result = $("#driverOfferResult");
+
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-
-    const offerBtn = document.getElementById("driverOfferBtn");
-    if (offerBtn && offerBtn.disabled) {
-      setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
-      return;
-    }
-
     const btn = form.querySelector('button[type="submit"]');
     const done = setWorking(btn);
     setResult(result, "");
-
     const data = getFormData(form);
+
     const requestId = data.request_id;
     delete data.request_id;
 
-    Object.assign(data, getDriverAckMeta());
+    if (!data.driver_ack_version) {
+      data.driver_ack_version =
+        sessionStorage.getItem("dm_driver_ack_version") || "v2";
+    }
 
     try {
-      const u = getSavedDriverUser();
+      const u = JSON.parse(
+        sessionStorage.getItem("dm_user") ||
+          sessionStorage.getItem("dm_user_driver") ||
+          localStorage.getItem("dm_user_driver") ||
+          "null"
+      );
       if (u && u.phone) data.driver_phone = u.phone;
       if (u && u.full_name) data.driver_name = u.full_name;
     } catch (_) {}
 
-    const res = await api(`/requests/${requestId}/offers`, { method: "POST", body: data, role: "driver" });
+    const res = await api(`/requests/${requestId}/offers`, {
+      method: "POST",
+      body: data,
+      role: "driver",
+    });
 
     done(!!res.ok);
-    if (res.ok) setResult(result, alertSuccess("Offer sent"));
-    else setResult(result, alertError(res.error || "Failed"));
+
+    if (res.ok) {
+      setResult(result, alertSuccess("Offer sent"));
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
+    }
   });
 }
 
 /* ---------------------------------------------------------
-   View job
+   3. View Assigned Job
 --------------------------------------------------------- */
 function setupViewJob() {
   const form = $("#driverViewForm");
@@ -431,6 +328,7 @@ function setupViewJob() {
     setResult(result, "");
 
     const requestId = form.request_id.value;
+
     const req = await api(`/requests/${requestId}`);
     const hist = await api(`/requests/${requestId}/history`);
 
@@ -438,8 +336,11 @@ function setupViewJob() {
     renderDriverSummary({ req, hist, summary, historyList });
 
     done(!!req.ok);
-    if (req.ok) setResult(result, alertSuccess("Loaded"));
-    else setResult(result, alertError(req.error || "Failed"));
+    if (req.ok) {
+      setResult(result, alertSuccess("Loaded"));
+    } else {
+      setResult(result, alertError(req.error || "Failed"));
+    }
   });
 }
 
@@ -449,96 +350,185 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
   historyList.innerHTML = "";
 
   if (!req || !req.ok || !req.request) {
-    summary.insertAdjacentHTML("beforeend", alertError(req?.error || "Failed to load job"));
+    summary.insertAdjacentHTML(
+      "beforeend",
+      alertError(req?.error || "Failed to load job")
+    );
     return;
   }
 
   const r = req.request;
-  summary.insertAdjacentHTML("beforeend", `
+  summary.insertAdjacentHTML(
+    "beforeend",
+    `
     <div class="card compact">
-      ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
-      ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
-      <div class="next-action"><strong>What happens next:</strong> ${nextActionText({ role: "driver", request_status: r.status, escrow_status: r.escrow_status })}</div>
-      <div class="muted" style="margin-top:10px;">Request #${safeText(r.id)} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}</div>
-    </div>
-  `);
+      ${statusPill({
+        request_status: r.status,
+        escrow_status: r.escrow_status,
+        payout_status: r.payout_status,
+      })}
+      ${timeline({
+        request_status: r.status,
+        escrow_status: r.escrow_status,
+      })}
+      <div class="next-action"><strong>What happens next:</strong> ${nextActionText(
+        {
+          role: "driver",
+          request_status: r.status,
+          escrow_status: r.escrow_status,
+        }
+      )}</div>
+      <div class="muted" style="margin-top:10px;">
+        Request #${safeText(r.id)} · ${safeText(
+      r.pickup_suburb
+    )} → ${safeText(r.dropoff_suburb)}
+      </div>
 
-  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
+      <div class="mt-2">
+        <div class="muted">Quick actions</div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="btn secondary" id="qaPickedUpBtn" type="button">Mark picked up</button>
+          <button class="btn" id="qaDeliveredBtn" type="button">Mark delivered</button>
+        </div>
+        <div class="muted" id="qaNote" style="margin-top:6px;"></div>
+      </div>
+    </div>
+  `
+  );
+
+  const statusForm = document.getElementById("driverStatusForm");
+  if (statusForm && statusForm.request_id) {
+    statusForm.request_id.value = String(r.id);
+  }
+  if (
+    statusForm &&
+    statusForm.driver_name &&
+    !statusForm.driver_name.value &&
+    r.driver_name
+  ) {
+    statusForm.driver_name.value = String(r.driver_name);
+  }
+
+  const noteEl = document.getElementById("qaNote");
+  const pickedBtn = document.getElementById("qaPickedUpBtn");
+  const delBtn = document.getElementById("qaDeliveredBtn");
+
+  const canPicked =
+    r.status === "accepted" || r.status === "open";
+  const canDelivered = r.status === "picked_up";
+
+  if (pickedBtn) pickedBtn.disabled = !canPicked;
+  if (delBtn) delBtn.disabled = !canDelivered;
+
+  if (pickedBtn) {
+    pickedBtn.addEventListener("click", () => {
+      if (!statusForm) return;
+      statusForm.status.value = "picked_up";
+      if (noteEl) noteEl.textContent = "Submitting status update…";
+      statusForm.querySelector('button[type="submit"]')?.click();
+    });
+  }
+  if (delBtn) {
+    delBtn.addEventListener("click", () => {
+      if (!statusForm) return;
+      statusForm.status.value = "delivered";
+      if (noteEl) noteEl.textContent = "Submitting status update…";
+      statusForm.querySelector('button[type="submit"]')?.click();
+    });
+  }
+
+  const h =
+    hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
   if (hist && !hist.ok) {
-    historyList.insertAdjacentHTML("beforeend", alertError(hist.error || "Failed to load history"));
+    historyList.insertAdjacentHTML(
+      "beforeend",
+      alertError(hist.error || "Failed to load history")
+    );
   } else if (h.length === 0) {
-    historyList.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
+    historyList.insertAdjacentHTML(
+      "beforeend",
+      `<div class="muted">No history yet.</div>`
+    );
   } else {
-    historyList.insertAdjacentHTML("beforeend", `
+    historyList.insertAdjacentHTML(
+      "beforeend",
+      `
       <div class="card compact">
         <ul style="margin:0; padding-left:18px;">
-          ${h.slice(0, 12).map((ev) => {
-            const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
-            const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
-            return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
-          }).join("")}
+          ${h
+            .slice(0, 12)
+            .map((ev) => {
+              const when = ev.created_at
+                ? new Date(ev.created_at).toLocaleString()
+                : "";
+              const note =
+                ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
+              return `<li><strong>${safeText(when)}</strong> — ${safeText(
+                note
+              )}</li>`;
+            })
+            .join("")}
         </ul>
+        ${
+          h.length > 12
+            ? `<div class="muted" style="margin-top:8px;">Showing latest 12 events.</div>`
+            : ""
+        }
       </div>
-    `);
+    `
+    );
   }
 }
 
+function safeText(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /* ---------------------------------------------------------
-   Update Status (requires ack + delivered photo)
+   4. Update Status
 --------------------------------------------------------- */
 function setupUpdateStatus() {
   const form = $("#driverStatusForm");
   const result = $("#driverStatusResult");
-  if (!form) return;
 
-  const deliveredFileInput = document.getElementById("delivered_photo_file");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-
-    const statusBtn = document.getElementById("driverStatusBtn");
-    if (statusBtn && statusBtn.disabled) {
-      setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
-      return;
-    }
-
     const btn = form.querySelector('button[type="submit"]');
     const done = setWorking(btn);
     setResult(result, "");
 
     const requestId = form.request_id.value;
     const status = form.status.value;
-    const driverName = form.driver_name ? form.driver_name.value : "";
+    const driverName = form.driver_name.value;
 
-    const body = { status, driver_name: driverName, ...getDriverAckMeta() };
-
-    if (status === "delivered") {
-      const f = deliveredFileInput?.files?.[0];
-      if (!f) {
-        done(false);
-        setResult(result, alertError("Delivery photo is required for delivered."));
-        deliveredFileInput?.focus();
-        return;
-      }
-      try {
-        body.delivered_photo_base64 = await fileToDataUrl(f);
-      } catch (err) {
-        done(false);
-        setResult(result, alertError(err?.message || "Failed to process delivery photo"));
-        return;
-      }
-    }
-
-    const res = await api(`/requests/${requestId}/status`, { method: "PATCH", body, role: "driver" });
+    const res = await api(`/requests/${requestId}/status`, {
+      method: "PATCH",
+      body: {
+        status,
+        driver_name: driverName,
+      },
+      role: "driver",
+    });
 
     done(!!res.ok);
-    if (res.ok) setResult(result, alertSuccess("Updated"));
-    else setResult(result, alertError(res.error || "Failed"));
+
+    if (res.ok) {
+      setResult(result, alertSuccess("Updated"));
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
+    }
   });
 }
 
 /* ---------------------------------------------------------
-   Issue report
+   Pilot: Report an issue helper
 --------------------------------------------------------- */
 function setupIssueReport_driver() {
   const form = document.getElementById("driverIssueForm");
@@ -553,10 +543,15 @@ function setupIssueReport_driver() {
 
     let snapshot = "";
     if (requestId) {
-      const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: "driver" });
+      const req = await api(
+        `/requests/${encodeURIComponent(requestId)}`,
+        { role: "driver" }
+      );
       if (req && req.ok && req.request) {
         const r = req.request;
-        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(r.pickup_suburb)}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
+        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(
+          r.pickup_suburb
+        )}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
       } else {
         snapshot = `Status snapshot: (unable to load request)`;
       }
@@ -564,24 +559,133 @@ function setupIssueReport_driver() {
 
     const now = new Date().toISOString();
     const url = window.location.origin;
-    out.textContent = [
+    const msg = [
       `DeliveryMate pilot issue report`,
       `Time: ${now}`,
       `Role: driver`,
-      requestId ? `Request ID: ${requestId}` : `Request ID: (not provided)`,
+      requestId
+        ? `Request ID: ${requestId}`
+        : `Request ID: (not provided)`,
       snapshot ? `\n${snapshot}\n` : "",
       note ? `Note: ${note}` : "Note: (none)",
       `\nPlease include a screenshot if possible.`,
       `Site: ${url}`,
     ].join("\n");
+
+    out.textContent = msg;
   });
 }
 
-function safeText(v) {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function setupDriverAuthControls() {
+  setupDriverLogin();
+  const continueBtn = document.getElementById("driverContinueBtn");
+  const logoutBtn = document.getElementById("driverLogoutBtn");
+  const hint = document.getElementById("driverAuthHint");
+
+  const u = getSavedDriverUser();
+  if (hint)
+    hint.textContent = u?.phone
+      ? `Saved on this device: ${u.phone}`
+      : "No saved login on this device yet.";
+
+  if (continueBtn) {
+    continueBtn.addEventListener("click", () => {
+      const u2 = getSavedDriverUser();
+      if (!u2) {
+        if (hint)
+          hint.textContent =
+            "No saved login found. Please register below.";
+        return;
+      }
+      localStorage.setItem("dm_driver_registered", "1");
+      sessionStorage.setItem("dm_user_driver", JSON.stringify(u2));
+      enforceDriverGate();
+      if (hint) hint.textContent = `Continuing as ${u2.phone}`;
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("dm_driver_registered");
+      localStorage.removeItem("dm_user_driver");
+      sessionStorage.removeItem("dm_user_driver");
+      sessionStorage.removeItem("dm_driver_token");
+      sessionStorage.removeItem("dm_user_token");
+      localStorage.removeItem("dm_user_token");
+      enforceDriverGate();
+      const form = document.getElementById("driverRegForm");
+      if (form) form.closest("section")?.classList.remove("hidden");
+      if (hint)
+        hint.textContent =
+          "Logged out. Please register again to use this device.";
+    });
+  }
+}
+
+function setupDriverLogin() {
+  const form = document.getElementById("driverLoginForm");
+  const hint = document.getElementById("driverAuthHint");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get("phone") || "").trim();
+    const invite_code = String(fd.get("invite_code") || "").trim();
+
+    if (hint) hint.textContent = "Logging in…";
+
+    const res = await api("/users/login", {
+      method: "POST",
+      body: { phone, invite_code },
+    });
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || "Login failed";
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markDriverRegistered(res.user);
+    sessionStorage.setItem("dm_user_driver", JSON.stringify(res.user));
+    enforceDriverGate();
+
+    if (hint)
+      hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+  });
+}
+
+function setupDriverPayoutMethod() {
+  const form = document.getElementById("driverPayoutForm");
+  const out = document.getElementById("driverPayoutOut");
+  const result = document.getElementById("driverPayoutResult");
+  if (!form || !out) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, "");
+    out.textContent = "";
+
+    const fd = new FormData(form);
+    const method = String(fd.get("method") || "manual").trim();
+    const bank_name = String(fd.get("bank_name") || "").trim();
+    const account_name = String(fd.get("account_name") || "").trim();
+    const bank_account = String(fd.get("bank_account") || "").trim();
+
+    const res = await api("/drivers/payout-method", {
+      method: "POST",
+      body: { method, bank_name, account_name, bank_account },
+      role: "driver",
+    });
+
+    out.textContent = JSON.stringify(res, null, 2);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+    if (res.ok) {
+      setResult(result, alertSuccess("Saved"));
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
+    }
+  });
 }
