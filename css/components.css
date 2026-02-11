@@ -205,3 +205,14 @@ pre {
 .result { margin-top: 10px; }
 .result .alert { margin: 0; }
 .details-hint { margin-top: 8px; }
+/* Ensure button-links stay readable (avoid visited/link colour overrides) */
+a.btn.secondary,
+a.btn.ghost {
+  color: var(--primary);
+}
+
+a.btn.secondary:visited,
+a.btn.ghost:visited {
+  color: var(--primary);
+}
+
