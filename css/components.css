@@ -8,17 +8,35 @@
   cursor: pointer;
   font-weight: 600;
   letter-spacing: .2px;
-  transition: background .15s, opacity .15s;
+  transition: background .15s, opacity .15s, transform .05s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+
+/* Ensure <a class="btn"> looks like a button */
+a.btn { text-decoration: none; }
+a.btn:visited { color: #fff; }
 
 .btn:hover {
   background: var(--primary-hover);
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn.secondary {
   background: #fff;
   color: var(--primary);
   border-color: rgba(15,23,42,.22);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--primary);
+  border-color: rgba(15,23,42,.12);
 }
 
 .btn:disabled {
@@ -146,6 +164,7 @@ pre {
 
 /* Utility spacing */
 .mt-2 { margin-top: 10px; }
+.mb-2 { margin-bottom: 10px; }
 
 /* Tables (admin dashboard) */
 .table {
@@ -170,21 +189,19 @@ pre {
 /* Issue report output */
 #senderIssueOut, #driverIssueOut { min-height: 80px; white-space: pre-wrap; }
 
-
 /* Sender/Driver gating (pilot convenience) */
 .locked .requires-sender { display: none; }
+.locked .requires-driver { display: none; }
 
 #senderAuthControls, #driverAuthControls { margin-top: 10px; }
 
-.hidden{ display:none; }
+.hidden { display: none; }
 
 /* Auth-gated dashboards */
 .locked #senderDashboard, .locked #driverDashboard { display: none; }
 .unlocked #senderAuthArea, .unlocked #driverAuthArea { display: none; }
-.hidden{ display:none; }
-
 
 /* Inline action result (sender/driver) */
-.result{margin-top:10px;}
-.result .alert{margin:0;}
-.details-hint{margin-top:8px;}
+.result { margin-top: 10px; }
+.result .alert { margin: 0; }
+.details-hint { margin-top: 8px; }
