@@ -12,7 +12,6 @@ export function initAdminPage() {
   setupDriverActions();
   setupLedgerLookup();
   setupDashboardRefresh();
-  setupMarkPaid();
 }
 
 /* ---------------------------------------------------------

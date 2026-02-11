@@ -6,6 +6,38 @@ import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
 
+
+function setResult(el, html) {
+  if (!el) return;
+  el.innerHTML = html || '';
+}
+
+function setWorking(btn, workingText='Working…') {
+  if (!btn) return () => {};
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.dataset._oldText = oldText;
+  btn.textContent = workingText;
+  return (ok) => {
+    // flash done if ok
+    if (ok) {
+      btn.textContent = 'Done ✓';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }, 900);
+    } else {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  };
+}
+
+function maybeOpenDetails(outEl, open) {
+  const d = outEl && outEl.closest && outEl.closest('details');
+  if (d) d.open = !!open;
+}
+
 export function initSenderPage() {
   console.log("Sender page loaded");
 
@@ -81,11 +113,18 @@ function enforceSenderGate() {
 function setupRegistration() {
   const form = $("#senderRegForm");
   const out = $("#senderRegOut");
+  const result = $("#senderRegResult");
 
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Loading…");
+    setResult(result, '');
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, '');
     const data = getFormData(form);
 
     const res = await api("/users/register", {
@@ -94,13 +133,15 @@ function setupRegistration() {
     });
 
     out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
 
     if (res.ok) {
       // Store the latest profile (helps autofill; no auth token is issued here)
       if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Registration saved"));
+      setResult(result, alertSuccess("Saved"));
     } else {
-      out.insertAdjacentHTML("beforebegin", alertError(res.error || "Registration failed"));
+      setResult(result, alertError(res.error || "Failed"));
     }
   });
 }
@@ -111,6 +152,7 @@ function setupRegistration() {
 function setupCreateRequest() {
   const form = $("#createRequestForm");
   const out = $("#senderOutput");
+  const result = $("#createRequestResult");
 
   if (!form) return;
 
@@ -138,12 +180,14 @@ function setupCreateRequest() {
     });
 
     out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
 
     if (res.ok) {
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Request created"));
+      setResult(result, alertSuccess("Created"));
       renderCreateRequestInfo(res);
     } else {
-      out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to create request"));
+      setResult(result, alertError(res.error || "Failed"));
     }
   });
 }
@@ -206,6 +250,8 @@ function setupViewRequest() {
   const form = $("#viewRequestForm");
   if (!form) return;
 
+  const result = $("#viewRequestResult");
+
   const reqOut = $("#viewRequestOut");
   const offersOut = $("#viewOffersOut");
   const historyOut = $("#viewHistoryOut");
@@ -232,6 +278,15 @@ function setupViewRequest() {
 
     // Friendly summary (no raw JSON). Debug JSON remains available in <details>.
     renderSenderSummary({ req, offers, hist, summary, offersList, historyList });
+
+    done(!!req.ok);
+    if (req.ok) {
+      setResult(result, alertSuccess("Loaded"));
+    } else {
+      setResult(result, alertError(req.error || "Failed"));
+      // open debug details for request
+      maybeOpenDetails(reqOut, true);
+    }
   });
 }
 
@@ -366,11 +421,15 @@ function safeText(v) {
 function setupAcceptOffer() {
   const form = $("#acceptOfferForm");
   const out = $("#acceptOfferOut");
+  const result = $("#acceptOfferResult");
 
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, '');
 
     const requestId = form.request_id.value;
     const offerId = form.offer_id.value;
@@ -381,11 +440,13 @@ function setupAcceptOffer() {
     });
 
     out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
 
     if (res.ok) {
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Offer accepted"));
+      setResult(result, alertSuccess("Accepted"));
     } else {
-      out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to accept offer"));
+      setResult(result, alertError(res.error || "Failed"));
     }
   });
 }
@@ -397,10 +458,14 @@ function setupFundEscrow() {
   const btn = $("#fundEscrowBtn");
   const amountInput = $("#fundAmount");
   const out = $("#fundEscrowOut");
+  const result = $("#fundEscrowResult");
 
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
+    const done = setWorking(btn);
+    setResult(result, '');
+
     const requestId = $("#fundRequestId").value;
     const amount = amountInput.value;
 
@@ -426,10 +491,14 @@ function setupFundEscrow() {
 function setupReleaseEscrow() {
   const btn = $("#releaseEscrowBtn");
   const out = $("#releaseEscrowOut");
+  const result = $("#releaseEscrowResult");
 
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
+    const done = setWorking(btn);
+    setResult(result, '');
+
     const requestId = $("#releaseRequestId").value;
 
     const res = await api(`/requests/${requestId}/escrow/release`, {
@@ -438,11 +507,13 @@ function setupReleaseEscrow() {
     });
 
     out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
 
     if (res.ok) {
-      out.insertAdjacentHTML("beforebegin", alertSuccess("Escrow released"));
+      setResult(result, alertSuccess("Released"));
     } else {
-      out.insertAdjacentHTML("beforebegin", alertError(res.error || "Failed to release escrow"));
+      setResult(result, alertError(res.error || "Failed"));
     }
   });
 }
