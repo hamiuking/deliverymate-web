@@ -24,99 +24,94 @@
     <h1>Driver</h1>
     <div id="driverAuthStatus" class="muted"></div>
 
-    <!-- Auth area should always be visible so users can Log out -->
     <div id="driverAuthArea">
-      <section class="card" id="driverAuthControls">
-        <h2>Log in</h2>
-        <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
+      <div class="grid">
+        <section class="card" id="driverRegisterSection">
+          <h2>Register as Driver</h2>
+          <p class="muted">Invite-only pilot. Admin approval required before you can submit offers.</p>
 
-        <form id="driverLoginForm">
-          <label>Phone</label>
-          <input name="phone" placeholder="e.g. 021..." required />
+          <form id="driverRegForm">
+            <label>Invite code</label>
+            <input name="invite_code" required />
 
-          <label>Invite code</label>
-          <input name="invite_code" placeholder="Pilot invite code" required />
+            <label>Full name</label>
+            <input name="full_name" />
 
-          <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
-        </form>
+            <label>Phone</label>
+            <input name="phone" required />
 
-        <div class="btn-row mt-2">
-          <button class="btn secondary" type="button" id="driverContinueBtn">Continue on this device</button>
-          <button class="btn secondary" type="button" id="driverLogoutBtn">Log out</button>
-        </div>
+            <label>Email</label>
+            <input name="email" />
 
-        <div class="muted mt-2" id="driverAuthHint"></div>
-      </section>
+            <label>Vehicle plate</label>
+            <input name="vehicle_plate" />
+
+            <label>Licence number (optional)</label>
+            <input name="license_number" />
+
+            <label>WOF expiry (optional)</label>
+            <input name="wof_expiry" placeholder="YYYY-MM-DD" />
+
+            <button class="btn mt-2" type="submit">Apply</button>
+          </form>
+          <div class="result" id="driverRegResult"></div>
+        </section>
+
+        <section class="card" id="driverLoginSection">
+          <h2>Log in</h2>
+          <form id="driverLoginForm">
+            <label>Phone</label>
+            <input name="phone" placeholder="e.g. 021..." required />
+
+            <label>Invite code</label>
+            <input name="invite_code" placeholder="Pilot invite code" required />
+
+            <div class="btn-row mt-2">
+              <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
+              <button class="btn secondary hidden" type="button" id="driverLogoutBtn">Log out</button>
+            </div>
+          </form>
+          <div class="muted mt-2" id="driverAuthHint"></div>
+        </section>
+      </div>
 
       <section class="card">
         <h2>Pilot guide (Driver)</h2>
         <ol>
-          <li><strong>Apply</strong> to become a driver (admin approval required).</li>
-          <li><strong>Browse and submit offers</strong> for open requests.</li>
-          <li><strong>If selected</strong>, update status: picked up → delivered.</li>
-          <li><strong>Payout</strong> starts after escrow release (manual tracking during pilot).</li>
+          <li><strong>Apply</strong> (admin approval required).</li>
+          <li><strong>Submit offers</strong> on requests.</li>
+          <li><strong>If selected</strong>, update status: picked up → delivered (delivery photo required).</li>
+          <li><strong>Payout</strong> begins after escrow release (manual tracking in pilot).</li>
         </ol>
-        <p class="muted">
-          Drivers are independent. DeliveryMate is not an employer, courier, or agent.
-        </p>
-      </section>
-
-      <!-- ✅ Register must be visible even when locked -->
-      <section class="card" id="driverRegisterSection">
-        <h2>Register as Driver</h2>
-        <p class="muted">
-          Invite-only pilot. Your application must be approved by an admin before you can submit offers.
-        </p>
-
-        <p class="muted">
-          Pilot note: if admin requests licence photos, please send them to admin@deliverymate.nz (manual review).
-        </p>
-
-        <form id="driverRegForm">
-          <label>Invite code</label>
-          <input name="invite_code" required />
-
-          <label>Full name</label>
-          <input name="full_name" />
-
-          <label>Phone</label>
-          <input name="phone" required />
-
-          <label>Email</label>
-          <input name="email" />
-
-          <label>Vehicle plate</label>
-          <input name="vehicle_plate" />
-
-          <label>Licence number (optional)</label>
-          <input name="license_number" />
-
-          <label>WOF expiry (optional)</label>
-          <input name="wof_expiry" placeholder="YYYY-MM-DD" />
-
-          <hr class="mt-2 mb-2" />
-
-          <p class="muted">
-            Optional (pilot): selecting photos here does not upload automatically.
-          </p>
-
-          <label>Licence front photo (optional)</label>
-          <input type="file" id="license_front_file" accept="image/*" />
-
-          <label>Licence back photo (optional)</label>
-          <input type="file" id="license_back_file" accept="image/*" />
-
-          <button class="btn mt-2" type="submit">Apply</button>
-        </form>
-        <div class="result" id="driverRegResult"></div>
+        <p class="muted">Drivers are independent. DeliveryMate is not an employer, courier, or agent.</p>
       </section>
     </div>
 
-    <!-- ✅ Dashboard (hidden unless registered) -->
     <div id="driverDashboard">
       <section class="card requires-driver">
+        <h2>Driver acknowledgements</h2>
+        <p class="muted">Before submitting an offer or updating status, confirm the following:</p>
+
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck1" />
+          I understand and agree that I am fully responsible for my own driving, including compliance with New Zealand road rules, vehicle safety, and insurance. The Platform is not responsible for accidents, infringements, damage, injury, or any other issues arising from my driving.
+        </label>
+
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck2" />
+          I confirm my vehicle is roadworthy, holds a current WOF and registration, and I am responsible for maintaining appropriate insurance cover.
+        </label>
+
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck3" />
+          I understand the Platform does not provide insurance for items I carry, and is not liable for loss, theft, or damage to goods.
+        </label>
+
+        <div class="muted" style="margin-top:8px;">You can change the wording later; this is the pilot safety baseline.</div>
+      </section>
+
+      <section class="card requires-driver">
         <h2>Make Offer</h2>
-        <p class="muted">Your name and phone will be taken from your saved driver profile.</p>
         <form id="driverOfferForm">
           <label>Request ID</label>
           <input name="request_id" required />
@@ -127,7 +122,7 @@
           <label>Note</label>
           <textarea name="note"></textarea>
 
-          <button class="btn" type="submit">Submit Offer</button>
+          <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
         </form>
         <div class="result" id="driverOfferResult"></div>
       </section>
@@ -147,23 +142,18 @@
         <form id="driverViewForm">
           <label>Request ID</label>
           <input name="request_id" required />
-
           <button class="btn" type="submit">Load Job</button>
         </form>
 
         <div id="driverJobSummary"></div>
-
         <h3>History</h3>
         <div id="driverHistoryList"></div>
-
         <div class="result" id="driverViewResult"></div>
       </section>
 
       <section class="card requires-driver">
         <h2>Update Status</h2>
-        <p class="muted">
-          When you mark <strong>delivered</strong>, a delivery photo is required (max 6MB).
-        </p>
+        <p class="muted">Delivered requires a delivery photo (max 6MB).</p>
 
         <form id="driverStatusForm">
           <label>Request ID</label>
@@ -182,7 +172,7 @@
             <input type="file" id="delivered_photo_file" accept="image/*" />
           </div>
 
-          <button class="btn mt-2" type="submit">Update</button>
+          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update</button>
         </form>
 
         <div class="result" id="driverStatusResult"></div>
