@@ -24,6 +24,7 @@
     <h1>Driver</h1>
     <div id="driverAuthStatus" class="muted"></div>
 
+    <!-- Auth area should always be visible so users can Log out -->
     <div id="driverAuthArea">
       <section class="card" id="driverAuthControls">
         <h2>Log in</h2>
@@ -53,21 +54,22 @@
           <li><strong>Apply</strong> to become a driver (admin approval required).</li>
           <li><strong>Browse and submit offers</strong> for open requests.</li>
           <li><strong>If selected</strong>, update status: picked up → delivered.</li>
-          <li><strong>Payout</strong> starts after delivery and escrow release (immediate on sender confirmation, or auto-release after 24 hours).</li>
+          <li><strong>Payout</strong> starts after escrow release (manual tracking during pilot).</li>
         </ol>
         <p class="muted">
           Drivers are independent. DeliveryMate is not an employer, courier, or agent.
         </p>
       </section>
 
-      <section class="card">
+      <!-- ✅ Register must be visible even when locked -->
+      <section class="card" id="driverRegisterSection">
         <h2>Register as Driver</h2>
         <p class="muted">
           Invite-only pilot. Your application must be approved by an admin before you can submit offers.
         </p>
 
         <p class="muted">
-          Pilot note: if admin requests licence photos, please send them to admin@deliverymate.nz (your application can be reviewed manually).
+          Pilot note: if admin requests licence photos, please send them to admin@deliverymate.nz (manual review).
         </p>
 
         <form id="driverRegForm">
@@ -95,7 +97,7 @@
           <hr class="mt-2 mb-2" />
 
           <p class="muted">
-            Optional (pilot): you can select licence photos here for your own reference, but they are not uploaded automatically.
+            Optional (pilot): selecting photos here does not upload automatically.
           </p>
 
           <label>Licence front photo (optional)</label>
@@ -110,105 +112,105 @@
       </section>
     </div>
 
-    <section class="card">
-      <h2>Make Offer</h2>
-      <p class="muted">Your name and phone will be taken from your saved driver profile.</p>
-      <form id="driverOfferForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
+    <!-- ✅ Dashboard (hidden unless registered) -->
+    <div id="driverDashboard">
+      <section class="card requires-driver">
+        <h2>Make Offer</h2>
+        <p class="muted">Your name and phone will be taken from your saved driver profile.</p>
+        <form id="driverOfferForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
 
-        <label>Price (NZD)</label>
-        <input name="price_nzd" type="number" step="0.01" />
+          <label>Price (NZD)</label>
+          <input name="price_nzd" type="number" step="0.01" />
 
-        <label>Note</label>
-        <textarea name="note"></textarea>
+          <label>Note</label>
+          <textarea name="note"></textarea>
 
-        <button class="btn" type="submit">Submit Offer</button>
-      </form>
-      <div class="result" id="driverOfferResult"></div>
-    </section>
+          <button class="btn" type="submit">Submit Offer</button>
+        </form>
+        <div class="result" id="driverOfferResult"></div>
+      </section>
 
-    <section class="card">
-      <h2>Recent jobs</h2>
-      <div class="btn-row">
-        <select id="driverRecentSelect"></select>
-        <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
-        <button class="btn secondary" id="driverRecentClearBtn" type="button">Clear</button>
-      </div>
-      <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
-    </section>
-
-    <section class="card requires-driver">
-      <h2>View My Job</h2>
-      <form id="driverViewForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <button class="btn" type="submit">Load Job</button>
-      </form>
-
-      <div id="driverJobSummary"></div>
-
-      <h3>History</h3>
-      <div id="driverHistoryList"></div>
-
-      <div class="result" id="driverViewResult"></div>
-    </section>
-
-    <section class="card requires-driver">
-      <h2>Update Status</h2>
-      <p class="muted">
-        Update status only after you have actually picked up or delivered the item.
-        When you mark <strong>delivered</strong>, a delivery photo is required.
-      </p>
-
-      <form id="driverStatusForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <label>Status</label>
-        <select name="status" id="driverStatusSelect">
-          <option value="picked_up">picked_up</option>
-          <option value="delivered">delivered</option>
-        </select>
-
-        <!-- driver_name will be auto-filled and hidden by JS -->
-        <input type="hidden" name="driver_name" id="driverStatusDriverName" />
-
-        <div id="deliveredPhotoBlock" class="mt-2">
-          <label>Delivered photo (required for delivered)</label>
-          <input type="file" id="delivered_photo_file" accept="image/*" />
-          <div class="muted" style="margin-top:6px;">Tip: take a clear photo of the delivered item at the drop-off location.</div>
+      <section class="card requires-driver">
+        <h2>Recent jobs</h2>
+        <div class="btn-row">
+          <select id="driverRecentSelect"></select>
+          <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
+          <button class="btn ghost" id="driverRecentClearBtn" type="button">Clear</button>
         </div>
+        <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
+      </section>
 
-        <button class="btn mt-2" type="submit">Update</button>
-      </form>
+      <section class="card requires-driver">
+        <h2>View My Job</h2>
+        <form id="driverViewForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
 
-      <div class="result" id="driverStatusResult"></div>
-    </section>
+          <button class="btn" type="submit">Load Job</button>
+        </form>
 
-    <section class="card requires-driver">
-      <h2>Report an issue (pilot)</h2>
-      <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+        <div id="driverJobSummary"></div>
 
-      <form id="driverIssueForm">
-        <label>Request ID</label>
-        <input name="request_id" placeholder="e.g. 123" />
+        <h3>History</h3>
+        <div id="driverHistoryList"></div>
 
-        <label>What happened?</label>
-        <textarea name="note" placeholder="One or two sentences"></textarea>
+        <div class="result" id="driverViewResult"></div>
+      </section>
 
-        <button class="btn" type="submit">Generate message</button>
-      </form>
+      <section class="card requires-driver">
+        <h2>Update Status</h2>
+        <p class="muted">
+          When you mark <strong>delivered</strong>, a delivery photo is required (max 6MB).
+        </p>
 
-      <div class="mt-2">
-        <div class="muted">Message</div>
-        <pre id="driverIssueOut"></pre>
-        <div class="btn-row mt-2">
-          <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy message</button>
+        <form id="driverStatusForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
+
+          <label>Status</label>
+          <select name="status" id="driverStatusSelect">
+            <option value="picked_up">picked_up</option>
+            <option value="delivered">delivered</option>
+          </select>
+
+          <input type="hidden" name="driver_name" id="driverStatusDriverName" />
+
+          <div id="deliveredPhotoBlock" class="mt-2">
+            <label>Delivered photo (required for delivered)</label>
+            <input type="file" id="delivered_photo_file" accept="image/*" />
+          </div>
+
+          <button class="btn mt-2" type="submit">Update</button>
+        </form>
+
+        <div class="result" id="driverStatusResult"></div>
+      </section>
+
+      <section class="card requires-driver">
+        <h2>Report an issue (pilot)</h2>
+        <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+
+        <form id="driverIssueForm">
+          <label>Request ID</label>
+          <input name="request_id" placeholder="e.g. 123" />
+
+          <label>What happened?</label>
+          <textarea name="note" placeholder="One or two sentences"></textarea>
+
+          <button class="btn" type="submit">Generate message</button>
+        </form>
+
+        <div class="mt-2">
+          <div class="muted">Message</div>
+          <pre id="driverIssueOut"></pre>
+          <div class="btn-row mt-2">
+            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy message</button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 </body>
 </html>
