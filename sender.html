@@ -25,74 +25,66 @@
     <div id="senderAuthStatus" class="muted"></div>
 
     <div id="senderAuthArea">
-    <section class="card" id="senderAuthControls">
-      <h2>Log in</h2>
-      <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
+      <section class="card" id="senderAuthControls">
+        <h2>Log in</h2>
+        <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
 
-      <form id="senderLoginForm" onsubmit="return false">
-        <label>Phone</label>
-        <input name="phone" placeholder="e.g. 021..." required />
+        <form id="senderLoginForm">
+          <label>Phone</label>
+          <input name="phone" placeholder="e.g. 021..." required />
 
-        <label>Invite code</label>
-        <input name="invite_code" placeholder="Pilot invite code" required />
+          <label>Invite code</label>
+          <input name="invite_code" placeholder="Pilot invite code" required />
 
-        <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
-      </form>
+          <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
+        </form>
 
-      <div class="btn-row mt-2">
-        <button class="btn secondary" type="button" id="senderContinueBtn">Continue on this device</button>
-        <button class="btn secondary" type="button" id="senderLogoutBtn">Log out</button>
-      </div>
+        <div class="btn-row mt-2">
+          <button class="btn secondary" type="button" id="senderContinueBtn">Continue on this device</button>
+          <button class="btn secondary" type="button" id="senderLogoutBtn">Log out</button>
+        </div>
 
-      <div class="muted mt-2" id="senderAuthHint"></div>
-    </section>
+        <div class="muted mt-2" id="senderAuthHint"></div>
+      </section>
 
+      <section class="card requires-sender">
+        <h2>Pilot guide (Sender)</h2>
+        <ol>
+          <li><strong>Create a request</strong> (pickup, drop‑off, item, suggested price).</li>
+          <li><strong>Review offers</strong> and accept one driver.</li>
+          <li><strong>Fund escrow</strong> when prompted (Stripe test mode during pilot).</li>
+          <li><strong>After delivery</strong>: confirm to release escrow immediately, or it auto‑releases after 24 hours.</li>
+        </ol>
+        <p class="muted">
+          DeliveryMate is a facilitator only. We do not provide dispute resolution, refunds, or reversals after release.
+        </p>
+      </section>
 
+      <section class="card requires-sender">
+        <h2>Register</h2>
+        <form id="senderRegForm">
+          <label>Invite code</label>
+          <input name="invite_code" required />
 
-    <section class="card"  class="card requires-sender">
-      <h2>Pilot guide (Sender)</h2>
-      <ol>
-        <li><strong>Create a request</strong> (pickup, drop‑off, item, suggested price).</li>
-        <li><strong>Review offers</strong> and accept one driver.</li>
-        <li><strong>Fund escrow</strong> when prompted (Stripe test mode during pilot).</li>
-        <li><strong>After delivery</strong>: confirm to release escrow immediately, or it auto‑releases after 24 hours.</li>
-      </ol>
-      <p class="muted">
-        DeliveryMate is a facilitator only. We do not provide dispute resolution, refunds, or reversals after release.
-      </p>
-    </section>
+          <label>Full name</label>
+          <input name="full_name" />
 
+          <label>Phone</label>
+          <input name="phone" required />
 
+          <label>Email</label>
+          <input name="email" />
 
-    <section class="card"  class="card requires-sender">
-      <h2>Register</h2>
-      <form id="senderRegForm" onsubmit="return false">
-        <label>Invite code</label>
-        <input name="invite_code" required />
+          <button class="btn" type="submit">Register</button>
+        </form>
+        <div class="result" id="senderRegResult"></div>
+      </section>
+    </div>
 
-        <label>Full name</label>
-        <input name="full_name" />
-
-        <label>Phone</label>
-        <input name="phone" required />
-
-        <label>Email</label>
-        <input name="email" />
-
-        <button class="btn" type="submit">Register</button>
-      </form>
-<details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="senderRegOut">{}</pre>
-      </details>
-      <div class="result" id="senderRegResult"></div>
-    </section>
-</div>
-
-    <section class="card"  class="card requires-sender">
+    <section class="card requires-sender">
       <h2>Create Delivery Request</h2>
       <p class="muted">After you create a request, save the Request ID. You will use it to view offers and confirm delivery.</p>
-      <form id="createRequestForm" onsubmit="return false">
+      <form id="createRequestForm">
         <label>Pickup suburb</label>
         <input name="pickup_suburb" required />
 
@@ -112,17 +104,12 @@
       </form>
       <div class="result" id="createRequestResult"></div>
       <div id="senderCreateInfo"></div>
-
-<details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="senderOutput">{}</pre>
-      </details>
     </section>
 
-    <section class="card"  class="card requires-sender">
+    <section class="card requires-sender">
       <h2>View My Request</h2>
       <p class="muted">Use your Request ID to load the current status, offers, and history. After the driver marks <strong>delivered</strong>, you can confirm to release escrow immediately.</p>
-      <form id="viewRequestForm" onsubmit="return false">
+      <form id="viewRequestForm">
         <label>Request ID</label>
         <input name="request_id" required />
 
@@ -137,22 +124,12 @@
       <h3>History</h3>
       <div id="senderHistoryList"></div>
 
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <h4>Request</h4>
-        <pre id="viewRequestOut">{}</pre>
-        <h4>Offers</h4>
-        <pre id="viewOffersOut">[]</pre>
-        <h4>History</h4>
-        <pre id="viewHistoryOut">[]</pre>
-      </details>
-      <div class="result" id="viewOffersResult"></div>
       <div class="result" id="viewRequestResult"></div>
     </section>
 
-    <section class="card"  class="card requires-sender">
+    <section class="card requires-sender">
       <h2>Accept Offer</h2>
-      <form id="acceptOfferForm" onsubmit="return false">
+      <form id="acceptOfferForm">
         <label>Request ID</label>
         <input name="request_id" required />
 
@@ -161,80 +138,64 @@
 
         <button class="btn" type="submit">Accept</button>
       </form>
-<details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="acceptOfferOut">{}</pre>
-      </details>
       <div class="result" id="acceptOfferResult"></div>
     </section>
-  <div id="senderDashboard">
 
-    <section class="card">
-      <h2>Recent requests</h2>
-      <div class="btn-row">
-        <select id="senderRecentSelect"></select>
-        <button class="btn secondary" id="senderRecentUseBtn" type="button">Use</button>
-        <button class="btn ghost" id="senderRecentClearBtn" type="button">Clear</button>
-      </div>
-      <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
-    </section>
-
-
-
-
-    <section class="card requires-sender">
-      <h2>Fund Escrow</h2>
-      <label>Request ID</label>
-      <input id="fundRequestId" />
-
-      <label>Amount (NZD)</label>
-      <input id="fundAmount" type="number" step="0.01" />
-
-      <button class="btn" id="fundEscrowBtn">Pay Now</button>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="fundEscrowOut">{}</pre>
-      </details>
-      <div class="result" id="fundEscrowResult"></div>
-    </section>
-
-    <section class="card requires-sender">
-      <h2>Release Escrow</h2>
-      <label>Request ID</label>
-      <input id="releaseRequestId" />
-
-      <button class="btn" id="releaseEscrowBtn">Confirm Delivery</button>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="releaseEscrowOut">{}</pre>
-      </details>
-      <div class="result" id="releaseEscrowResult"></div>
-    </section>
-  
-    <section class="card" requires-sender>
-      <h2>Report an issue (pilot)</h2>
-      <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
-
-      <form id="senderIssueForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input name="request_id" placeholder="e.g. 123" />
-
-        <label>What happened?</label>
-        <textarea name="note" placeholder="One or two sentences"></textarea>
-
-        <button class="btn" type="submit">Generate message</button>
-      </form>
-
-      <div class="mt-2">
-        <div class="muted">Message</div>
-        <pre id="senderIssueOut"></pre>
-        <div class="btn-row mt-2">
-          <button class="btn secondary" type="button" data-copy="#senderIssueOut">Copy message</button>
+    <div id="senderDashboard">
+      <section class="card">
+        <h2>Recent requests</h2>
+        <div class="btn-row">
+          <select id="senderRecentSelect"></select>
+          <button class="btn secondary" id="senderRecentUseBtn" type="button">Use</button>
+          <button class="btn secondary" id="senderRecentClearBtn" type="button">Clear</button>
         </div>
-      </div>
-    </section>
+        <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
+      </section>
 
-  </div>
-</main>
+      <section class="card requires-sender">
+        <h2>Fund Escrow</h2>
+        <label>Request ID</label>
+        <input id="fundRequestId" />
+
+        <label>Amount (NZD)</label>
+        <input id="fundAmount" type="number" step="0.01" />
+
+        <button class="btn" id="fundEscrowBtn">Pay Now</button>
+        <div class="result" id="fundEscrowResult"></div>
+      </section>
+
+      <section class="card requires-sender">
+        <h2>Release Escrow</h2>
+        <label>Request ID</label>
+        <input id="releaseRequestId" />
+
+        <button class="btn" id="releaseEscrowBtn">Confirm Delivery</button>
+        <div class="result" id="releaseEscrowResult"></div>
+      </section>
+
+      <section class="card requires-sender">
+        <h2>Report an issue (pilot)</h2>
+        <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+
+        <form id="senderIssueForm">
+          <label>Request ID</label>
+          <input name="request_id" placeholder="e.g. 123" />
+
+          <label>What happened?</label>
+          <textarea name="note" placeholder="One or two sentences"></textarea>
+
+          <button class="btn" type="submit">Generate message</button>
+        </form>
+
+        <div class="mt-2">
+          <div class="muted">Message</div>
+          <pre id="senderIssueOut"></pre>
+          <div class="btn-row mt-2">
+            <button class="btn secondary" type="button" data-copy="#senderIssueOut">Copy message</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
 </body>
 </html>
