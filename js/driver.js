@@ -191,6 +191,18 @@ export function initDriverPage() {
 }
 
 /* ---------------------------------------------------------
+   Helpers: delivery photo (base64 data URL)
+--------------------------------------------------------- */
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("Failed to read file"));
+    r.onload = () => resolve(String(r.result || ""));
+    r.readAsDataURL(file);
+  });
+}
+
+/* ---------------------------------------------------------
    1. Driver Registration
 --------------------------------------------------------- */
 function setupDriverRegistration() {
@@ -206,6 +218,9 @@ function setupDriverRegistration() {
     setResult(result, "");
     const data = getFormData(form);
 
+    // Pilot note: licence photos are not uploaded automatically in this build.
+    // Admin can request photos via email if needed.
+
     const res = await api("/users/driver/apply", {
       method: "POST",
       body: data,
@@ -214,8 +229,7 @@ function setupDriverRegistration() {
     done(!!res.ok);
 
     if (res.ok) {
-      if (res.user)
-        sessionStorage.setItem("dm_user", JSON.stringify(res.user));
+      if (res.user) sessionStorage.setItem("dm_user", JSON.stringify(res.user));
       setResult(result, alertSuccess("Submitted"));
       saveUserToken(res.user_token || res.userToken || res.auth_token);
       markDriverRegistered(res.user);
@@ -347,8 +361,8 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
       )}</div>
       <div class="muted" style="margin-top:10px;">
         Request #${safeText(r.id)} · ${safeText(
-      r.pickup_suburb
-    )} → ${safeText(r.dropoff_suburb)}
+          r.pickup_suburb
+        )} → ${safeText(r.dropoff_suburb)}
       </div>
 
       <div class="mt-2">
@@ -380,8 +394,7 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
   const pickedBtn = document.getElementById("qaPickedUpBtn");
   const delBtn = document.getElementById("qaDeliveredBtn");
 
-  const canPicked =
-    r.status === "accepted" || r.status === "open";
+  const canPicked = r.status === "accepted" || r.status === "open";
   const canDelivered = r.status === "picked_up";
 
   if (pickedBtn) pickedBtn.disabled = !canPicked;
@@ -395,17 +408,20 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
       statusForm.querySelector('button[type="submit"]')?.click();
     });
   }
+
+  // Delivered requires a photo: guide the user instead of auto-submitting.
   if (delBtn) {
     delBtn.addEventListener("click", () => {
       if (!statusForm) return;
       statusForm.status.value = "delivered";
-      if (noteEl) noteEl.textContent = "Submitting status update…";
-      statusForm.querySelector('button[type="submit"]')?.click();
+      const fileInput = document.getElementById("delivered_photo_file");
+      if (noteEl) noteEl.textContent = "Select a delivered photo, then click Update.";
+      fileInput?.scrollIntoView({ behavior: "smooth", block: "center" });
+      fileInput?.focus();
     });
   }
 
-  const h =
-    hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
+  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
   if (hist && !hist.ok) {
     historyList.insertAdjacentHTML(
       "beforeend",
@@ -465,6 +481,8 @@ function setupUpdateStatus() {
 
   if (!form) return;
 
+  const deliveredFileInput = document.getElementById("delivered_photo_file");
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
@@ -475,12 +493,29 @@ function setupUpdateStatus() {
     const status = form.status.value;
     const driverName = form.driver_name.value;
 
+    const body = { status, driver_name: driverName };
+
+    // Backend requires delivered_photo_base64 for delivered
+    if (status === "delivered") {
+      const f = deliveredFileInput?.files?.[0];
+      if (!f) {
+        done(false);
+        setResult(result, alertError("Delivery photo is required for delivered."));
+        deliveredFileInput?.focus();
+        return;
+      }
+      try {
+        body.delivered_photo_base64 = await fileToDataUrl(f);
+      } catch (err) {
+        done(false);
+        setResult(result, alertError(err?.message || "Failed to read delivery photo"));
+        return;
+      }
+    }
+
     const res = await api(`/requests/${requestId}/status`, {
       method: "PATCH",
-      body: {
-        status,
-        driver_name: driverName,
-      },
+      body,
       role: "driver",
     });
 
@@ -510,10 +545,7 @@ function setupIssueReport_driver() {
 
     let snapshot = "";
     if (requestId) {
-      const req = await api(
-        `/requests/${encodeURIComponent(requestId)}`,
-        { role: "driver" }
-      );
+      const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: "driver" });
       if (req && req.ok && req.request) {
         const r = req.request;
         snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(
@@ -530,9 +562,7 @@ function setupIssueReport_driver() {
       `DeliveryMate pilot issue report`,
       `Time: ${now}`,
       `Role: driver`,
-      requestId
-        ? `Request ID: ${requestId}`
-        : `Request ID: (not provided)`,
+      requestId ? `Request ID: ${requestId}` : `Request ID: (not provided)`,
       snapshot ? `\n${snapshot}\n` : "",
       note ? `Note: ${note}` : "Note: (none)",
       `\nPlease include a screenshot if possible.`,
@@ -559,9 +589,7 @@ function setupDriverAuthControls() {
     continueBtn.addEventListener("click", () => {
       const u2 = getSavedDriverUser();
       if (!u2) {
-        if (hint)
-          hint.textContent =
-            "No saved login found. Please register below.";
+        if (hint) hint.textContent = "No saved login found. Please register below.";
         return;
       }
       localStorage.setItem("dm_driver_registered", "1");
@@ -582,9 +610,7 @@ function setupDriverAuthControls() {
       enforceDriverGate();
       const form = document.getElementById("driverRegForm");
       if (form) form.closest("section")?.classList.remove("hidden");
-      if (hint)
-        hint.textContent =
-          "Logged out. Please register again to use this device.";
+      if (hint) hint.textContent = "Logged out. Please register again to use this device.";
     });
   }
 }
@@ -602,10 +628,7 @@ function setupDriverLogin() {
 
     if (hint) hint.textContent = "Logging in…";
 
-    const res = await api("/users/login", {
-      method: "POST",
-      body: { phone, invite_code },
-    });
+    const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
     if (!res.ok) {
       if (hint) hint.textContent = res.error || "Login failed";
       return;
@@ -616,43 +639,9 @@ function setupDriverLogin() {
     sessionStorage.setItem("dm_user_driver", JSON.stringify(res.user));
     enforceDriverGate();
 
-    if (hint)
-      hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
   });
 }
 
 function setupDriverPayoutMethod() {
-  const form = document.getElementById("driverPayoutForm");
-  const out = document.getElementById("driverPayoutOut");
-  const result = document.getElementById("driverPayoutResult");
-  if (!form || !out) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn);
-    setResult(result, "");
-    out.textContent = "";
-
-    const fd = new FormData(form);
-    const method = String(fd.get("method") || "manual").trim();
-    const bank_name = String(fd.get("bank_name") || "").trim();
-    const account_name = String(fd.get("account_name") || "").trim();
-    const bank_account = String(fd.get("bank_account") || "").trim();
-
-    const res = await api("/drivers/payout-method", {
-      method: "POST",
-      body: { method, bank_name, account_name, bank_account },
-      role: "driver",
-    });
-
-    out.textContent = JSON.stringify(res, null, 2);
-    maybeOpenDetails(out, !res.ok);
-    done(!!res.ok);
-    if (res.ok) {
-      setResult(result, alertSuccess("Saved"));
-    } else {
-      setResult(result, alertError(res.error || "Failed"));
-    }
-  });
-}
+  const form =
