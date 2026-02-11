@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -25,189 +24,200 @@
     <h1>Driver</h1>
     <div id="driverAuthStatus" class="muted"></div>
 
+    <!-- AUTH AREA ONLY (visible when locked) -->
     <div id="driverAuthArea">
-      <section class="card" id="driverAuthControls">
-        <h2>Log in</h2>
-        <p class="muted">Pilot note: this “log in” uses saved details on this device.</p>
+      <div class="grid">
+        <section class="card" id="driverRegisterSection">
+          <h2>Register as Driver</h2>
+          <p class="muted">Invite-only pilot. Admin approval required before you can submit offers.</p>
 
-        <form id="driverLoginForm">
-          <label>Phone</label>
-          <input name="phone" placeholder="e.g. 021..." required />
+          <form id="driverRegForm">
+            <label>Invite code</label>
+            <input name="invite_code" required />
 
-          <label>Invite code</label>
-          <input name="invite_code" placeholder="Pilot invite code" required />
+            <label>Full name</label>
+            <input name="full_name" />
 
-          <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
-        </form>
+            <label>Phone</label>
+            <input name="phone" required />
 
-        <div class="btn-row mt-2">
-          <button class="btn secondary" type="button" id="driverContinueBtn">Continue on this device</button>
-          <button class="btn secondary" type="button" id="driverLogoutBtn">Log out</button>
-        </div>
+            <label>Email</label>
+            <input name="email" />
 
-        <div class="muted mt-2" id="driverAuthHint"></div>
-      </section>
+            <label>Vehicle plate</label>
+            <input name="vehicle_plate" />
 
-      <section class="card">
+            <label>Licence number</label>
+            <input name="license_number" required />
+
+            <label>WOF expiry</label>
+            <input name="wof_expiry" placeholder="YYYY-MM-DD" required />
+
+            <div class="mt-2">
+              <div class="muted" style="margin-bottom:6px;">Driver licence photos (required, max 6MB each)</div>
+
+              <label>Driver licence — front</label>
+              <input type="file" id="driver_license_front_file" accept="image/*" required />
+
+              <label class="mt-2">Driver licence — back</label>
+              <input type="file" id="driver_license_back_file" accept="image/*" required />
+            </div>
+
+            <button class="btn mt-2" type="submit">Apply</button>
+          </form>
+
+          <div class="result" id="driverRegResult"></div>
+        </section>
+
+        <section class="card" id="driverLoginSection">
+          <h2>Log in</h2>
+          <form id="driverLoginForm">
+            <label>Phone</label>
+            <input name="phone" placeholder="e.g. 021..." required />
+
+            <label>Invite code</label>
+            <input name="invite_code" placeholder="Pilot invite code" required />
+
+            <div class="btn-row mt-2">
+              <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
+              <button class="btn secondary hidden" type="button" id="driverLogoutBtn">Log out</button>
+            </div>
+          </form>
+
+          <div class="muted mt-2" id="driverAuthHint"></div>
+        </section>
+      </div>
+
+      <section class="card" id="driverPilotGuide">
         <h2>Pilot guide (Driver)</h2>
         <ol>
-          <li><strong>Apply</strong> to become a driver (admin approval required).</li>
-          <li><strong>Browse and submit offers</strong> for open requests.</li>
-          <li><strong>If selected</strong>, update status: picked up → delivered.</li>
-          <li><strong>Payout</strong> is initiated after delivery and escrow release (immediate on sender confirmation, or auto‑release after 24 hours).</li>
+          <li><strong>Apply</strong> (admin approval required).</li>
+          <li><strong>Submit offers</strong> on requests.</li>
+          <li><strong>If selected</strong>, update status: picked up → delivered (delivery photo required).</li>
+          <li><strong>Payout</strong> begins after escrow release (manual tracking in pilot).</li>
         </ol>
-        <p class="muted">
-          Drivers are independent. DeliveryMate is not an employer, courier, or agent.
-        </p>
-      </section>
-
-      <section class="card">
-        <h2>Register as Driver</h2>
-        <p class="muted">
-          Invite‑only pilot. Your application must be approved by an admin before you can submit offers.
-          Licence photos are required for manual approval.
-        </p>
-        <form id="driverRegForm">
-          <label>Invite code</label>
-          <input name="invite_code" required />
-
-          <label>Full name</label>
-          <input name="full_name" />
-
-          <label>Phone</label>
-          <input name="phone" required />
-
-          <label>Email</label>
-          <input name="email" />
-
-          <label>Vehicle plate</label>
-          <input name="vehicle_plate" />
-
-          <label>Licence number (required)</label>
-          <input name="license_number" required />
-
-          <label>WOF expiry (required)</label>
-          <input name="wof_expiry" placeholder="YYYY-MM-DD" required pattern="\d{4}-\d{2}-\d{2}" />
-
-          <hr class="mt-2 mb-2" />
-
-          <p class="muted">
-            Please upload clear photos of the front and back of your driver licence (JPG/PNG, max 6MB each). These are required.
-          </p>
-
-          <label>Licence front photo</label>
-          <input type="file" id="license_front_file" accept="image/*" required />
-
-          <label>Licence back photo</label>
-          <input type="file" id="license_back_file" accept="image/*" required />
-
-          <button class="btn mt-2" type="submit">Apply</button>
-        </form>
-        <div class="result" id="driverRegResult"></div>
+        <p class="muted">Drivers are independent. DeliveryMate is not an employer, courier, or agent.</p>
       </section>
     </div>
 
-    <section class="card">
-      <h2>Make Offer</h2>
-      <p class="muted">Your name and phone will be taken from your saved driver profile.</p>
-      <form id="driverOfferForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
+    <!-- DASHBOARD (hidden unless unlocked) -->
+    <div id="driverDashboard" class="hidden">
+      <section class="card requires-driver">
+        <h2>Driver acknowledgements</h2>
+        <p class="muted">Before submitting an offer or updating status, confirm the following:</p>
 
-        <label>Price (NZD)</label>
-        <input name="price_nzd" type="number" step="0.01" />
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck1" />
+          I understand and agree that I am fully responsible for my own driving, including compliance with New Zealand road rules, vehicle safety, and insurance. The Platform is not responsible for accidents, infringements, damage, injury, or any other issues arising from my driving.
+        </label>
 
-        <label>Note</label>
-        <textarea name="note"></textarea>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck2" />
+          I confirm my vehicle is roadworthy, holds a current WOF and registration, and I am responsible for maintaining appropriate insurance cover.
+        </label>
 
-        <button class="btn" type="submit">Submit Offer</button>
-      </form>
-      <div class="result" id="driverOfferResult"></div>
-    </section>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="dAck3" />
+          I understand the Platform does not provide insurance for items I carry, and is not liable for loss, theft, or damage to goods.
+        </label>
 
-    <section class="card">
-      <h2>Recent jobs</h2>
-      <div class="btn-row">
-        <select id="driverRecentSelect"></select>
-        <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
-        <button class="btn secondary" id="driverRecentClearBtn" type="button">Clear</button>
-      </div>
-      <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
-    </section>
-
-    <section class="card" requires-driver>
-      <h2>View My Job</h2>
-      <form id="driverViewForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <button class="btn" type="submit">Load Job</button>
-      </form>
-
-      <div id="driverJobSummary"></div>
-
-      <h3>History</h3>
-      <div id="driverHistoryList"></div>
-
-      <div class="result" id="driverViewResult"></div>
-    </section>
-
-    <section class="card" requires-driver>
-      <h2>Update Status</h2>
-      <p class="muted">
-        Update status only after you have actually picked up or delivered the item.
-        When you mark <strong>picked_up</strong> or <strong>delivered</strong>, a photo is required.
-      </p>
-      <form id="driverStatusForm">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <label>Status</label>
-        <select name="status" id="driverStatusSelect">
-          <option value="picked_up">picked_up</option>
-          <option value="delivered">delivered</option>
-        </select>
-
-        <!-- driver_name will be auto-filled and hidden by JS -->
-        <input type="hidden" name="driver_name" id="driverStatusDriverName" />
-
-        <div id="pickupPhotoBlock">
-          <label>Pickup photo (required for picked_up)</label>
-          <input type="file" id="pickup_photo_file" accept="image/*" />
+        <div class="muted" style="margin-top:10px;">
+          Full terms: <a href="/terms/driver-terms.html" target="_blank" rel="noopener">Driver Agreement</a>
+          <span style="margin-left:10px;" id="driverAckLast"></span>
         </div>
+      </section>
 
-        <div id="deliveredPhotoBlock" class="mt-2">
-          <label>Delivered photo (required for delivered)</label>
-          <input type="file" id="delivered_photo_file" accept="image/*" />
+      <section class="card requires-driver">
+        <h2>Make Offer</h2>
+        <form id="driverOfferForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
+
+          <label>Price (NZD)</label>
+          <input name="price_nzd" type="number" step="0.01" />
+
+          <label>Note</label>
+          <textarea name="note"></textarea>
+
+          <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
+        </form>
+        <div class="result" id="driverOfferResult"></div>
+      </section>
+
+      <section class="card requires-driver">
+        <h2>Recent jobs</h2>
+        <div class="btn-row">
+          <select id="driverRecentSelect"></select>
+          <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
+          <button class="btn ghost" id="driverRecentClearBtn" type="button">Clear</button>
         </div>
+        <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
+      </section>
 
-        <button class="btn mt-2" type="submit">Update</button>
-      </form>
-      <div class="result" id="driverStatusResult"></div>
-    </section>
+      <section class="card requires-driver">
+        <h2>View My Job</h2>
+        <form id="driverViewForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
+          <button class="btn" type="submit">Load Job</button>
+        </form>
 
-    <section class="card" requires-driver>
-      <h2>Report an issue (pilot)</h2>
-      <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+        <div id="driverJobSummary"></div>
+        <h3>History</h3>
+        <div id="driverHistoryList"></div>
+        <div class="result" id="driverViewResult"></div>
+      </section>
 
-      <form id="driverIssueForm">
-        <label>Request ID</label>
-        <input name="request_id" placeholder="e.g. 123" />
+      <section class="card requires-driver">
+        <h2>Update Status</h2>
+        <p class="muted">Delivered requires a delivery photo (max 6MB).</p>
 
-        <label>What happened?</label>
-        <textarea name="note" placeholder="One or two sentences"></textarea>
+        <form id="driverStatusForm">
+          <label>Request ID</label>
+          <input name="request_id" required />
 
-        <button class="btn" type="submit">Generate message</button>
-      </form>
+          <label>Status</label>
+          <select name="status" id="driverStatusSelect">
+            <option value="picked_up">picked_up</option>
+            <option value="delivered">delivered</option>
+          </select>
 
-      <div class="mt-2">
-        <div class="muted">Message</div>
-        <pre id="driverIssueOut"></pre>
-        <div class="btn-row mt-2">
-          <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy message</button>
+          <input type="hidden" name="driver_name" id="driverStatusDriverName" />
+
+          <div id="deliveredPhotoBlock" class="mt-2">
+            <label>Delivered photo (required for delivered)</label>
+            <input type="file" id="delivered_photo_file" accept="image/*" />
+          </div>
+
+          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update</button>
+        </form>
+
+        <div class="result" id="driverStatusResult"></div>
+      </section>
+
+      <section class="card requires-driver">
+        <h2>Report an issue (pilot)</h2>
+        <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+
+        <form id="driverIssueForm">
+          <label>Request ID</label>
+          <input name="request_id" placeholder="e.g. 123" />
+
+          <label>What happened?</label>
+          <textarea name="note" placeholder="One or two sentences"></textarea>
+
+          <button class="btn" type="submit">Generate message</button>
+        </form>
+
+        <div class="mt-2">
+          <div class="muted">Message</div>
+          <pre id="driverIssueOut"></pre>
+          <div class="btn-row mt-2">
+            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy message</button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 </body>
 </html>
