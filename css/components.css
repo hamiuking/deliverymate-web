@@ -182,3 +182,9 @@ pre {
 .locked #senderDashboard, .locked #driverDashboard { display: none; }
 .unlocked #senderAuthArea, .unlocked #driverAuthArea { display: none; }
 .hidden{ display:none; }
+
+
+/* Inline action result (sender/driver) */
+.result{margin-top:10px;}
+.result .alert{margin:0;}
+.details-hint{margin-top:8px;}
