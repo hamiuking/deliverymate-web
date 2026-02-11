@@ -29,3 +29,42 @@ h1, h2, h3 {
   gap: 10px;
   flex-wrap: wrap;
 }
+
+/* ✅ Minimal form styling for consistent look */
+label {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(15,23,42,.82);
+}
+
+input, select, textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,.18);
+  background: #fff;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+textarea { min-height: 90px; resize: vertical; }
+
+input[type="file"] {
+  padding: 10px;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid rgba(15,23,42,.12);
+}
+
+/* ✅ Keyboard focus */
+:focus-visible {
+  outline: 3px solid rgba(2,132,199,.35);
+  outline-offset: 2px;
+}
