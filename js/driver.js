@@ -31,11 +31,6 @@ function setWorking(btn, workingText = "Working…") {
   };
 }
 
-function maybeOpenDetails(outEl, open) {
-  const d = outEl && outEl.closest && outEl.closest("details");
-  if (d) d.open = !!open;
-}
-
 function markDriverRegistered(user) {
   localStorage.setItem("dm_driver_registered", "1");
   if (user) {
@@ -77,11 +72,9 @@ function enforceDriverGate() {
       : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
   }
 
-  // Hide register section once unlocked
   const reg = document.getElementById("driverRegisterSection");
   if (reg) reg.classList.toggle("hidden", !locked);
 
-  // Logout only when unlocked
   const logoutBtn = document.getElementById("driverLogoutBtn");
   if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
 
@@ -89,29 +82,19 @@ function enforceDriverGate() {
   if (hint) hint.textContent = locked ? "" : (u?.phone ? `Logged in as ${u.phone}` : "Logged in");
 }
 
-// --- Recent jobs (local-only; pilot convenience) ---
+// --- Recent jobs (local-only) ---
 const DRIVER_RECENT_KEY = "dm_driver_recent_requests";
 
 function loadDriverRecent() {
-  try {
-    return JSON.parse(localStorage.getItem(DRIVER_RECENT_KEY) || "[]");
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(localStorage.getItem(DRIVER_RECENT_KEY) || "[]"); }
+  catch { return []; }
 }
-
 function saveDriverRecent(list) {
-  try {
-    localStorage.setItem(DRIVER_RECENT_KEY, JSON.stringify(list));
-  } catch {}
+  try { localStorage.setItem(DRIVER_RECENT_KEY, JSON.stringify(list)); }
+  catch {}
 }
-
 function addDriverRecent(item) {
-  const id = item?.id
-    ? String(item.id)
-    : item?.request_id
-    ? String(item.request_id)
-    : "";
+  const id = item?.id ? String(item.id) : (item?.request_id ? String(item.request_id) : "");
   if (!id) return;
   const rec = {
     id,
@@ -125,7 +108,6 @@ function addDriverRecent(item) {
   saveDriverRecent(list.slice(0, 10));
   renderDriverRecent();
 }
-
 function renderDriverRecent() {
   const sel = document.getElementById("driverRecentSelect");
   if (!sel) return;
@@ -133,21 +115,17 @@ function renderDriverRecent() {
   sel.innerHTML = "";
   const opt0 = document.createElement("option");
   opt0.value = "";
-  opt0.textContent = list.length
-    ? "Select a recent request…"
-    : "No recent jobs yet";
+  opt0.textContent = list.length ? "Select a recent request…" : "No recent jobs yet";
   sel.appendChild(opt0);
   for (const it of list) {
     const o = document.createElement("option");
     o.value = String(it.id);
-    const route =
-      it.pickup || it.dropoff ? ` — ${it.pickup} → ${it.dropoff}` : "";
+    const route = (it.pickup || it.dropoff) ? ` — ${it.pickup} → ${it.dropoff}` : "";
     const st = it.status ? ` [${it.status}]` : "";
     o.textContent = `#${it.id}${st}${route}`;
     sel.appendChild(o);
   }
 }
-
 function applyDriverRecent(requestId) {
   if (!requestId) return;
   const id = String(requestId);
@@ -157,14 +135,12 @@ function applyDriverRecent(requestId) {
     if (f && f.request_id) f.request_id.value = id;
   }
 }
-
 function setupDriverRecentUI() {
   const sel = document.getElementById("driverRecentSelect");
   const useBtn = document.getElementById("driverRecentUseBtn");
   const clearBtn = document.getElementById("driverRecentClearBtn");
   if (!sel) return;
   renderDriverRecent();
-
   if (useBtn) useBtn.addEventListener("click", () => applyDriverRecent(sel.value));
   sel.addEventListener("change", () => { if (sel.value) applyDriverRecent(sel.value); });
   if (clearBtn) clearBtn.addEventListener("click", () => { saveDriverRecent([]); renderDriverRecent(); });
@@ -180,7 +156,6 @@ function setupDriverAckGate() {
   const a1 = document.getElementById("dAck1");
   const a2 = document.getElementById("dAck2");
   const a3 = document.getElementById("dAck3");
-
   const offerBtn = document.getElementById("driverOfferBtn");
   const statusBtn = document.getElementById("driverStatusBtn");
   const lastEl = document.getElementById("driverAckLast");
@@ -220,7 +195,7 @@ function getDriverAckMeta() {
 }
 
 /* ---------------------------------------------------------
-   Helpers: delivery photo compression + size limits
+   Helpers: image compression + size limits (6MB original, 2MB final)
 --------------------------------------------------------- */
 const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024; // 6MB
 const MAX_FINAL_BYTES = 2 * 1024 * 1024;    // 2MB after compression
@@ -294,13 +269,50 @@ function setupDriverRegistration() {
   const result = $("#driverRegResult");
   if (!form) return;
 
+  const frontInput = document.getElementById("driver_license_front_file");
+  const backInput = document.getElementById("driver_license_back_file");
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn);
+    const done = setWorking(btn, "Applying…");
     setResult(result, "");
 
     const data = getFormData(form);
+
+    // Enforce required fields (in addition to HTML required attributes)
+    const license = String(data.license_number || "").trim();
+    const wof = String(data.wof_expiry || "").trim();
+    if (!license) {
+      done(false);
+      setResult(result, alertError("Licence number is required."));
+      form.license_number?.focus?.();
+      return;
+    }
+    if (!wof) {
+      done(false);
+      setResult(result, alertError("WOF expiry is required."));
+      form.wof_expiry?.focus?.();
+      return;
+    }
+
+    const frontFile = frontInput?.files?.[0];
+    const backFile = backInput?.files?.[0];
+    if (!frontFile || !backFile) {
+      done(false);
+      setResult(result, alertError("Please upload both front and back photos of your driver licence."));
+      return;
+    }
+
+    try {
+      data.driver_license_front_base64 = await fileToDataUrl(frontFile);
+      data.driver_license_back_base64 = await fileToDataUrl(backFile);
+    } catch (err) {
+      done(false);
+      setResult(result, alertError(err?.message || "Failed to process licence photos"));
+      return;
+    }
+
     const res = await api("/users/driver/apply", { method: "POST", body: data });
 
     done(!!res.ok);
