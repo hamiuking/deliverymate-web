@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -62,7 +63,10 @@
 
       <section class="card">
         <h2>Register as Driver</h2>
-        <p class="muted">Invite‑only pilot. Your application must be approved by an admin before you can submit offers.</p>
+        <p class="muted">
+          Invite‑only pilot. Your application must be approved by an admin before you can submit offers.
+          Licence photos are required for manual approval.
+        </p>
         <form id="driverRegForm">
           <label>Invite code</label>
           <input name="invite_code" required />
@@ -85,7 +89,19 @@
           <label>WOF expiry (optional)</label>
           <input name="wof_expiry" placeholder="YYYY-MM-DD" />
 
-          <button class="btn" type="submit">Apply</button>
+          <hr class="mt-2 mb-2" />
+
+          <p class="muted">
+            Please upload clear photos of the front and back of your driver licence. These are required.
+          </p>
+
+          <label>Licence front photo</label>
+          <input type="file" id="license_front_file" accept="image/*" required />
+
+          <label>Licence back photo</label>
+          <input type="file" id="license_back_file" accept="image/*" required />
+
+          <button class="btn mt-2" type="submit">Apply</button>
         </form>
         <div class="result" id="driverRegResult"></div>
       </section>
@@ -138,21 +154,34 @@
 
     <section class="card" requires-driver>
       <h2>Update Status</h2>
-      <p class="muted">Update status only after you have actually picked up or delivered the item. After <strong>delivered</strong>, escrow moves to pending release.</p>
+      <p class="muted">
+        Update status only after you have actually picked up or delivered the item.
+        When you mark <strong>picked_up</strong> or <strong>delivered</strong>, a photo is required.
+      </p>
       <form id="driverStatusForm">
         <label>Request ID</label>
         <input name="request_id" required />
 
         <label>Status</label>
-        <select name="status">
+        <select name="status" id="driverStatusSelect">
           <option value="picked_up">picked_up</option>
           <option value="delivered">delivered</option>
         </select>
 
-        <label>Driver name</label>
-        <input name="driver_name" required />
+        <!-- driver_name will be auto-filled and hidden by JS -->
+        <input type="hidden" name="driver_name" id="driverStatusDriverName" />
 
-        <button class="btn" type="submit">Update</button>
+        <div id="pickupPhotoBlock">
+          <label>Pickup photo (required for picked_up)</label>
+          <input type="file" id="pickup_photo_file" accept="image/*" />
+        </div>
+
+        <div id="deliveredPhotoBlock" class="mt-2">
+          <label>Delivered photo (required for delivered)</label>
+          <input type="file" id="delivered_photo_file" accept="image/*" />
+        </div>
+
+        <button class="btn mt-2" type="submit">Update</button>
       </form>
       <div class="result" id="driverStatusResult"></div>
     </section>
