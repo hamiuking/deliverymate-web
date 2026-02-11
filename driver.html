@@ -46,14 +46,25 @@
             <label>Vehicle plate</label>
             <input name="vehicle_plate" />
 
-            <label>Licence number (optional)</label>
-            <input name="license_number" />
+            <label>Licence number</label>
+            <input name="license_number" required />
 
-            <label>WOF expiry (optional)</label>
-            <input name="wof_expiry" placeholder="YYYY-MM-DD" />
+            <label>WOF expiry</label>
+            <input name="wof_expiry" placeholder="YYYY-MM-DD" required />
+
+            <div class="mt-2">
+              <div class="muted" style="margin-bottom:6px;">Driver licence photos (required, max 6MB each)</div>
+
+              <label>Driver licence — front</label>
+              <input type="file" id="driver_license_front_file" accept="image/*" required />
+
+              <label class="mt-2">Driver licence — back</label>
+              <input type="file" id="driver_license_back_file" accept="image/*" required />
+            </div>
 
             <button class="btn mt-2" type="submit">Apply</button>
           </form>
+
           <div class="result" id="driverRegResult"></div>
         </section>
 
