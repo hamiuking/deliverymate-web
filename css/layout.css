@@ -20,6 +20,21 @@
 .nav {
   display: flex;
   gap: 12px;
+
+  /* ✅ Mobile-friendly nav */
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+  .nav a {
+    white-space: nowrap;
+  }
 }
 
 .nav a {
