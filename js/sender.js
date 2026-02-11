@@ -170,6 +170,7 @@ function isSenderRegistered() {
   return localStorage.getItem('dm_sender_registered') === '1';
 }
 
+/* ✅ Gate dashboard and keep auth controls available */
 function enforceSenderGate() {
   const status = document.getElementById('senderAuthStatus');
   const locked = !isSenderRegistered();
@@ -177,15 +178,19 @@ function enforceSenderGate() {
   document.body.classList.toggle('locked', locked);
   document.body.classList.toggle('unlocked', !locked);
 
+  // Hide Register once unlocked (optional but requested behaviour)
+  const reg = document.getElementById('senderRegisterSection');
+  if (reg) reg.classList.toggle('hidden', !locked);
+
   if (status) {
     if (locked) {
-      status.textContent = 'Pilot: please register first to enable request creation and offer acceptance on this device.';
+      status.textContent = 'Pilot: please register or log in to access the sender dashboard.';
     } else {
       let phone = '';
       try {
         phone = (JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null')) || {}).phone || '';
       } catch(_) {}
-      status.textContent = phone ? `Registered: ${phone}` : 'Registered';
+      status.textContent = phone ? `Logged in: ${phone}` : 'Logged in';
     }
   }
 }
@@ -215,6 +220,8 @@ function setupRegistration() {
 
     if (res.ok) {
       if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
+      markSenderRegistered(res.user);
+      enforceSenderGate();
       setResult(result, alertSuccess("Saved"));
     } else {
       setResult(result, alertError(res.error || "Failed"));
@@ -240,12 +247,10 @@ function setupCreateRequest() {
 
     const data = getFormData(form);
 
-    // Ack version required by backend
     if (!data.sender_ack_version) {
       data.sender_ack_version = sessionStorage.getItem('dm_sender_ack_version') || 'v2';
     }
 
-    // If user profile exists, use it as defaults (pilot convenience)
     try {
       const u = JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null'));
       if (u && u.phone) data.sender_phone = data.sender_phone || u.phone;
@@ -312,7 +317,7 @@ function renderCreateRequestInfo(res) {
           await navigator.clipboard.writeText(String(id));
           if (note) note.textContent = 'Copied.';
         } catch {
-          if (note) note.textContent = 'Copy failed. Please select and copy manually.';
+          if (note) note.textContent = 'Copy failed. Please copy manually.';
         }
       });
     }
@@ -348,7 +353,6 @@ function setupViewRequest() {
 
     const id = form.request_id.value;
 
-    // Ensure sender token is loaded for this request (needed for accept/release).
     const tok = loadSenderTokenForRequest(id);
     if (tok) sessionStorage.setItem('dm_sender_token', tok);
 
@@ -414,7 +418,6 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
           Confirming will release escrow immediately. If you do nothing, escrow will auto-release after 24 hours.
         </p>
         <button class="btn" id="ctaConfirmDeliveryBtn">Confirm delivery & release escrow</button>
-        <div class="muted" id="ctaConfirmDeliveryNote" style="margin-top:8px;"></div>
       </div>
     `);
 
@@ -424,9 +427,7 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
         const rid = String(r.id);
         const input = document.getElementById('releaseRequestId');
         const btn = document.getElementById('releaseEscrowBtn');
-        const note = document.getElementById('ctaConfirmDeliveryNote');
         if (input) input.value = rid;
-        if (note) note.textContent = 'Releasing escrow…';
         if (btn) btn.click();
       });
     }
@@ -480,7 +481,6 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
             return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
           }).join('')}
         </ul>
-        ${h.length > 12 ? `<div class="muted" style="margin-top:8px;">Showing latest 12 events (debug JSON contains full history).</div>` : ''}
       </div>
     `);
   }
@@ -675,8 +675,9 @@ function setupSenderAuthControls() {
       sessionStorage.removeItem('dm_sender_token');
       sessionStorage.removeItem('dm_user_token');
       localStorage.removeItem('dm_user_token');
+
       enforceSenderGate();
-      if (hint) hint.textContent = 'Logged out. Please register again to use this device.';
+      if (hint) hint.textContent = 'Logged out. Please register or log in again.';
     });
   }
 }
