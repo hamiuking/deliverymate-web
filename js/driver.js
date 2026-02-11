@@ -173,7 +173,7 @@ function setupDriverRecentUI() {
 /* ---------------------------------------------------------
    Driver acknowledgement gate
 --------------------------------------------------------- */
-const DRIVER_ACK_VERSION = "driver_ack_v1";
+const DRIVER_ACK_VERSION = "driver_terms_2026-01-06";
 const DRIVER_ACK_KEY = "dm_driver_ack_v1_ts";
 
 function setupDriverAckGate() {
@@ -183,8 +183,18 @@ function setupDriverAckGate() {
 
   const offerBtn = document.getElementById("driverOfferBtn");
   const statusBtn = document.getElementById("driverStatusBtn");
+  const lastEl = document.getElementById("driverAckLast");
 
   if (!a1 || !a2 || !a3) return;
+
+  const renderLast = () => {
+    if (!lastEl) return;
+    const ts = localStorage.getItem(DRIVER_ACK_KEY);
+    if (!ts) { lastEl.textContent = ""; return; }
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) { lastEl.textContent = ""; return; }
+    lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
+  };
 
   const prevTs = localStorage.getItem(DRIVER_ACK_KEY);
   if (prevTs) { a1.checked = true; a2.checked = true; a3.checked = true; }
@@ -194,6 +204,7 @@ function setupDriverAckGate() {
     if (offerBtn) offerBtn.disabled = !ok;
     if (statusBtn) statusBtn.disabled = !ok;
     if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
+    renderLast();
   };
 
   a1.addEventListener("change", refresh);
