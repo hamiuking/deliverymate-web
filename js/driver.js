@@ -193,12 +193,56 @@ export function initDriverPage() {
 /* ---------------------------------------------------------
    Helpers: delivery photo (base64 data URL)
 --------------------------------------------------------- */
-function fileToDataUrl(file) {
+// --- Compress + limit delivery photo ---
+const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024;   // 6MB hard limit
+const MAX_FINAL_BYTES = 2 * 1024 * 1024;       // 2MB after compression
+const MAX_WIDTH = 1600;
+const JPEG_QUALITY = 0.75;
+
+async function fileToDataUrl(file) {
+  if (!file) throw new Error("No file selected");
+
+  if (file.size > MAX_ORIGINAL_BYTES) {
+    throw new Error("Photo too large (max 6MB original).");
+  }
+
+  const img = await loadImage(file);
+
+  const scale = Math.min(1, MAX_WIDTH / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
+  // Estimate binary size from base64
+  const base64 = dataUrl.split(",")[1] || "";
+  const byteSize = Math.ceil((base64.length * 3) / 4);
+
+  if (byteSize > MAX_FINAL_BYTES) {
+    throw new Error("Photo still too large after compression (max 2MB). Please use a smaller image.");
+  }
+
+  return dataUrl;
+}
+
+function loadImage(file) {
   return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(new Error("Failed to read file"));
-    r.onload = () => resolve(String(r.result || ""));
-    r.readAsDataURL(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Invalid image file"));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.readAsDataURL(file);
   });
 }
 
