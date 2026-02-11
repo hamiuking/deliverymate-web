@@ -270,29 +270,97 @@ function setupDriverRegistration() {
   const result = $("#driverRegResult");
   if (!form) return;
 
-  const frontInput = document.getElementById("driver_license_front_file");
-  const backInput = document.getElementById("driver_license_back_file");
+  const frontInput = form.querySelector("#driver_license_front_file");
+  const backInput  = form.querySelector("#driver_license_back_file");
+  const applyBtn   = form.querySelector('button[type="submit"]');
+
+  const frontStatus = document.getElementById("dlFrontStatus");
+  const backStatus  = document.getElementById("dlBackStatus");
+
+  function fmtMB(bytes) {
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(2)}MB`;
+  }
+
+  function setFileStatus(which, file) {
+    const el = which === "front" ? frontStatus : backStatus;
+    if (!el) return;
+
+    if (!file) {
+      el.textContent = "";
+      return;
+    }
+
+    if (file.size > MAX_ORIGINAL_BYTES) {
+      el.textContent = `Too large (${fmtMB(file.size)}). Max 6MB.`;
+      return;
+    }
+
+    el.textContent = `Ready ✓ (${fmtMB(file.size)})`;
+  }
+
+  function canEnableApply() {
+    const invite = String(form.invite_code?.value || "").trim();
+    const phone  = String(form.phone?.value || "").trim();
+    const lic    = String(form.license_number?.value || "").trim();
+    const wof    = String(form.wof_expiry?.value || "").trim();
+
+    const f1 = frontInput && frontInput.files && frontInput.files[0];
+    const f2 = backInput && backInput.files && backInput.files[0];
+
+    // Must have files and they must pass the 6MB check
+    if (!f1 || !f2) return false;
+    if (f1.size > MAX_ORIGINAL_BYTES) return false;
+    if (f2.size > MAX_ORIGINAL_BYTES) return false;
+
+    return !!(invite && phone && lic && wof);
+  }
+
+  function refreshApplyEnabled() {
+    if (!applyBtn) return;
+    applyBtn.disabled = !canEnableApply();
+  }
+
+  // Initial
+  refreshApplyEnabled();
+
+  // Live updates
+  form.addEventListener("input", refreshApplyEnabled);
+  form.addEventListener("change", refreshApplyEnabled);
+
+  // File status updates
+  if (frontInput) {
+    frontInput.addEventListener("change", () => {
+      const f = frontInput.files?.[0];
+      setFileStatus("front", f);
+      refreshApplyEnabled();
+    });
+  }
+  if (backInput) {
+    backInput.addEventListener("change", () => {
+      const f = backInput.files?.[0];
+      setFileStatus("back", f);
+      refreshApplyEnabled();
+    });
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Applying…");
+    if (!applyBtn) return;
+
+    if (!canEnableApply()) {
+      setResult(result, alertError("Please complete all required fields and upload both driver licence photos (max 6MB each)."));
+      refreshApplyEnabled();
+      return;
+    }
+
+    const done = setWorking(applyBtn, "Uploading & applying…");
     setResult(result, "");
 
     const data = getFormData(form);
 
-    const license = String(data.license_number || "").trim();
-    const wof = String(data.wof_expiry || "").trim();
-    if (!license) { done(false); setResult(result, alertError("Licence number is required.")); form.license_number?.focus?.(); return; }
-    if (!wof) { done(false); setResult(result, alertError("WOF expiry is required.")); form.wof_expiry?.focus?.(); return; }
-
-    const frontFile = frontInput?.files?.[0];
-    const backFile = backInput?.files?.[0];
-    if (!frontFile || !backFile) {
-      done(false);
-      setResult(result, alertError("Please upload both front and back photos of your driver licence."));
-      return;
-    }
+    const frontFile = frontInput.files[0];
+    const backFile  = backInput.files[0];
 
     try {
       data.driver_license_front_base64 = await fileToDataUrl(frontFile);
@@ -316,6 +384,7 @@ function setupDriverRegistration() {
     }
   });
 }
+
 
 function setupDriverLogin() {
   const form = document.getElementById("driverLoginForm");
