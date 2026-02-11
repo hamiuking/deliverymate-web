@@ -199,7 +199,9 @@ pre {
 
 /* Auth-gated dashboards */
 .locked #senderDashboard, .locked #driverDashboard { display: none; }
-.unlocked #senderAuthArea, .unlocked #driverAuthArea { display: none; }
+/* Keep auth controls visible even when unlocked (so Logout is always available) */
+.unlocked #senderAuthArea, .unlocked #driverAuthArea { display: block; }
+
 
 /* Inline action result (sender/driver) */
 .result { margin-top: 10px; }
