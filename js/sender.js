@@ -119,12 +119,9 @@ function setupRegistration() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Loading…");
-    setResult(result, '');
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn);
-    setResult(result, '');
+   const btn = form.querySelector('button[type="submit"]');
+const done = setWorking(btn, "Loading…");
+setResult(result, '');
     const data = getFormData(form);
 
     const res = await api("/users/register", {
@@ -427,9 +424,9 @@ function setupAcceptOffer() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn);
-    setResult(result, '');
+const btn = form.querySelector('button[type="submit"]');
+const done = setWorking(btn, "Loading…");
+setResult(result, '');
 
     const requestId = form.request_id.value;
     const offerId = form.offer_id.value;
