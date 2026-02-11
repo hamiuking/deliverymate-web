@@ -191,19 +191,24 @@ export function initDriverPage() {
 }
 
 /* ---------------------------------------------------------
-   Helpers: delivery photo (base64 data URL)
+   Helpers: delivery photo compression + size limits
 --------------------------------------------------------- */
-// --- Compress + limit delivery photo ---
-const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024;   // 6MB hard limit
-const MAX_FINAL_BYTES = 2 * 1024 * 1024;       // 2MB after compression
+
+// 6MB original cap (your request)
+const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024;
+
+// 2MB final cap (after compression)
+const MAX_FINAL_BYTES = 2 * 1024 * 1024;
+
+// Resize + JPEG compression
 const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 0.75;
 
 async function fileToDataUrl(file) {
-  if (!file) throw new Error("No file selected");
+  if (!file) throw new Error("No photo selected");
 
   if (file.size > MAX_ORIGINAL_BYTES) {
-    throw new Error("Photo too large (max 6MB original).");
+    throw new Error("Photo too large (max 6MB). Please use a smaller image.");
   }
 
   const img = await loadImage(file);
@@ -221,12 +226,13 @@ async function fileToDataUrl(file) {
 
   const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
 
-  // Estimate binary size from base64
   const base64 = dataUrl.split(",")[1] || "";
   const byteSize = Math.ceil((base64.length * 3) / 4);
 
   if (byteSize > MAX_FINAL_BYTES) {
-    throw new Error("Photo still too large after compression (max 2MB). Please use a smaller image.");
+    throw new Error(
+      "Photo is still too large after compression (max 2MB). Please use a smaller image."
+    );
   }
 
   return dataUrl;
@@ -239,7 +245,7 @@ function loadImage(file) {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error("Invalid image file"));
-      img.src = reader.result;
+      img.src = String(reader.result || "");
     };
     reader.onerror = () => reject(new Error("Failed to read image"));
     reader.readAsDataURL(file);
@@ -261,9 +267,6 @@ function setupDriverRegistration() {
     const done = setWorking(btn);
     setResult(result, "");
     const data = getFormData(form);
-
-    // Pilot note: licence photos are not uploaded automatically in this build.
-    // Admin can request photos via email if needed.
 
     const res = await api("/users/driver/apply", {
       method: "POST",
@@ -422,17 +425,7 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
   );
 
   const statusForm = document.getElementById("driverStatusForm");
-  if (statusForm && statusForm.request_id) {
-    statusForm.request_id.value = String(r.id);
-  }
-  if (
-    statusForm &&
-    statusForm.driver_name &&
-    !statusForm.driver_name.value &&
-    r.driver_name
-  ) {
-    statusForm.driver_name.value = String(r.driver_name);
-  }
+  if (statusForm && statusForm.request_id) statusForm.request_id.value = String(r.id);
 
   const noteEl = document.getElementById("qaNote");
   const pickedBtn = document.getElementById("qaPickedUpBtn");
@@ -453,13 +446,12 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
     });
   }
 
-  // Delivered requires a photo: guide the user instead of auto-submitting.
   if (delBtn) {
     delBtn.addEventListener("click", () => {
       if (!statusForm) return;
       statusForm.status.value = "delivered";
       const fileInput = document.getElementById("delivered_photo_file");
-      if (noteEl) noteEl.textContent = "Select a delivered photo, then click Update.";
+      if (noteEl) noteEl.textContent = "Select a delivered photo (max 6MB), then click Update.";
       fileInput?.scrollIntoView({ behavior: "smooth", block: "center" });
       fileInput?.focus();
     });
@@ -517,7 +509,7 @@ function safeText(v) {
 }
 
 /* ---------------------------------------------------------
-   4. Update Status
+   4. Update Status (delivered requires photo)
 --------------------------------------------------------- */
 function setupUpdateStatus() {
   const form = $("#driverStatusForm");
@@ -535,11 +527,12 @@ function setupUpdateStatus() {
 
     const requestId = form.request_id.value;
     const status = form.status.value;
-    const driverName = form.driver_name.value;
+
+    // driver_name is optional in backend checks in your current flow, but keep it if present.
+    const driverName = form.driver_name ? form.driver_name.value : "";
 
     const body = { status, driver_name: driverName };
 
-    // Backend requires delivered_photo_base64 for delivered
     if (status === "delivered") {
       const f = deliveredFileInput?.files?.[0];
       if (!f) {
@@ -552,7 +545,7 @@ function setupUpdateStatus() {
         body.delivered_photo_base64 = await fileToDataUrl(f);
       } catch (err) {
         done(false);
-        setResult(result, alertError(err?.message || "Failed to read delivery photo"));
+        setResult(result, alertError(err?.message || "Failed to process delivery photo"));
         return;
       }
     }
@@ -565,11 +558,8 @@ function setupUpdateStatus() {
 
     done(!!res.ok);
 
-    if (res.ok) {
-      setResult(result, alertSuccess("Updated"));
-    } else {
-      setResult(result, alertError(res.error || "Failed"));
-    }
+    if (res.ok) setResult(result, alertSuccess("Updated"));
+    else setResult(result, alertError(res.error || "Failed"));
   });
 }
 
@@ -688,4 +678,34 @@ function setupDriverLogin() {
 }
 
 function setupDriverPayoutMethod() {
-  const form =
+  const form = document.getElementById("driverPayoutForm");
+  const out = document.getElementById("driverPayoutOut");
+  const result = document.getElementById("driverPayoutResult");
+  if (!form || !out) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, "");
+    out.textContent = "";
+
+    const fd = new FormData(form);
+    const method = String(fd.get("method") || "manual").trim();
+    const bank_name = String(fd.get("bank_name") || "").trim();
+    const account_name = String(fd.get("account_name") || "").trim();
+    const bank_account = String(fd.get("bank_account") || "").trim();
+
+    const res = await api("/drivers/payout-method", {
+      method: "POST",
+      body: { method, bank_name, account_name, bank_account },
+      role: "driver",
+    });
+
+    out.textContent = JSON.stringify(res, null, 2);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+    if (res.ok) setResult(result, alertSuccess("Saved"));
+    else setResult(result, alertError(res.error || "Failed"));
+  });
+}
