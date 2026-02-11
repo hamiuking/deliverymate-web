@@ -40,8 +40,12 @@ export function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
+  setupSenderLogin();
+  setupSenderLogout();
+
   enforceSenderGate();
-  setupSenderAuthControls();
+  setupSenderAckGate();
+
   setupCreateRequest();
   setupViewRequest();
   setupAcceptOffer();
@@ -49,6 +53,196 @@ export function initSenderPage() {
   setupReleaseEscrow();
   setupSenderRecentUI();
   setupIssueReport_sender();
+}
+
+function markSenderRegistered(user) {
+  localStorage.setItem('dm_sender_registered', '1');
+  if (user) {
+    localStorage.setItem('dm_user', JSON.stringify(user));
+    sessionStorage.setItem('dm_user', JSON.stringify(user));
+  }
+}
+
+function isSenderRegistered() {
+  return localStorage.getItem('dm_sender_registered') === '1';
+}
+
+function saveUserToken(tok) {
+  if (!tok) return;
+  localStorage.setItem('dm_user_token', String(tok));
+  sessionStorage.setItem('dm_user_token', String(tok));
+}
+
+function getSavedUser() {
+  try {
+    const raw = localStorage.getItem('dm_user');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function setAuthUI() {
+  const locked = !isSenderRegistered();
+
+  const logoutBtn = document.getElementById('senderLogoutBtn');
+  const hint = document.getElementById('senderAuthHint');
+
+  if (logoutBtn) logoutBtn.classList.toggle('hidden', locked);
+
+  if (hint) {
+    if (locked) {
+      hint.textContent = '';
+    } else {
+      const u = getSavedUser();
+      hint.textContent = u?.phone ? `Logged in as ${u.phone}` : 'Logged in';
+    }
+  }
+}
+
+/* Gate dashboard */
+function enforceSenderGate() {
+  const status = document.getElementById('senderAuthStatus');
+  const locked = !isSenderRegistered();
+
+  document.body.classList.toggle('locked', locked);
+  document.body.classList.toggle('unlocked', !locked);
+
+  // Hide Register when unlocked (clean UI)
+  const reg = document.getElementById('senderRegisterSection');
+  if (reg) reg.classList.toggle('hidden', !locked);
+
+  setAuthUI();
+
+  if (status) {
+    status.textContent = locked
+      ? 'Please register or log in to access the sender dashboard.'
+      : 'Sender dashboard unlocked.';
+  }
+}
+
+/* ---------------------------------------------------------
+   Sender acknowledgement gate (before creating request)
+--------------------------------------------------------- */
+const SENDER_ACK_VERSION = 'sender_ack_v1';
+const SENDER_ACK_KEY = 'dm_sender_ack_v1_ts';
+
+function setupSenderAckGate() {
+  const btn = document.getElementById('createRequestBtn');
+  const a1 = document.getElementById('sAck1');
+  const a2 = document.getElementById('sAck2');
+  const a3 = document.getElementById('sAck3');
+  const a4 = document.getElementById('sAck4');
+
+  if (!btn || !a1 || !a2 || !a3 || !a4) return;
+
+  // If previously acknowledged on this device, pre-check for convenience
+  const prevTs = localStorage.getItem(SENDER_ACK_KEY);
+  if (prevTs) {
+    a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true;
+  }
+
+  const refresh = () => {
+    const ok = a1.checked && a2.checked && a3.checked && a4.checked;
+    btn.disabled = !ok;
+    if (ok) localStorage.setItem(SENDER_ACK_KEY, new Date().toISOString());
+  };
+
+  a1.addEventListener('change', refresh);
+  a2.addEventListener('change', refresh);
+  a3.addEventListener('change', refresh);
+  a4.addEventListener('change', refresh);
+
+  refresh();
+}
+
+function getSenderAckMeta() {
+  const ts = localStorage.getItem(SENDER_ACK_KEY) || new Date().toISOString();
+  return { sender_ack_version: SENDER_ACK_VERSION, sender_ack_ts: ts };
+}
+
+/* ---------------------------------------------------------
+   1. Sender Registration
+--------------------------------------------------------- */
+function setupRegistration() {
+  const form = $("#senderRegForm");
+  const out = $("#senderRegOut");
+  const result = $("#senderRegResult");
+
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Loading…");
+    setResult(result, '');
+
+    const data = getFormData(form);
+    const res = await api("/users/register", { method: "POST", body: data });
+
+    out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+
+    if (res.ok) {
+      if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
+      markSenderRegistered(res.user);
+      enforceSenderGate();
+      setResult(result, alertSuccess("Registered"));
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   2. Sender Login / Logout
+--------------------------------------------------------- */
+function setupSenderLogin() {
+  const form = document.getElementById('senderLoginForm');
+  const hint = document.getElementById('senderAuthHint');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get('phone') || '').trim();
+    const invite_code = String(fd.get('invite_code') || '').trim();
+
+    if (hint) hint.textContent = 'Logging in…';
+
+    const res = await api('/users/login', { method: 'POST', body: { phone, invite_code } });
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || 'Login failed';
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markSenderRegistered(res.user);
+    sessionStorage.setItem('dm_user', JSON.stringify(res.user));
+    enforceSenderGate();
+
+    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+  });
+}
+
+function setupSenderLogout() {
+  const btn = document.getElementById('senderLogoutBtn');
+  const hint = document.getElementById('senderAuthHint');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    localStorage.removeItem('dm_sender_registered');
+    localStorage.removeItem('dm_user');
+    sessionStorage.removeItem('dm_user');
+    sessionStorage.removeItem('dm_sender_token');
+    sessionStorage.removeItem('dm_user_token');
+    localStorage.removeItem('dm_user_token');
+
+    enforceSenderGate();
+    if (hint) hint.textContent = '';
+  });
 }
 
 // Store sender tokens per request (pilot convenience).
@@ -65,27 +259,16 @@ function saveSenderTokenForRequest(requestId, token) {
   }
 }
 
-// --- Recent requests (local-only; pilot convenience) ---
+/* --- Recent requests (local-only) --- */
 const SENDER_RECENT_KEY = 'dm_sender_recent_requests';
 
-function loadSenderRecent() {
-  try { return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || '[]'); } catch { return []; }
-}
-
-function saveSenderRecent(list) {
-  try { localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list)); } catch {}
-}
+function loadSenderRecent() { try { return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || '[]'); } catch { return []; } }
+function saveSenderRecent(list) { try { localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list)); } catch {} }
 
 function addSenderRecent(req) {
   if (!req?.id) return;
   const id = String(req.id);
-  const item = {
-    id,
-    pickup: req.pickup_suburb || '',
-    dropoff: req.dropoff_suburb || '',
-    status: req.status || '',
-    ts: req.created_at || new Date().toISOString()
-  };
+  const item = { id, pickup: req.pickup_suburb || '', dropoff: req.dropoff_suburb || '', status: req.status || '', ts: req.created_at || new Date().toISOString() };
   const list = loadSenderRecent().filter(x => String(x.id) !== id);
   list.unshift(item);
   saveSenderRecent(list.slice(0, 10));
@@ -115,14 +298,12 @@ function applySenderRecent(requestId) {
   if (!requestId) return;
   const id = String(requestId);
 
-  // Forms with request_id input
   const formIds = ['viewRequestForm', 'acceptOfferForm', 'senderIssueForm'];
   for (const formId of formIds) {
     const f = document.getElementById(formId);
     if (f && f.request_id) f.request_id.value = id;
   }
 
-  // Direct inputs used by Fund/Release sections
   const fund = document.getElementById('fundRequestId');
   if (fund) fund.value = id;
 
@@ -140,12 +321,7 @@ function setupSenderRecentUI() {
   if (useBtn) useBtn.addEventListener('click', () => applySenderRecent(sel.value));
   sel.addEventListener('change', () => { if (sel.value) applySenderRecent(sel.value); });
 
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      saveSenderRecent([]);
-      renderSenderRecent();
-    });
-  }
+  if (clearBtn) clearBtn.addEventListener('click', () => { saveSenderRecent([]); renderSenderRecent(); });
 }
 
 function loadSenderTokenForRequest(requestId) {
@@ -158,79 +334,8 @@ function loadSenderTokenForRequest(requestId) {
   }
 }
 
-function markSenderRegistered(user) {
-  localStorage.setItem('dm_sender_registered', '1');
-  if (user) {
-    localStorage.setItem('dm_user', JSON.stringify(user));
-    sessionStorage.setItem('dm_user', JSON.stringify(user));
-  }
-}
-
-function isSenderRegistered() {
-  return localStorage.getItem('dm_sender_registered') === '1';
-}
-
-/* ✅ Gate dashboard and keep auth controls available */
-function enforceSenderGate() {
-  const status = document.getElementById('senderAuthStatus');
-  const locked = !isSenderRegistered();
-
-  document.body.classList.toggle('locked', locked);
-  document.body.classList.toggle('unlocked', !locked);
-
-  // Hide Register once unlocked (optional but requested behaviour)
-  const reg = document.getElementById('senderRegisterSection');
-  if (reg) reg.classList.toggle('hidden', !locked);
-
-  if (status) {
-    if (locked) {
-      status.textContent = 'Pilot: please register or log in to access the sender dashboard.';
-    } else {
-      let phone = '';
-      try {
-        phone = (JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null')) || {}).phone || '';
-      } catch(_) {}
-      status.textContent = phone ? `Logged in: ${phone}` : 'Logged in';
-    }
-  }
-}
-
 /* ---------------------------------------------------------
-   1. Sender Registration
---------------------------------------------------------- */
-function setupRegistration() {
-  const form = $("#senderRegForm");
-  const out = $("#senderRegOut");
-  const result = $("#senderRegResult");
-
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Loading…");
-    setResult(result, '');
-    const data = getFormData(form);
-
-    const res = await api("/users/register", { method: "POST", body: data });
-
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
-    done(!!res.ok);
-
-    if (res.ok) {
-      if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-      markSenderRegistered(res.user);
-      enforceSenderGate();
-      setResult(result, alertSuccess("Saved"));
-    } else {
-      setResult(result, alertError(res.error || "Failed"));
-    }
-  });
-}
-
-/* ---------------------------------------------------------
-   2. Create Delivery Request
+   3. Create Request (requires ack)
 --------------------------------------------------------- */
 function setupCreateRequest() {
   const form = $("#createRequestForm");
@@ -241,15 +346,24 @@ function setupCreateRequest() {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const createBtn = document.getElementById('createRequestBtn');
+    if (createBtn && createBtn.disabled) {
+      setResult(result, alertError("Please confirm all acknowledgement checkboxes before posting."));
+      return;
+    }
+
     const btn = form.querySelector('button[type="submit"]');
     const done = setWorking(btn, "Creating…");
     setResult(result, '');
 
     const data = getFormData(form);
 
-    if (!data.sender_ack_version) {
-      data.sender_ack_version = sessionStorage.getItem('dm_sender_ack_version') || 'v2';
-    }
+    // Add ack meta
+    Object.assign(data, getSenderAckMeta());
+
+    // Keep your existing ack version pattern too (if already used elsewhere)
+    if (!data.sender_ack_version) data.sender_ack_version = SENDER_ACK_VERSION;
 
     try {
       const u = JSON.parse((sessionStorage.getItem('dm_user') || localStorage.getItem('dm_user') || 'null'));
@@ -257,11 +371,7 @@ function setupCreateRequest() {
       if (u && u.full_name) data.sender_name = data.sender_name || u.full_name;
     } catch (_) {}
 
-    const res = await api("/requests", {
-      method: "POST",
-      body: data,
-      role: 'sender',
-    });
+    const res = await api("/requests", { method: "POST", body: data, role: 'sender' });
 
     out.textContent = pretty(res);
     maybeOpenDetails(out, !res.ok);
@@ -329,15 +439,11 @@ function renderCreateRequestInfo(res) {
   } catch (_) {}
 }
 
-/* ---------------------------------------------------------
-   3. View Request + Offers + History
---------------------------------------------------------- */
 function setupViewRequest() {
   const form = $("#viewRequestForm");
   if (!form) return;
 
   const result = $("#viewRequestResult");
-
   const reqOut = $("#viewRequestOut");
   const offersOut = $("#viewOffersOut");
   const historyOut = $("#viewHistoryOut");
@@ -390,11 +496,7 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
   }
 
   const r = req.request;
-  const pill = statusPill({
-    request_status: r.status,
-    escrow_status: r.escrow_status,
-    payout_status: r.payout_status,
-  });
+  const pill = statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status });
   const tl = timeline({ request_status: r.status, escrow_status: r.escrow_status });
   const next = nextActionText({ role: 'sender', request_status: r.status, escrow_status: r.escrow_status });
 
@@ -441,13 +543,10 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
   } else {
     offersList.insertAdjacentHTML('beforeend', `
       <div class="card compact">
-        <table class="table" style="width:100%; border-collapse: collapse;">
+        <table class="table">
           <thead>
             <tr>
-              <th align="left">Offer</th>
-              <th align="left">Driver</th>
-              <th align="left">Price</th>
-              <th align="left">Status</th>
+              <th>Offer</th><th>Driver</th><th>Price</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -486,23 +585,10 @@ function renderSenderSummary({ req, offers, hist, summary, offersList, historyLi
   }
 }
 
-function safeText(v) {
-  return String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/* ---------------------------------------------------------
-   4. Accept Offer
---------------------------------------------------------- */
 function setupAcceptOffer() {
   const form = $("#acceptOfferForm");
   const out = $("#acceptOfferOut");
   const result = $("#acceptOfferResult");
-
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
@@ -514,10 +600,7 @@ function setupAcceptOffer() {
     const requestId = form.request_id.value;
     const offerId = form.offer_id.value;
 
-    const res = await api(`/requests/${requestId}/offers/${offerId}/accept`, {
-      method: "POST",
-      role: 'sender',
-    });
+    const res = await api(`/requests/${requestId}/offers/${offerId}/accept`, { method: "POST", role: 'sender' });
 
     out.textContent = pretty(res);
     maybeOpenDetails(out, !res.ok);
@@ -528,23 +611,18 @@ function setupAcceptOffer() {
   });
 }
 
-/* ---------------------------------------------------------
-   5. Fund Escrow (Stripe Checkout)
---------------------------------------------------------- */
 function setupFundEscrow() {
   const btn = $("#fundEscrowBtn");
   const amountInput = $("#fundAmount");
   const out = $("#fundEscrowOut");
   const result = $("#fundEscrowResult");
-
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
     const done = setWorking(btn);
     setResult(result, '');
 
-    const reqEl = $("#fundRequestId");
-    const requestId = reqEl ? reqEl.value : '';
+    const requestId = (document.getElementById('fundRequestId')?.value || '');
     const amount = amountInput ? amountInput.value : '';
 
     const res = await api(`/requests/${requestId}/escrow/fund`, {
@@ -567,22 +645,17 @@ function setupFundEscrow() {
   });
 }
 
-/* ---------------------------------------------------------
-   6. Release Escrow
---------------------------------------------------------- */
 function setupReleaseEscrow() {
   const btn = $("#releaseEscrowBtn");
   const out = $("#releaseEscrowOut");
   const result = $("#releaseEscrowResult");
-
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
     const done = setWorking(btn);
     setResult(result, '');
 
-    const reqEl = $("#releaseRequestId");
-    const requestId = reqEl ? reqEl.value : '';
+    const requestId = (document.getElementById('releaseRequestId')?.value || '');
 
     const res = await api(`/requests/${requestId}/escrow/release`, {
       method: "POST",
@@ -598,9 +671,6 @@ function setupReleaseEscrow() {
   });
 }
 
-/* ---------------------------------------------------------
-   Pilot: Report an issue helper
---------------------------------------------------------- */
 function setupIssueReport_sender() {
   const form = document.getElementById('senderIssueForm');
   const out = document.getElementById('senderIssueOut');
@@ -625,7 +695,7 @@ function setupIssueReport_sender() {
 
     const now = new Date().toISOString();
     const url = window.location.origin;
-    const msg = [
+    out.textContent = [
       `DeliveryMate pilot issue report`,
       `Time: ${now}`,
       `Role: sender`,
@@ -635,93 +705,14 @@ function setupIssueReport_sender() {
       `\nPlease include a screenshot if possible.`,
       `Site: ${url}`
     ].join('\n');
-
-    out.textContent = msg;
   });
 }
 
-function setupSenderAuthControls() {
-  setupSenderLogin();
-  const continueBtn = document.getElementById('senderContinueBtn');
-  const logoutBtn = document.getElementById('senderLogoutBtn');
-  const hint = document.getElementById('senderAuthHint');
-
-  if (hint) {
-    const u = getSavedUser();
-    hint.textContent = u?.phone ? `Saved on this device: ${u.phone}` : 'No saved login on this device yet.';
-  }
-
-  if (continueBtn) {
-    continueBtn.addEventListener('click', () => {
-      const u = getSavedUser();
-      if (!u) {
-        if (hint) hint.textContent = 'No saved login found. Please register below.';
-        return;
-      }
-      localStorage.setItem('dm_sender_registered', '1');
-      sessionStorage.setItem('dm_sender_registered', '1');
-      sessionStorage.setItem('dm_user', JSON.stringify(u));
-      enforceSenderGate();
-      if (hint) hint.textContent = `Continuing as ${u.phone}`;
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      localStorage.removeItem('dm_sender_registered');
-      localStorage.removeItem('dm_user');
-      sessionStorage.removeItem('dm_sender_registered');
-      sessionStorage.removeItem('dm_user');
-      sessionStorage.removeItem('dm_sender_token');
-      sessionStorage.removeItem('dm_user_token');
-      localStorage.removeItem('dm_user_token');
-
-      enforceSenderGate();
-      if (hint) hint.textContent = 'Logged out. Please register or log in again.';
-    });
-  }
-}
-
-function saveUserToken(tok) {
-  if (!tok) return;
-  localStorage.setItem('dm_user_token', String(tok));
-  sessionStorage.setItem('dm_user_token', String(tok));
-}
-
-function getSavedUser() {
-  try {
-    const raw = localStorage.getItem('dm_user');
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function setupSenderLogin() {
-  const form = document.getElementById('senderLoginForm');
-  const hint = document.getElementById('senderAuthHint');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const phone = String(fd.get('phone') || '').trim();
-    const invite_code = String(fd.get('invite_code') || '').trim();
-
-    if (hint) hint.textContent = 'Logging in…';
-
-    const res = await api('/users/login', { method: 'POST', body: { phone, invite_code } });
-    if (!res.ok) {
-      if (hint) hint.textContent = res.error || 'Login failed';
-      return;
-    }
-
-    saveUserToken(res.user_token);
-    markSenderRegistered(res.user);
-    sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-    enforceSenderGate();
-
-    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
-  });
+function safeText(v) {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
