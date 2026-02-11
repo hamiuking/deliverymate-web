@@ -24,6 +24,7 @@
     <h1>Sender</h1>
     <div id="senderAuthStatus" class="muted"></div>
 
+    <!-- Auth area should always be visible so users can Log out -->
     <div id="senderAuthArea">
       <section class="card" id="senderAuthControls">
         <h2>Log in</h2>
@@ -47,7 +48,7 @@
         <div class="muted mt-2" id="senderAuthHint"></div>
       </section>
 
-      <section class="card requires-sender">
+      <section class="card">
         <h2>Pilot guide (Sender)</h2>
         <ol>
           <li><strong>Create a request</strong> (pickup, drop-off, item, suggested price).</li>
@@ -60,7 +61,8 @@
         </p>
       </section>
 
-      <section class="card requires-sender">
+      <!-- ✅ Register must be visible even when locked -->
+      <section class="card" id="senderRegisterSection">
         <h2>Register</h2>
         <form id="senderRegForm" onsubmit="return false">
           <label>Invite code</label>
@@ -86,87 +88,86 @@
       </section>
     </div>
 
-    <section class="card requires-sender">
-      <h2>Create Delivery Request</h2>
-      <p class="muted">After you create a request, save the Request ID. You will use it to view offers and confirm delivery.</p>
-      <form id="createRequestForm" onsubmit="return false">
-        <label>Pickup suburb</label>
-        <input name="pickup_suburb" required />
-
-        <label>Drop-off suburb</label>
-        <input name="dropoff_suburb" required />
-
-        <label>Description</label>
-        <textarea name="item_description"></textarea>
-
-        <label>Weight (kg)</label>
-        <input name="weight_kg" type="number" step="0.1" />
-
-        <label>Suggested price (NZD)</label>
-        <input name="suggested_price_nzd" type="number" step="0.01" />
-
-        <button class="btn" type="submit">Create</button>
-      </form>
-      <div class="result" id="createRequestResult"></div>
-      <div id="senderCreateInfo"></div>
-
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="senderOutput">{}</pre>
-      </details>
-    </section>
-
-    <section class="card requires-sender">
-      <h2>View My Request</h2>
-      <p class="muted">Use your Request ID to load the current status, offers, and history. After the driver marks <strong>delivered</strong>, you can confirm to release escrow immediately.</p>
-      <form id="viewRequestForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <button class="btn" type="submit">Load</button>
-      </form>
-
-      <div id="senderReqSummary"></div>
-
-      <h3>Offers</h3>
-      <div id="senderOffersList"></div>
-
-      <h3>History</h3>
-      <div id="senderHistoryList"></div>
-
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <h4>Request</h4>
-        <pre id="viewRequestOut">{}</pre>
-        <h4>Offers</h4>
-        <pre id="viewOffersOut">[]</pre>
-        <h4>History</h4>
-        <pre id="viewHistoryOut">[]</pre>
-      </details>
-      <div class="result" id="viewOffersResult"></div>
-      <div class="result" id="viewRequestResult"></div>
-    </section>
-
-    <section class="card requires-sender">
-      <h2>Accept Offer</h2>
-      <form id="acceptOfferForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input name="request_id" required />
-
-        <label>Offer ID</label>
-        <input name="offer_id" required />
-
-        <button class="btn" type="submit">Accept</button>
-      </form>
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="acceptOfferOut">{}</pre>
-      </details>
-      <div class="result" id="acceptOfferResult"></div>
-    </section>
-
+    <!-- ✅ Dashboard is hidden unless registered -->
     <div id="senderDashboard">
-      <section class="card">
+      <section class="card requires-sender">
+        <h2>Create Delivery Request</h2>
+        <p class="muted">After you create a request, save the Request ID.</p>
+        <form id="createRequestForm" onsubmit="return false">
+          <label>Pickup suburb</label>
+          <input name="pickup_suburb" required />
+
+          <label>Drop-off suburb</label>
+          <input name="dropoff_suburb" required />
+
+          <label>Description</label>
+          <textarea name="item_description"></textarea>
+
+          <label>Weight (kg)</label>
+          <input name="weight_kg" type="number" step="0.1" />
+
+          <label>Suggested price (NZD)</label>
+          <input name="suggested_price_nzd" type="number" step="0.01" />
+
+          <button class="btn" type="submit">Create</button>
+        </form>
+        <div class="result" id="createRequestResult"></div>
+        <div id="senderCreateInfo"></div>
+
+        <details class="debug">
+          <summary>Details (for troubleshooting)</summary>
+          <pre id="senderOutput">{}</pre>
+        </details>
+      </section>
+
+      <section class="card requires-sender">
+        <h2>View My Request</h2>
+        <form id="viewRequestForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input name="request_id" required />
+          <button class="btn" type="submit">Load</button>
+        </form>
+
+        <div id="senderReqSummary"></div>
+
+        <h3>Offers</h3>
+        <div id="senderOffersList"></div>
+
+        <h3>History</h3>
+        <div id="senderHistoryList"></div>
+
+        <details class="debug">
+          <summary>Details (for troubleshooting)</summary>
+          <h4>Request</h4>
+          <pre id="viewRequestOut">{}</pre>
+          <h4>Offers</h4>
+          <pre id="viewOffersOut">[]</pre>
+          <h4>History</h4>
+          <pre id="viewHistoryOut">[]</pre>
+        </details>
+        <div class="result" id="viewOffersResult"></div>
+        <div class="result" id="viewRequestResult"></div>
+      </section>
+
+      <section class="card requires-sender">
+        <h2>Accept Offer</h2>
+        <form id="acceptOfferForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input name="request_id" required />
+
+          <label>Offer ID</label>
+          <input name="offer_id" required />
+
+          <button class="btn" type="submit">Accept</button>
+        </form>
+        <details class="debug">
+          <summary>Details (for troubleshooting)</summary>
+          <pre id="acceptOfferOut">{}</pre>
+        </details>
+        <div class="result" id="acceptOfferResult"></div>
+      </section>
+
+      <section class="card requires-sender">
         <h2>Recent requests</h2>
         <div class="btn-row">
           <select id="senderRecentSelect"></select>
