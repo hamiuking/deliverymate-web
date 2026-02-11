@@ -59,11 +59,23 @@ function setupLoadPendingDrivers() {
           const id = d.id;
           const name = d.full_name || '';
           const phone = d.phone || '';
-          return `<div class="row" style="margin:8px 0; gap:10px; align-items:center;">
-            <div class="muted" style="flex:1;">#${id} ${escapeHtml(name)} · ${escapeHtml(phone)}</div>
-            <button class="btn secondary approve-driver" type="button" data-id="${escapeHtml(String(id))}">Approve</button>
-            <button class="btn secondary disable-driver" type="button" data-id="${escapeHtml(String(id))}">Disable</button>
-          </div>`;
+return `<div class="row" style="margin:8px 0; gap:10px; align-items:center;">
+  <div style="flex:1;">
+    <div class="muted">#${id} ${escapeHtml(name)} · ${escapeHtml(phone)}</div>
+    <div class="muted" style="font-size:12px;">
+      Licence: ${escapeHtml(d.license_number || '—')}
+      · WOF: ${escapeHtml(d.wof_expiry || '—')}
+      · 
+      <a href="/admin/users/${escapeHtml(String(id))}/license-photo?side=front" target="_blank">View front</a>
+      |
+      <a href="/admin/users/${escapeHtml(String(id))}/license-photo?side=back" target="_blank">View back</a>
+    </div>
+  </div>
+
+  <button class="btn secondary approve-driver" type="button" data-id="${escapeHtml(String(id))}">Approve</button>
+  <button class="btn secondary disable-driver" type="button" data-id="${escapeHtml(String(id))}">Disable</button>
+</div>`;
+
         }).join('');
       out.insertAdjacentHTML("beforebegin", `<div id="pendingDriversActions">${list || '<div class="muted">No pending drivers.</div>'}</div>`);
     } else if (!res.ok) {
