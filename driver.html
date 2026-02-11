@@ -92,9 +92,10 @@
         <button class="btn" type="submit">Apply</button>
       </form>
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="driverRegOut">{}</pre>
       </details>
+      <div class="result" id="driverRegResult"></div>
     </section>
 </div>
 
@@ -119,9 +120,10 @@
         <button class="btn" type="submit">Submit Offer</button>
       </form>
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="driverOfferOut">{}</pre>
       </details>
+      <div class="result" id="driverOfferResult"></div>
     </section>
 
     <section class="card" requires-driver>
@@ -134,34 +136,18 @@
       </form>
 
       <div id="driverJobSummary"></div>
-<div class="card compact" style="margin-top:12px;">
-  <h3 style="margin:0 0 8px 0;">Payments (pilot)</h3>
-  <div class="muted">
-    After the sender confirms delivery, the escrow is released. During the pilot, payouts are processed manually by the admin.
-  </div>
-  <div class="muted" style="margin-top:8px;">
-    In <strong>View my job</strong>, check:
-    <ul style="margin:6px 0 0 18px;">
-      <li><strong>Escrow:</strong> released</li>
-      <li><strong>Payout:</strong> pending_manual (admin will pay you manually)</li>
-      <li><strong>Payout:</strong> completed (admin has marked paid)</li>
-    </ul>
-  </div>
-  <div class="muted" style="margin-top:8px;">
-    If your payout is still <strong>pending_manual</strong> after 24 hours, contact admin and share your Request ID.
-  </div>
-</div>
 
       <h3>History</h3>
       <div id="driverHistoryList"></div>
 
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <h4>Job Details</h4>
         <pre id="dvRequest">{}</pre>
         <h4>History</h4>
         <pre id="dvHistory">[]</pre>
       </details>
+      <div class="result" id="driverViewResult"></div>
     </section>
 
     <section class="card" requires-driver>
@@ -177,12 +163,16 @@
           <option value="delivered">delivered</option>
         </select>
 
+        <label>Driver name</label>
+        <input name="driver_name" required />
+
         <button class="btn" type="submit">Update</button>
       </form>
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="dsOut">{}</pre>
       </details>
+      <div class="result" id="driverStatusResult"></div>
     </section>
   
     <section class="card" requires-driver>

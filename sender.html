@@ -82,9 +82,10 @@
         <button class="btn" type="submit">Register</button>
       </form>
 <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="senderRegOut">{}</pre>
       </details>
+      <div class="result" id="senderRegResult"></div>
     </section>
 </div>
 
@@ -109,10 +110,11 @@
 
         <button class="btn" type="submit">Create</button>
       </form>
+      <div class="result" id="createRequestResult"></div>
       <div id="senderCreateInfo"></div>
 
 <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="senderOutput">{}</pre>
       </details>
     </section>
@@ -136,7 +138,7 @@
       <div id="senderHistoryList"></div>
 
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <h4>Request</h4>
         <pre id="viewRequestOut">{}</pre>
         <h4>Offers</h4>
@@ -144,6 +146,8 @@
         <h4>History</h4>
         <pre id="viewHistoryOut">[]</pre>
       </details>
+      <div class="result" id="viewOffersResult"></div>
+      <div class="result" id="viewRequestResult"></div>
     </section>
 
     <section class="card"  class="card requires-sender">
@@ -158,9 +162,10 @@
         <button class="btn" type="submit">Accept</button>
       </form>
 <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="acceptOfferOut">{}</pre>
       </details>
+      <div class="result" id="acceptOfferResult"></div>
     </section>
   <div id="senderDashboard">
 
@@ -175,9 +180,10 @@
 
       <button class="btn" id="fundEscrowBtn">Pay Now</button>
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="fundEscrowOut">{}</pre>
       </details>
+      <div class="result" id="fundEscrowResult"></div>
     </section>
 
     <section class="card requires-sender">
@@ -187,9 +193,10 @@
 
       <button class="btn" id="releaseEscrowBtn">Confirm Delivery</button>
       <details class="debug">
-        <summary>Debug JSON</summary>
+        <summary>Details (for troubleshooting)</summary>
         <pre id="releaseEscrowOut">{}</pre>
       </details>
+      <div class="result" id="releaseEscrowResult"></div>
     </section>
   
     <section class="card" requires-sender>
