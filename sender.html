@@ -24,12 +24,12 @@
     <h1>Sender</h1>
     <div id="senderAuthStatus" class="muted"></div>
 
-    <!-- Auth area: Register + Log in at the top -->
+    <!-- AUTH AREA ONLY (visible when locked) -->
     <div id="senderAuthArea">
       <div class="grid">
-        <section class="card" id="senderRegisterSection">
+        <section class="card">
           <h2>Register</h2>
-          <form id="senderRegForm" onsubmit="return false">
+          <form id="senderRegForm">
             <label>Invite code</label>
             <input name="invite_code" required />
 
@@ -42,19 +42,14 @@
             <label>Email</label>
             <input name="email" />
 
-            <button class="btn" type="submit">Register</button>
+            <button class="btn mt-2" type="submit">Register</button>
           </form>
-
-          <details class="debug">
-            <summary>Details (for troubleshooting)</summary>
-            <pre id="senderRegOut">{}</pre>
-          </details>
           <div class="result" id="senderRegResult"></div>
         </section>
 
-        <section class="card" id="senderLoginSection">
+        <section class="card">
           <h2>Log in</h2>
-          <form id="senderLoginForm" onsubmit="return false">
+          <form id="senderLoginForm">
             <label>Phone</label>
             <input name="phone" placeholder="e.g. 021..." required />
 
@@ -66,7 +61,6 @@
               <button class="btn secondary hidden" type="button" id="senderLogoutBtn">Log out</button>
             </div>
           </form>
-
           <div class="muted mt-2" id="senderAuthHint"></div>
         </section>
       </div>
@@ -74,192 +68,90 @@
       <section class="card">
         <h2>Pilot guide (Sender)</h2>
         <ol>
-          <li><strong>Create a request</strong> and save the Request ID.</li>
-          <li><strong>Review offers</strong> and accept one approved driver.</li>
-          <li><strong>Fund escrow</strong> when prompted (Stripe test mode in pilot).</li>
-          <li><strong>After delivery</strong>: confirm to release escrow immediately, or auto-release after 24 hours.</li>
+          <li>Create a request and receive offers from approved drivers.</li>
+          <li>Accept an offer and fund escrow (Stripe test mode).</li>
+          <li>After delivery: confirm to release immediately, or auto-release after 24 hours.</li>
         </ol>
-        <p class="muted">
-          DeliveryMate is a facilitator only. We do not provide dispute resolution, refunds, or reversals after escrow release.
-        </p>
+        <p class="muted">Invite-only pilot. DeliveryMate is a facilitator only — not a courier, employer, or agent.</p>
       </section>
     </div>
 
-    <!-- Dashboard (hidden unless registered) -->
-    <div id="senderDashboard">
-      <section class="card requires-sender">
-        <h2>Create Delivery Request</h2>
+    <!-- DASHBOARD (hidden unless unlocked) -->
+    <div id="senderDashboard" class="hidden">
 
-        <div class="banner">
-          <strong>Before posting a request</strong>
-          <div class="muted" style="margin-top:6px;">
-            To ensure maximum consensus, please confirm all items below.
-          </div>
+      <!-- SENDER ACK SECTION (must be visible and completed before creating request) -->
+      <section class="card" id="senderAckSection">
+        <h2>Sender acknowledgements</h2>
+        <p class="muted">Before posting a request, please confirm you understand:</p>
 
-          <div style="margin-top:10px;">
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck1" /> I understand no prohibited or illegal items.
-            </label>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="sAck1" />
+          I understand: no prohibited or illegal items.
+        </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck2" /> I understand delivery services are provided by an independent driver, not the Platform.
-            </label>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="sAck2" />
+          I understand that delivery services are provided by an independent driver, not the Platform.
+        </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck3" /> I understand the Platform does not insure parcels and does not guarantee delivery outcomes.
-            </label>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="sAck3" />
+          I understand that the Platform does not insure parcels and does not guarantee delivery outcomes.
+        </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck4" /> I accept the risk of loss or damage and understand any delivery claim must be made against the driver, not the Platform.
-            </label>
+        <label style="font-weight:600;">
+          <input type="checkbox" id="sAck4" />
+          I accept the risk of loss or damage to my parcel and understand any delivery claim must be made against the driver, not the Platform.
+        </label>
 
-            <div class="muted" style="margin-top:8px;">
-              Recommendation: do not arrange delivery of high-value, fragile, or irreplaceable items through the Platform.
-            </div>
-
-            <div class="muted" style="margin-top:10px;">
-              Full terms: <a href="/terms/sender-terms.html" target="_blank" rel="noopener">Sender Terms of Use</a>
-              <span style="margin-left:10px;" id="senderAckLast"></span>
-            </div>
-          </div>
+        <div class="muted" style="margin-top:10px;">
+          Full terms: <a href="/terms/sender-terms.html" target="_blank" rel="noopener">Sender Agreement</a>
+          <span style="margin-left:10px;" id="senderAckLast"></span>
         </div>
+      </section>
 
-        <form id="createRequestForm" onsubmit="return false">
+      <!-- CREATE REQUEST -->
+      <section class="card">
+        <h2>Create a request</h2>
+        <div class="muted" id="senderIdentityLine"></div>
+
+        <form id="createRequestForm">
           <label>Pickup suburb</label>
           <input name="pickup_suburb" required />
 
           <label>Drop-off suburb</label>
           <input name="dropoff_suburb" required />
 
-          <label>Description</label>
-          <textarea name="item_description"></textarea>
+          <label>Item description</label>
+          <input name="item_desc" required />
 
           <label>Weight (kg)</label>
           <input name="weight_kg" type="number" step="0.1" />
 
-          <label>Suggested price (NZD)</label>
-          <input name="suggested_price_nzd" type="number" step="0.01" />
+          <label>Sender note (optional)</label>
+          <textarea name="sender_note"></textarea>
 
-          <button class="btn" type="submit" id="createRequestBtn" disabled>Create</button>
+          <button class="btn mt-2" id="createRequestBtn" type="submit" disabled>Create</button>
         </form>
 
         <div class="result" id="createRequestResult"></div>
-        <div id="senderCreateInfo"></div>
-
-        <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <pre id="senderOutput">{}</pre>
-        </details>
+        <pre id="createRequestOut"></pre>
       </section>
 
-      <section class="card requires-sender">
-        <h2>View My Request</h2>
-        <form id="viewRequestForm" onsubmit="return false">
+      <!-- VIEW MY REQUEST (optional existing area if you already had it) -->
+      <section class="card">
+        <h2>View my request</h2>
+        <form id="senderViewForm">
           <label>Request ID</label>
           <input name="request_id" required />
           <button class="btn" type="submit">Load</button>
         </form>
-
-        <div id="senderReqSummary"></div>
-
-        <h3>Offers</h3>
+        <div class="result" id="senderViewResult"></div>
+        <div id="senderJobSummary"></div>
         <div id="senderOffersList"></div>
-
-        <h3>History</h3>
         <div id="senderHistoryList"></div>
-
-        <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <h4>Request</h4>
-          <pre id="viewRequestOut">{}</pre>
-          <h4>Offers</h4>
-          <pre id="viewOffersOut">[]</pre>
-          <h4>History</h4>
-          <pre id="viewHistoryOut">[]</pre>
-        </details>
-        <div class="result" id="viewOffersResult"></div>
-        <div class="result" id="viewRequestResult"></div>
       </section>
 
-      <section class="card requires-sender">
-        <h2>Accept Offer</h2>
-        <form id="acceptOfferForm" onsubmit="return false">
-          <label>Request ID</label>
-          <input name="request_id" required />
-
-          <label>Offer ID</label>
-          <input name="offer_id" required />
-
-          <button class="btn" type="submit">Accept</button>
-        </form>
-        <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <pre id="acceptOfferOut">{}</pre>
-        </details>
-        <div class="result" id="acceptOfferResult"></div>
-      </section>
-
-      <section class="card requires-sender">
-        <h2>Recent requests</h2>
-        <div class="btn-row">
-          <select id="senderRecentSelect"></select>
-          <button class="btn secondary" id="senderRecentUseBtn" type="button">Use</button>
-          <button class="btn ghost" id="senderRecentClearBtn" type="button">Clear</button>
-        </div>
-        <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
-      </section>
-
-      <section class="card requires-sender">
-        <h2>Fund Escrow</h2>
-        <label>Request ID</label>
-        <input id="fundRequestId" />
-
-        <label>Amount (NZD)</label>
-        <input id="fundAmount" type="number" step="0.01" />
-
-        <button class="btn" id="fundEscrowBtn">Pay Now</button>
-        <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <pre id="fundEscrowOut">{}</pre>
-        </details>
-        <div class="result" id="fundEscrowResult"></div>
-      </section>
-
-      <section class="card requires-sender">
-        <h2>Release Escrow</h2>
-        <label>Request ID</label>
-        <input id="releaseRequestId" />
-
-        <button class="btn" id="releaseEscrowBtn">Confirm Delivery</button>
-        <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <pre id="releaseEscrowOut">{}</pre>
-        </details>
-        <div class="result" id="releaseEscrowResult"></div>
-      </section>
-
-      <section class="card requires-sender">
-        <h2>Report an issue (pilot)</h2>
-        <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
-
-        <form id="senderIssueForm" onsubmit="return false">
-          <label>Request ID</label>
-          <input name="request_id" placeholder="e.g. 123" />
-
-          <label>What happened?</label>
-          <textarea name="note" placeholder="One or two sentences"></textarea>
-
-          <button class="btn" type="submit">Generate message</button>
-        </form>
-
-        <div class="mt-2">
-          <div class="muted">Message</div>
-          <pre id="senderIssueOut"></pre>
-          <div class="btn-row mt-2">
-            <button class="btn secondary" type="button" data-copy="#senderIssueOut">Copy message</button>
-          </div>
-        </div>
-      </section>
     </div>
   </main>
 </body>
