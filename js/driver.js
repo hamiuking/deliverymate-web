@@ -1,4 +1,5 @@
 // public/js/driver.js
+// Full replacement (keeps your current pilot features, adds robust “Ready ✓” + file-cached apply gating)
 
 import { api } from "./api.js";
 import { $ } from "./utils.js";
@@ -6,6 +7,9 @@ import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
 
+/* -----------------------------
+   Small helpers
+----------------------------- */
 function setResult(el, html) {
   if (!el) return;
   el.innerHTML = html || "";
@@ -30,6 +34,21 @@ function setWorking(btn, workingText = "Working…") {
   };
 }
 
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function saveUserToken(tok) {
+  if (!tok) return;
+  localStorage.setItem("dm_user_token", String(tok));
+  sessionStorage.setItem("dm_user_token", String(tok));
+}
+
 function markDriverRegistered(user) {
   localStorage.setItem("dm_driver_registered", "1");
   if (user) {
@@ -52,20 +71,14 @@ function getSavedDriverUser() {
   }
 }
 
-function saveUserToken(tok) {
-  if (!tok) return;
-  localStorage.setItem("dm_user_token", String(tok));
-  sessionStorage.setItem("dm_user_token", String(tok));
-}
-
-/* ---------------------------------------------------------
-   Gating: Auth-only when locked; Dashboard-only when unlocked
---------------------------------------------------------- */
+/* -----------------------------
+   Gate: show Auth area when locked; show Dashboard when unlocked
+----------------------------- */
 function enforceDriverGate() {
   const locked = !isDriverRegistered();
+
   const authArea = document.getElementById("driverAuthArea");
   const dash = document.getElementById("driverDashboard");
-
   if (authArea) authArea.classList.toggle("hidden", !locked);
   if (dash) dash.classList.toggle("hidden", locked);
 
@@ -84,21 +97,24 @@ function enforceDriverGate() {
   if (hint) hint.textContent = locked ? "" : (u?.phone ? `Logged in as ${u.phone}` : "Logged in");
 }
 
-/* ---------------------------------------------------------
-   Driver acknowledgement gate
---------------------------------------------------------- */
+/* -----------------------------
+   Driver acknowledgements gate
+----------------------------- */
 const DRIVER_ACK_VERSION = "driver_terms_2026-01-06";
 const DRIVER_ACK_KEY = "dm_driver_ack_v1_ts";
+
+function getDriverAckMeta() {
+  const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
+  return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
+}
 
 function setupDriverAckGate() {
   const a1 = document.getElementById("dAck1");
   const a2 = document.getElementById("dAck2");
   const a3 = document.getElementById("dAck3");
-
   const offerBtn = document.getElementById("driverOfferBtn");
   const statusBtn = document.getElementById("driverStatusBtn");
   const lastEl = document.getElementById("driverAckLast");
-
   if (!a1 || !a2 || !a3) return;
 
   const renderLast = () => {
@@ -110,8 +126,8 @@ function setupDriverAckGate() {
     lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
-  const prevTs = localStorage.getItem(DRIVER_ACK_KEY);
-  if (prevTs) { a1.checked = true; a2.checked = true; a3.checked = true; }
+  const prev = localStorage.getItem(DRIVER_ACK_KEY);
+  if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; }
 
   const refresh = () => {
     const ok = a1.checked && a2.checked && a3.checked;
@@ -124,26 +140,39 @@ function setupDriverAckGate() {
   a1.addEventListener("change", refresh);
   a2.addEventListener("change", refresh);
   a3.addEventListener("change", refresh);
-
   refresh();
 }
 
-function getDriverAckMeta() {
-  const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
-  return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
-}
-
-/* ---------------------------------------------------------
-   Helpers: image compression + size limits (6MB original, 2MB final)
---------------------------------------------------------- */
-const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024;
-const MAX_FINAL_BYTES = 2 * 1024 * 1024;
+/* -----------------------------
+   Image helper: 6MB original, compress to <=2MB dataURL
+----------------------------- */
+const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024; // 6MB
+const MAX_FINAL_BYTES = 2 * 1024 * 1024;    // 2MB compressed
 const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 0.75;
 
+function fmtMB(bytes) {
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)}MB`;
+}
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Invalid image file"));
+      img.src = String(reader.result || "");
+    };
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function fileToDataUrl(file) {
   if (!file) throw new Error("No photo selected");
-  if (file.size > MAX_ORIGINAL_BYTES) throw new Error("Photo too large (max 6MB). Please use a smaller image.");
+  if (file.size > MAX_ORIGINAL_BYTES) throw new Error(`Photo too large (${fmtMB(file.size)}). Max 6MB.`);
 
   const img = await loadImage(file);
   const scale = Math.min(1, MAX_WIDTH / img.width);
@@ -161,44 +190,31 @@ async function fileToDataUrl(file) {
 
   const base64 = dataUrl.split(",")[1] || "";
   const byteSize = Math.ceil((base64.length * 3) / 4);
-  if (byteSize > MAX_FINAL_BYTES) throw new Error("Photo is still too large after compression (max 2MB). Please use a smaller image.");
-
+  if (byteSize > MAX_FINAL_BYTES) {
+    throw new Error("Photo still too large after compression (max 2MB). Use a smaller image.");
+  }
   return dataUrl;
 }
 
-function loadImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Invalid image file"));
-      img.src = String(reader.result || "");
-    };
-    reader.onerror = () => reject(new Error("Failed to read image"));
-    reader.readAsDataURL(file);
-  });
-}
-
-/* ---------------------------------------------------------
-   Registration (Apply gating + Ready ✓)
---------------------------------------------------------- */
+/* -----------------------------
+   Registration (IMPORTANT FIX):
+   cache selected files so submit-time checks never “lose” them
+----------------------------- */
 function setupDriverRegistration() {
   const form = $("#driverRegForm");
   const result = $("#driverRegResult");
   if (!form) return;
 
   const frontInput = form.querySelector("#driver_license_front_file");
-  const backInput  = form.querySelector("#driver_license_back_file");
-  const applyBtn   = form.querySelector('button[type="submit"]');
+  const backInput = form.querySelector("#driver_license_back_file");
+  const applyBtn = form.querySelector('button[type="submit"]');
 
   const frontStatus = document.getElementById("dlFrontStatus");
-  const backStatus  = document.getElementById("dlBackStatus");
+  const backStatus = document.getElementById("dlBackStatus");
 
-  function fmtMB(bytes) {
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(2)}MB`;
-  }
+  // Cache selected files here (fixes your “required” false-negative)
+  let selectedFrontFile = null;
+  let selectedBackFile = null;
 
   function setFileStatus(el, file) {
     if (!el) return;
@@ -212,13 +228,14 @@ function setupDriverRegistration() {
 
   function canEnableApply() {
     const invite = String(form.invite_code?.value || "").trim();
-    const phone  = String(form.phone?.value || "").trim();
-    const lic    = String(form.license_number?.value || "").trim();
-    const wof    = String(form.wof_expiry?.value || "").trim();
-    const f1 = frontInput?.files?.[0];
-    const f2 = backInput?.files?.[0];
-    if (!f1 || !f2) return false;
-    if (f1.size > MAX_ORIGINAL_BYTES || f2.size > MAX_ORIGINAL_BYTES) return false;
+    const phone = String(form.phone?.value || "").trim();
+    const lic = String(form.license_number?.value || "").trim();
+    const wof = String(form.wof_expiry?.value || "").trim();
+
+    if (!selectedFrontFile || !selectedBackFile) return false;
+    if (selectedFrontFile.size > MAX_ORIGINAL_BYTES) return false;
+    if (selectedBackFile.size > MAX_ORIGINAL_BYTES) return false;
+
     return !!(invite && phone && lic && wof);
   }
 
@@ -227,20 +244,25 @@ function setupDriverRegistration() {
     applyBtn.disabled = !canEnableApply();
   }
 
+  // Initialize button state
   refreshApplyEnabled();
 
+  // Watch text fields
   form.addEventListener("input", refreshApplyEnabled);
   form.addEventListener("change", refreshApplyEnabled);
 
+  // Watch file selection and update cached variables
   if (frontInput) {
     frontInput.addEventListener("change", () => {
-      setFileStatus(frontStatus, frontInput.files?.[0]);
+      selectedFrontFile = frontInput.files?.[0] || null;
+      setFileStatus(frontStatus, selectedFrontFile);
       refreshApplyEnabled();
     });
   }
   if (backInput) {
     backInput.addEventListener("change", () => {
-      setFileStatus(backStatus, backInput.files?.[0]);
+      selectedBackFile = backInput.files?.[0] || null;
+      setFileStatus(backStatus, selectedBackFile);
       refreshApplyEnabled();
     });
   }
@@ -260,8 +282,9 @@ function setupDriverRegistration() {
 
     const data = getFormData(form);
 
-    const frontFile = frontInput.files[0];
-    const backFile  = backInput.files[0];
+    // Use cached files (NOT input.files) to avoid “lost file” issue
+    const frontFile = selectedFrontFile;
+    const backFile = selectedBackFile;
 
     if (!frontFile || !backFile) {
       done(false);
@@ -287,14 +310,16 @@ function setupDriverRegistration() {
       enforceDriverGate();
       setResult(result, alertSuccess("Submitted"));
     } else {
-      setResult(result, alertError(res.error || "Failed"));
+      // Your new api.js will include `details` when server returns non-JSON
+      const msg = res.details ? `${res.error}<br><span class="muted">${escapeHtml(res.details)}</span>` : res.error;
+      setResult(result, alertError(msg || "Failed"));
     }
   });
 }
 
-/* ---------------------------------------------------------
+/* -----------------------------
    Login / Logout
---------------------------------------------------------- */
+----------------------------- */
 function setupDriverLogin() {
   const form = document.getElementById("driverLoginForm");
   const hint = document.getElementById("driverAuthHint");
@@ -307,9 +332,12 @@ function setupDriverLogin() {
     const invite_code = String(fd.get("invite_code") || "").trim();
 
     if (hint) hint.textContent = "Logging in…";
-
     const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
-    if (!res.ok) { if (hint) hint.textContent = res.error || "Login failed"; return; }
+
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || "Login failed";
+      return;
+    }
 
     saveUserToken(res.user_token);
     markDriverRegistered(res.user);
@@ -336,11 +364,9 @@ function setupDriverLogout() {
   });
 }
 
-/* ---------------------------------------------------------
-   The rest of your driver features (unchanged)
-   (Make Offer / View Job / Update Status / Issue Report)
---------------------------------------------------------- */
-
+/* -----------------------------
+   Make Offer
+----------------------------- */
 function setupMakeOffer() {
   const form = $("#driverOfferForm");
   const result = $("#driverOfferResult");
@@ -365,11 +391,10 @@ function setupMakeOffer() {
 
     Object.assign(data, getDriverAckMeta());
 
-    try {
-      const u = getSavedDriverUser();
-      if (u && u.phone) data.driver_phone = u.phone;
-      if (u && u.full_name) data.driver_name = u.full_name;
-    } catch (_) {}
+    // Optional convenience fields
+    const u = getSavedDriverUser();
+    if (u?.phone) data.driver_phone = u.phone;
+    if (u?.full_name) data.driver_name = u.full_name;
 
     const res = await api(`/requests/${requestId}/offers`, { method: "POST", body: data, role: "driver" });
 
@@ -379,6 +404,9 @@ function setupMakeOffer() {
   });
 }
 
+/* -----------------------------
+   View Job
+----------------------------- */
 function setupViewJob() {
   const form = $("#driverViewForm");
   if (!form) return;
@@ -427,23 +455,29 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
   const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
   if (hist && !hist.ok) {
     historyList.insertAdjacentHTML("beforeend", alertError(hist.error || "Failed to load history"));
-  } else if (h.length === 0) {
-    historyList.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
-  } else {
-    historyList.insertAdjacentHTML("beforeend", `
-      <div class="card compact">
-        <ul style="margin:0; padding-left:18px;">
-          ${h.slice(0, 12).map((ev) => {
-            const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
-            const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
-            return `<li><strong>${escapeHtml(when)}</strong> — ${escapeHtml(note)}</li>`;
-          }).join("")}
-        </ul>
-      </div>
-    `);
+    return;
   }
+  if (h.length === 0) {
+    historyList.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
+    return;
+  }
+
+  historyList.insertAdjacentHTML("beforeend", `
+    <div class="card compact">
+      <ul style="margin:0; padding-left:18px;">
+        ${h.slice(0, 12).map((ev) => {
+          const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
+          const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
+          return `<li><strong>${escapeHtml(when)}</strong> — ${escapeHtml(note)}</li>`;
+        }).join("")}
+      </ul>
+    </div>
+  `);
 }
 
+/* -----------------------------
+   Update Status
+----------------------------- */
 function setupUpdateStatus() {
   const form = $("#driverStatusForm");
   const result = document.getElementById("driverStatusResult");
@@ -492,6 +526,9 @@ function setupUpdateStatus() {
   });
 }
 
+/* -----------------------------
+   Issue report (pilot helper)
+----------------------------- */
 function setupIssueReport_driver() {
   const form = document.getElementById("driverIssueForm");
   const out = document.getElementById("driverIssueOut");
@@ -517,18 +554,9 @@ function setupIssueReport_driver() {
   });
 }
 
-function escapeHtml(v) {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/* ---------------------------------------------------------
+/* -----------------------------
    Init
---------------------------------------------------------- */
+----------------------------- */
 export function initDriverPage() {
   setupDriverRegistration();
   setupDriverLogin();
@@ -536,6 +564,7 @@ export function initDriverPage() {
 
   enforceDriverGate();
 
+  // Dashboard features (safe to init even when hidden)
   setupDriverAckGate();
   setupMakeOffer();
   setupViewJob();
