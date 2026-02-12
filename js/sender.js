@@ -36,6 +36,15 @@ function maybeOpenDetails(outEl, open) {
   if (d) d.open = !!open;
 }
 
+// ✅ Null-safe helper so missing <pre>/<details> output boxes never crash the page
+function safeOut(outEl, resObj, openOnError) {
+  if (!outEl) return;
+  outEl.textContent = pretty(resObj);
+  try {
+    maybeOpenDetails(outEl, !!openOnError);
+  } catch (_) {}
+}
+
 /* ---------------------------------------------------------
    Auth persistence helpers (device-based pilot)
 --------------------------------------------------------- */
@@ -310,8 +319,7 @@ function setupRegistration() {
     const data = getFormData(form);
     const res = await api("/users/register", { method: "POST", body: data });
 
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
     if (res.ok) {
@@ -339,8 +347,7 @@ function setupLogin() {
     const data = getFormData(form);
     const res = await api("/users/login", { method: "POST", body: data });
 
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
     if (res.ok) {
@@ -401,8 +408,7 @@ function setupCreateRequest() {
 
     const res = await api("/requests", { method: "POST", body: data, role: "sender" });
 
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
     if (res.ok) {
@@ -536,7 +542,7 @@ function setupAcceptOffer() {
       return;
     }
 
-    // ✅ Fix: restore sender token if available (same as fund/release)
+    // Restore sender token if available (same as fund/release)
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
@@ -551,8 +557,7 @@ function setupAcceptOffer() {
       { method: "POST", role: "sender", body: {} }
     );
 
-    if (out) out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
     if (res.ok) setResult(result, alertSuccess("Offer accepted"));
@@ -596,27 +601,28 @@ function setupFundEscrow() {
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
     } catch (_) {}
 
-    // ✅ Correct backend endpoint
+    // Correct backend endpoint
     const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
       method: "POST",
       role: "sender",
-      body: { amount_nzd: amount }
+      body: { amount_nzd: amount },
     });
 
-    if (out) out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
-   const checkoutUrl = res.url || res.checkout_url || res.checkoutUrl || res.session_url || res.sessionUrl;
-if (res.ok && checkoutUrl) {
-  setResult(result, alertSuccess("Redirecting to Stripe Checkout…"));
-  window.location.href = checkoutUrl;
-  return;
-}
+    const checkoutUrl = res.url || res.checkout_url || res.checkoutUrl || res.session_url || res.sessionUrl;
+    if (res.ok && checkoutUrl) {
+      setResult(result, alertSuccess("Redirecting to Stripe Checkout…"));
+      window.location.href = checkoutUrl;
+      return;
+    }
+
     if (res.ok) setResult(result, alertSuccess("OK"));
     else setResult(result, alertError(res.error || "Failed"));
   });
 }
+
 /* ---------------------------------------------------------
    Release escrow
 --------------------------------------------------------- */
@@ -646,15 +652,14 @@ function setupReleaseEscrow() {
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
     } catch (_) {}
 
-    // ✅ Correct backend endpoint
+    // Correct backend endpoint
     const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/release`, {
       method: "POST",
       role: "sender",
-      body: {}
+      body: {},
     });
 
-    if (out) out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
+    safeOut(out, res, !res.ok);
     done(!!res.ok);
 
     if (res.ok) setResult(result, alertSuccess("Escrow released"));
@@ -681,7 +686,9 @@ function setupIssueReport_sender() {
       const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: "sender" });
       if (req && req.ok && req.request) {
         const r = req.request;
-        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(r.pickup_suburb)}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
+        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(
+          r.pickup_suburb
+        )}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
       } else {
         snapshot = "Status snapshot: (unable to load request)";
       }
@@ -710,6 +717,10 @@ function safeText(v) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+/* ---------------------------------------------------------
+   Paid redirect auto-refresh (Stripe return)
+--------------------------------------------------------- */
 function getQueryParam(name) {
   const u = new URL(window.location.href);
   return u.searchParams.get(name);
@@ -724,22 +735,16 @@ function handlePaidRedirectRefresh() {
   const form = document.getElementById("viewRequestForm");
   if (!form) return;
 
-  // Auto-fill request ID
-  if (form.request_id) {
-    form.request_id.value = requestId;
-  }
+  if (form.request_id) form.request_id.value = requestId;
 
-  // Trigger the existing submit logic
   setTimeout(() => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }, 800);
 
-  // Trigger once more in case webhook is slightly delayed
   setTimeout(() => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }, 3000);
 }
-
 
 /* ---------------------------------------------------------
    Init
@@ -761,5 +766,6 @@ export function initSenderPage() {
   setupReleaseEscrow();
   setupSenderRecentUI();
   setupIssueReport_sender();
+
   handlePaidRedirectRefresh();
 }
