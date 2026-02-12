@@ -607,11 +607,12 @@ function setupFundEscrow() {
     maybeOpenDetails(out, !res.ok);
     done(!!res.ok);
 
-    if (res.ok && res.url) {
-      setResult(result, alertSuccess("Redirecting to Stripe Checkout…"));
-      window.location.href = res.url;
-      return;
-    }
+   const checkoutUrl = res.url || res.checkout_url || res.checkoutUrl || res.session_url || res.sessionUrl;
+if (res.ok && checkoutUrl) {
+  setResult(result, alertSuccess("Redirecting to Stripe Checkout…"));
+  window.location.href = checkoutUrl;
+  return;
+}
 
     if (res.ok) setResult(result, alertSuccess("OK"));
     else setResult(result, alertError(res.error || "Failed"));
