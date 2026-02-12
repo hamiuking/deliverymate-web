@@ -410,6 +410,41 @@ function setupMakeOffer() {
     else setResult(result, alertError(res.error || "Failed"));
   });
 }
+async function refreshDriverAssignedJobs() {
+  const sel = document.getElementById("driverRecentSelect");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Loading…</option>`;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    sel.innerHTML = `<option value="">(Failed to load jobs)</option>`;
+    return;
+  }
+
+  const list = Array.isArray(res.requests) ? res.requests : [];
+  sel.innerHTML = "";
+
+  if (list.length === 0) {
+    sel.innerHTML = `<option value="">(No assigned jobs)</option>`;
+    return;
+  }
+
+  sel.insertAdjacentHTML("beforeend", `<option value="">Select a job…</option>`);
+
+  for (const r of list) {
+    const id = String(r.id || "");
+    const status = String(r.status || "");
+    const pickup = String(r.pickup_suburb || "");
+    const dropoff = String(r.dropoff_suburb || "");
+    const label = `#${id} · ${pickup} → ${dropoff} · ${status}`;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  }
+}
 
 /* -----------------------------
    View Job
@@ -480,6 +515,31 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
       </ul>
     </div>
   `);
+}
+function setupDriverRecentJobsAssigned() {
+  const sel = document.getElementById("driverRecentSelect");
+  const useBtn = document.getElementById("driverRecentUseBtn");
+  const clearBtn = document.getElementById("driverRecentClearBtn");
+  const viewForm = document.getElementById("driverViewForm");
+  if (!sel || !useBtn || !clearBtn || !viewForm) return;
+
+  useBtn.addEventListener("click", () => {
+    const id = String(sel.value || "").trim();
+    if (!id) return;
+
+    // Fill the request id field in the View My Job form
+    viewForm.request_id.value = id;
+
+    // Trigger the existing load logic
+    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  });
+
+  clearBtn.addEventListener("click", () => {
+    sel.innerHTML = `<option value="">(Cleared)</option>`;
+  });
+
+  // initial load
+  refreshDriverAssignedJobs();
 }
 
 /* -----------------------------
