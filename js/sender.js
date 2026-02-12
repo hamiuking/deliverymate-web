@@ -232,6 +232,9 @@ function setupSenderLogin() {
     saveUserToken(res.user_token);
     markSenderRegistered(res.user);
     sessionStorage.setItem('dm_user', JSON.stringify(res.user));
+    // Cache phone for create-request autofill
+localStorage.setItem('dm_sender_phone', String(res.user?.phone || phone));
+sessionStorage.setItem('dm_sender_phone', String(res.user?.phone || phone));
     enforceSenderGate();
 
     if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
@@ -355,37 +358,46 @@ function setupCreateRequest() {
 
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+ form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    const createBtn = document.getElementById('createRequestBtn');
-    if (createBtn && createBtn.disabled) {
-      setResult(result, alertError("Please confirm all acknowledgement checkboxes before posting."));
-      return;
-    }
+  const btn = document.getElementById('createRequestBtn') || form.querySelector('button[type="submit"]');
+  const done = setWorking(btn, "Creating…");
 
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Creating…");
-    setResult(result, '');
+  const data = getFormData(form);
 
-    const data = getFormData(form);
+  // Ensure sender_phone always present (pilot requirement)
+  try {
+    const u = getSavedUser && getSavedUser();
+    const cachedPhone = sessionStorage.getItem('dm_sender_phone') || localStorage.getItem('dm_sender_phone') || '';
+    if (u?.phone) data.sender_phone = u.phone;
+    if (!data.sender_phone && cachedPhone) data.sender_phone = cachedPhone;
 
-    // Add ack meta
+    if (u?.full_name) data.sender_name = data.sender_name || u.full_name;
+  } catch (_) {}
+
+  // Attach sender acknowledgement meta (if you use it)
+  try {
     Object.assign(data, getSenderAckMeta());
+  } catch (_) {}
 
-    const res = await api("/requests", { method: "POST", body: data, role: 'sender' });
-
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
-    done(!!res.ok);
-
-    if (res.ok) {
-      setResult(result, alertSuccess("Created"));
-      renderCreateRequestInfo(res);
-    } else {
-      setResult(result, alertError(res.error || "Failed"));
-    }
+  const res = await api("/requests", {
+    method: "POST",
+    body: data,
+    role: 'sender',
   });
+
+  out.textContent = pretty(res);
+  maybeOpenDetails(out, !res.ok);
+  done(!!res.ok);
+
+  if (res.ok) {
+    setResult(result, alertSuccess("Created"));
+    renderCreateRequestInfo(res);
+  } else {
+    setResult(result, alertError(res.error || "Failed"));
+  }
+});
 }
 
 function renderCreateRequestInfo(res) {
