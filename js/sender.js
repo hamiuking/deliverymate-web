@@ -710,6 +710,36 @@ function safeText(v) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+function getQueryParam(name) {
+  const u = new URL(window.location.href);
+  return u.searchParams.get(name);
+}
+
+function handlePaidRedirectRefresh() {
+  const paid = getQueryParam("paid");
+  const requestId = getQueryParam("request_id");
+
+  if (paid !== "1" || !requestId) return;
+
+  const form = document.getElementById("viewRequestForm");
+  if (!form) return;
+
+  // Auto-fill request ID
+  if (form.request_id) {
+    form.request_id.value = requestId;
+  }
+
+  // Trigger the existing submit logic
+  setTimeout(() => {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  }, 800);
+
+  // Trigger once more in case webhook is slightly delayed
+  setTimeout(() => {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  }, 3000);
+}
+
 
 /* ---------------------------------------------------------
    Init
@@ -731,4 +761,5 @@ export function initSenderPage() {
   setupReleaseEscrow();
   setupSenderRecentUI();
   setupIssueReport_sender();
+  handlePaidRedirectRefresh();
 }
