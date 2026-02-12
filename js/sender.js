@@ -1,10 +1,11 @@
 // public/js/sender.js
+
 import { api } from "./api.js";
-import { $ } from "./utils.js";
+import { $, pretty } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
+import { statusPill, timeline, nextActionText } from "./components/status.js";
 
-// ----- small helpers -----
 function setResult(el, html) {
   if (!el) return;
   el.innerHTML = html || "";
@@ -14,6 +15,7 @@ function setWorking(btn, workingText = "Working…") {
   if (!btn) return () => {};
   const oldText = btn.textContent;
   btn.disabled = true;
+  btn.dataset._oldText = oldText;
   btn.textContent = workingText;
   return (ok) => {
     if (ok) {
@@ -29,36 +31,47 @@ function setWorking(btn, workingText = "Working…") {
   };
 }
 
-function escapeHtml(v) {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function maybeOpenDetails(outEl, open) {
+  const d = outEl && outEl.closest && outEl.closest("details");
+  if (d) d.open = !!open;
 }
 
-function saveUserToken(tok) {
-  if (!tok) return;
-  localStorage.setItem("dm_user_token", String(tok));
-  sessionStorage.setItem("dm_user_token", String(tok));
-}
+/* ---------------------------------------------------------
+   Auth persistence helpers (device-based pilot)
+--------------------------------------------------------- */
+const SENDER_REGISTERED_KEY = "dm_sender_registered";
 
-function markSenderRegistered(user) {
-  localStorage.setItem("dm_sender_registered", "1");
+function saveUserProfileAndToken(user, user_token) {
   if (user) {
-    localStorage.setItem("dm_user_sender", JSON.stringify(user));
-    sessionStorage.setItem("dm_user_sender", JSON.stringify(user));
+    localStorage.setItem("dm_user", JSON.stringify(user));
+    sessionStorage.setItem("dm_user", JSON.stringify(user));
   }
+  if (user_token) {
+    localStorage.setItem("dm_user_token", String(user_token));
+    sessionStorage.setItem("dm_user_token", String(user_token));
+  }
+  localStorage.setItem(SENDER_REGISTERED_KEY, "1");
+}
+
+function clearSenderSession() {
+  localStorage.removeItem(SENDER_REGISTERED_KEY);
+  sessionStorage.removeItem("dm_user");
+  localStorage.removeItem("dm_user");
+  sessionStorage.removeItem("dm_user_token");
+  localStorage.removeItem("dm_user_token");
+
+  // sender tokens are per-request; keep them OR clear them?
+  // For pilot clarity, we clear the active one but keep historical mapping.
+  sessionStorage.removeItem("dm_sender_token");
 }
 
 function isSenderRegistered() {
-  return localStorage.getItem("dm_sender_registered") === "1";
+  return localStorage.getItem(SENDER_REGISTERED_KEY) === "1";
 }
 
-function getSavedSenderUser() {
+function getSavedUser() {
   try {
-    const raw = localStorage.getItem("dm_user_sender");
+    const raw = localStorage.getItem("dm_user") || sessionStorage.getItem("dm_user");
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -66,58 +79,76 @@ function getSavedSenderUser() {
   }
 }
 
-function enforceSenderGate() {
+function setAuthUI() {
   const locked = !isSenderRegistered();
-  const authArea = document.getElementById("senderAuthArea");
-  const dash = document.getElementById("senderDashboard");
-  if (authArea) authArea.classList.toggle("hidden", !locked);
-  if (dash) dash.classList.toggle("hidden", locked);
-
-  const status = document.getElementById("senderAuthStatus");
-  const u = getSavedSenderUser();
-  if (status) {
-    status.textContent = locked
-      ? "Please register or log in to access the sender dashboard."
-      : (u?.phone ? `Logged in: ${u.phone}` : "Sender dashboard unlocked.");
-  }
 
   const logoutBtn = document.getElementById("senderLogoutBtn");
+  const hint = document.getElementById("senderAuthHint");
+
   if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
 
-  const ident = document.getElementById("senderIdentityLine");
-  if (ident) {
-    const phone = sessionStorage.getItem("dm_sender_phone") || localStorage.getItem("dm_sender_phone") || (u?.phone || "");
-    ident.innerHTML = phone ? `<span class="muted">Sender: ${escapeHtml(phone)}</span>` : "";
+  if (hint) {
+    if (locked) {
+      hint.textContent = "";
+    } else {
+      const u = getSavedUser();
+      hint.textContent = u?.phone ? `Logged in as ${u.phone}` : "Logged in";
+    }
   }
 }
 
-// ----- sender ack gate -----
-const SENDER_ACK_VERSION = "sender_terms_2026-01-06";
+/* Gate dashboard sections (CSS-based) */
+function enforceSenderGate() {
+  const status = document.getElementById("senderAuthStatus");
+  const locked = !isSenderRegistered();
+
+  document.body.classList.toggle("locked", locked);
+  document.body.classList.toggle("unlocked", !locked);
+
+  // Mark sections that require sender
+  const req = document.querySelectorAll(".requires-sender");
+  req.forEach((el) => el.classList.toggle("hidden", locked));
+
+  // Lock-only/unlock-only helpers
+  const lockedOnly = document.querySelectorAll(".locked-only");
+  lockedOnly.forEach((el) => el.classList.toggle("hidden", !locked));
+  const unlockedOnly = document.querySelectorAll(".unlocked-only");
+  unlockedOnly.forEach((el) => el.classList.toggle("hidden", locked));
+
+  setAuthUI();
+
+  if (status) {
+    if (locked) {
+      status.textContent = "Please register or log in to access the sender dashboard.";
+    } else {
+      const u = getSavedUser();
+      status.textContent = u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
+    }
+  }
+}
+
+/* ---------------------------------------------------------
+   Sender acknowledgement gate (before creating request)
+--------------------------------------------------------- */
+// Keep this <= 20 chars (backend requirement)
+const SENDER_ACK_VERSION_FALLBACK = "sender_ack_v1";
 const SENDER_ACK_KEY = "dm_sender_ack_v1_ts";
 
-function getSenderAckMeta() {
-  const ts = localStorage.getItem(SENDER_ACK_KEY) || "";
-  return { sender_ack_version: SENDER_ACK_VERSION, sender_ack_ts: ts };
+function currentSenderAckVersion() {
+  // app.js may have fetched /ack/versions and stored this in sessionStorage
+  const v = sessionStorage.getItem("dm_sender_ack_version");
+  if (v && String(v).length <= 20) return String(v);
+  return SENDER_ACK_VERSION_FALLBACK;
 }
 
 function setupSenderAckGate() {
+  const btn = document.getElementById("createRequestBtn");
   const a1 = document.getElementById("sAck1");
   const a2 = document.getElementById("sAck2");
   const a3 = document.getElementById("sAck3");
   const a4 = document.getElementById("sAck4");
-  const lastEl = document.getElementById("senderAckLast");
-  const createBtn = document.getElementById("createRequestBtn");
 
-  if (!a1 || !a2 || !a3 || !a4) return;
-
-  const renderLast = () => {
-    if (!lastEl) return;
-    const ts = localStorage.getItem(SENDER_ACK_KEY);
-    if (!ts) { lastEl.textContent = ""; return; }
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) { lastEl.textContent = ""; return; }
-    lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
-  };
+  if (!btn || !a1 || !a2 || !a3 || !a4) return;
 
   const prevTs = localStorage.getItem(SENDER_ACK_KEY);
   if (prevTs) {
@@ -129,10 +160,8 @@ function setupSenderAckGate() {
 
   const refresh = () => {
     const ok = a1.checked && a2.checked && a3.checked && a4.checked;
-    if (createBtn) createBtn.disabled = !ok;
-
+    btn.disabled = !ok;
     if (ok) localStorage.setItem(SENDER_ACK_KEY, new Date().toISOString());
-    renderLast();
   };
 
   a1.addEventListener("change", refresh);
@@ -143,9 +172,132 @@ function setupSenderAckGate() {
   refresh();
 }
 
-// ----- register/login/logout -----
-function setupSenderRegistration() {
+function getSenderAckMeta() {
+  const ts = localStorage.getItem(SENDER_ACK_KEY) || new Date().toISOString();
+  return { sender_ack_version: currentSenderAckVersion(), sender_ack_ts: ts };
+}
+
+/* ---------------------------------------------------------
+   Recent requests + sender token helpers
+--------------------------------------------------------- */
+const SENDER_RECENT_KEY = "dm_sender_recent_requests";
+
+function loadSenderRecent() {
+  try {
+    return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+function saveSenderRecent(list) {
+  try {
+    localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function renderSenderRecent() {
+  const sel = document.getElementById("senderRecentSelect");
+  if (!sel) return;
+  const list = loadSenderRecent();
+  sel.innerHTML = "";
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = list.length ? "Select a recent request…" : "No recent requests yet";
+  sel.appendChild(opt0);
+
+  for (const it of list) {
+    const o = document.createElement("option");
+    o.value = String(it.id);
+    const route = it.pickup || it.dropoff ? ` — ${it.pickup} → ${it.dropoff}` : "";
+    const st = it.status ? ` [${it.status}]` : "";
+    o.textContent = `#${it.id}${st}${route}`;
+    sel.appendChild(o);
+  }
+}
+
+function addSenderRecent(req) {
+  if (!req?.id) return;
+  const id = String(req.id);
+  const item = {
+    id,
+    pickup: req.pickup_suburb || "",
+    dropoff: req.dropoff_suburb || "",
+    status: req.status || "",
+    ts: req.created_at || new Date().toISOString(),
+  };
+  const list = loadSenderRecent().filter((x) => String(x.id) !== id);
+  list.unshift(item);
+  saveSenderRecent(list.slice(0, 10));
+  renderSenderRecent();
+}
+
+function saveSenderTokenForRequest(requestId, token) {
+  if (!requestId || !token) return;
+  try {
+    const key = "dm_sender_tokens";
+    const obj = JSON.parse(localStorage.getItem(key) || "{}");
+    obj[String(requestId)] = String(token);
+    localStorage.setItem(key, JSON.stringify(obj));
+    sessionStorage.setItem("dm_sender_token", String(token));
+  } catch {
+    sessionStorage.setItem("dm_sender_token", String(token));
+  }
+}
+
+function loadSenderTokenForRequest(requestId) {
+  if (!requestId) return "";
+  try {
+    const obj = JSON.parse(localStorage.getItem("dm_sender_tokens") || "{}");
+    return obj[String(requestId)] || "";
+  } catch {
+    return "";
+  }
+}
+
+function applySenderRecent(requestId) {
+  if (!requestId) return;
+  const id = String(requestId);
+
+  const formIds = ["viewRequestForm", "acceptOfferForm"];
+  for (const formId of formIds) {
+    const f = document.getElementById(formId);
+    if (f && f.request_id) f.request_id.value = id;
+  }
+
+  const fund = document.getElementById("fundRequestId");
+  if (fund) fund.value = id;
+
+  const rel = document.getElementById("releaseRequestId");
+  if (rel) rel.value = id;
+}
+
+function setupSenderRecentUI() {
+  const sel = document.getElementById("senderRecentSelect");
+  const useBtn = document.getElementById("senderRecentUseBtn");
+  const clearBtn = document.getElementById("senderRecentClearBtn");
+  if (!sel) return;
+
+  renderSenderRecent();
+
+  if (useBtn) useBtn.addEventListener("click", () => applySenderRecent(sel.value));
+  sel.addEventListener("change", () => {
+    if (sel.value) applySenderRecent(sel.value);
+  });
+
+  if (clearBtn)
+    clearBtn.addEventListener("click", () => {
+      saveSenderRecent([]);
+      renderSenderRecent();
+    });
+}
+
+/* ---------------------------------------------------------
+   1) Register + Login + Logout
+--------------------------------------------------------- */
+function setupRegistration() {
   const form = $("#senderRegForm");
+  const out = $("#senderRegOut");
   const result = $("#senderRegResult");
   if (!form) return;
 
@@ -158,133 +310,203 @@ function setupSenderRegistration() {
     const data = getFormData(form);
     const res = await api("/users/register", { method: "POST", body: data });
 
+    out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
     done(!!res.ok);
-    if (!res.ok) {
+
+    if (res.ok) {
+      // Backend returns { user_token, user }
+      saveUserProfileAndToken(res.user, res.user_token);
+      setResult(result, alertSuccess("Registered on this device"));
+      enforceSenderGate();
+    } else {
       setResult(result, alertError(res.error || "Failed"));
-      return;
     }
-
-    saveUserToken(res.user_token);
-    markSenderRegistered(res.user);
-
-    // Cache phone for create-request autofill
-    const phone = String(res.user?.phone || data.phone || "");
-    if (phone) {
-      localStorage.setItem("dm_sender_phone", phone);
-      sessionStorage.setItem("dm_sender_phone", phone);
-    }
-
-    enforceSenderGate();
-    setResult(result, alertSuccess("Registered"));
   });
 }
 
-function setupSenderLogin() {
+function setupLogin() {
   const form = $("#senderLoginForm");
-  const hint = document.getElementById("senderAuthHint");
+  const out = $("#senderLoginOut");
+  const result = $("#senderLoginResult");
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const fd = new FormData(form);
-    const phone = String(fd.get("phone") || "").trim();
-    const invite_code = String(fd.get("invite_code") || "").trim();
-    if (hint) hint.textContent = "Logging in…";
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Logging in…");
+    setResult(result, "");
 
-    const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
+    const data = getFormData(form);
+    const res = await api("/users/login", { method: "POST", body: data });
 
-    if (!res.ok) {
-      if (hint) hint.textContent = res.error || "Login failed";
-      return;
+    out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+
+    if (res.ok) {
+      saveUserProfileAndToken(res.user, res.user_token);
+      setResult(result, alertSuccess("Logged in on this device"));
+      enforceSenderGate();
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
     }
-
-    saveUserToken(res.user_token);
-    markSenderRegistered(res.user);
-
-    // Cache phone for create-request autofill
-    const p = String(res.user?.phone || phone || "");
-    if (p) {
-      localStorage.setItem("dm_sender_phone", p);
-      sessionStorage.setItem("dm_sender_phone", p);
-    }
-
-    enforceSenderGate();
-    if (hint) hint.textContent = `Logged in as ${p || phone}`;
   });
 }
 
-function setupSenderLogout() {
-  const btn = document.getElementById("senderLogoutBtn");
-  const hint = document.getElementById("senderAuthHint");
-  if (!btn) return;
+function setupSenderAuthControls() {
+  const logoutBtn = document.getElementById("senderLogoutBtn");
+  if (!logoutBtn) return;
 
-  btn.addEventListener("click", () => {
-    localStorage.removeItem("dm_sender_registered");
-    localStorage.removeItem("dm_user_sender");
-    localStorage.removeItem("dm_user_token");
-    sessionStorage.removeItem("dm_user_token");
-    sessionStorage.removeItem("dm_user_sender");
-    // keep dm_sender_phone optional; you can remove it too if you prefer:
-    // localStorage.removeItem("dm_sender_phone");
-    // sessionStorage.removeItem("dm_sender_phone");
-
+  logoutBtn.addEventListener("click", () => {
+    clearSenderSession();
     enforceSenderGate();
-    if (hint) hint.textContent = "";
   });
 }
 
-// ----- create request -----
+/* ---------------------------------------------------------
+   2) Create Request (requires ack + sender_phone)
+--------------------------------------------------------- */
 function setupCreateRequest() {
   const form = $("#createRequestForm");
+  const out = $("#senderOutput");
   const result = $("#createRequestResult");
-  const out = document.getElementById("createRequestOut");
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const btn = document.getElementById("createRequestBtn") || form.querySelector('button[type="submit"]');
+    // Guard: must be unlocked
+    if (!isSenderRegistered()) {
+      setResult(result, alertError("Please register or log in first."));
+      return;
+    }
+
+    const createBtn = document.getElementById("createRequestBtn");
+    if (createBtn && createBtn.disabled) {
+      setResult(result, alertError("Please confirm all acknowledgement checkboxes before posting."));
+      return;
+    }
+
+    const btn = form.querySelector('button[type="submit"]');
     const done = setWorking(btn, "Creating…");
     setResult(result, "");
-    if (out) out.textContent = "";
 
     const data = getFormData(form);
 
-    // Autofill sender_phone for pilot backend requirement
-    const u = getSavedSenderUser();
-    const cachedPhone = sessionStorage.getItem("dm_sender_phone") || localStorage.getItem("dm_sender_phone") || "";
-    if (u?.phone) data.sender_phone = u.phone;
-    if (!data.sender_phone && cachedPhone) data.sender_phone = cachedPhone;
-
-    // Attach sender acknowledgement meta (what backend expects)
+    // Add ack meta required by backend
     Object.assign(data, getSenderAckMeta());
+    if (!data.sender_ack_version) data.sender_ack_version = currentSenderAckVersion();
 
-    // If ack not recorded, show user where
-    if (!data.sender_ack_ts) {
-      done(false);
-      setResult(result, alertError("Please complete Sender acknowledgements above before creating a request."));
-      document.getElementById("senderAckSection")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      return;
-    }
+    // Auto-fill sender_name + sender_phone (backend requires sender_phone in pilot)
+    const u = getSavedUser();
+    if (u?.phone) data.sender_phone = data.sender_phone || u.phone;
+    if (u?.full_name) data.sender_name = data.sender_name || u.full_name;
 
     const res = await api("/requests", { method: "POST", body: data, role: "sender" });
 
+    out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
     done(!!res.ok);
-    if (out) out.textContent = JSON.stringify(res, null, 2);
 
-    if (res.ok) setResult(result, alertSuccess("Created"));
-    else setResult(result, alertError(res.error || "Failed"));
+    if (res.ok) {
+      setResult(result, alertSuccess("Created"));
+      renderCreateRequestInfo(res);
+    } else {
+      setResult(result, alertError(res.error || "Failed"));
+    }
   });
 }
 
-// ----- init -----
+function safeText(x) {
+  return String(x || "").replace(/[&<>"']/g, (m) => {
+    return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]);
+  });
+}
+
+function renderCreateRequestInfo(res) {
+  try {
+    const box = document.getElementById("senderCreateInfo");
+    if (!box) return;
+    const id = res?.request?.id;
+    const tok = res?.sender_token;
+    if (!id) return;
+
+    if (tok) saveSenderTokenForRequest(id, tok);
+    addSenderRecent(res.request);
+
+    const viewForm = document.getElementById("viewRequestForm");
+    if (viewForm && viewForm.request_id) viewForm.request_id.value = String(id);
+
+    const relInput = document.getElementById("releaseRequestId");
+    if (relInput) relInput.value = String(id);
+
+    const fundInput = document.getElementById("fundRequestId");
+    if (fundInput) fundInput.value = String(id);
+
+    box.innerHTML = `
+      <div class="card compact" style="border:1px solid rgba(15,23,42,.12);">
+        <div><strong>Save your Request ID:</strong> <span id="createdRequestId">${safeText(id)}</span></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn secondary" type="button" id="copyRequestIdBtn">Copy ID</button>
+          <button class="btn" type="button" id="loadCreatedRequestBtn">Load request</button>
+        </div>
+        <div class="muted" id="copyRequestIdNote" style="margin-top:6px;"></div>
+      </div>
+    `;
+
+    const copyBtn = document.getElementById("copyRequestIdBtn");
+    const loadBtn = document.getElementById("loadCreatedRequestBtn");
+    const note = document.getElementById("copyRequestIdNote");
+
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(String(id));
+          if (note) note.textContent = "Copied.";
+        } catch {
+          if (note) note.textContent = "Copy failed. Please copy manually.";
+        }
+      });
+    }
+    if (loadBtn) {
+      loadBtn.addEventListener("click", () => {
+        const f = document.getElementById("viewRequestForm");
+        if (f) f.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      });
+    }
+  } catch (_) {}
+}
+
+/* ---------------------------------------------------------
+   Existing features (view / offers / escrow / etc.)
+   NOTE: These functions already exist in your current sender.js in other versions.
+   If your current file already contains them, keep them.
+   If not, you can paste your existing implementations below.
+--------------------------------------------------------- */
+
+// Placeholder stubs (safe if unused). If your file already has real ones, remove these stubs.
+function setupViewRequest() {}
+function setupAcceptOffer() {}
+function setupFundEscrow() {}
+function setupReleaseEscrow() {}
+function setupIssueReport_sender() {}
+
 export function initSenderPage() {
-  setupSenderRegistration();
-  setupSenderLogin();
-  setupSenderLogout();
+  console.log("Sender page loaded");
+
+  setupRegistration();
+  setupLogin();
+  setupSenderAuthControls();
+
+  setupSenderAckGate();
   enforceSenderGate();
 
-  // Dashboard features
-  setupSenderAckGate();
   setupCreateRequest();
+  setupViewRequest();
+  setupAcceptOffer();
+  setupFundEscrow();
+  setupReleaseEscrow();
+  setupSenderRecentUI();
+  setupIssueReport_sender();
 }
