@@ -48,9 +48,16 @@ function escapeHtml(v) {
 
 function saveUserToken(tok) {
   if (!tok) return;
-  localStorage.setItem("dm_user_token", String(tok));
-  sessionStorage.setItem("dm_user_token", String(tok));
+  const t = String(tok);
+
+  // What api.js expects:
+  localStorage.setItem("dm_user_token", t);
+  sessionStorage.setItem("dm_user_token", t);
+
+  // Optional: driver-only backup (harmless)
+  localStorage.setItem("dm_driver_user_token", t);
 }
+
 
 function markDriverRegistered(user) {
   localStorage.setItem("dm_driver_registered", "1");
