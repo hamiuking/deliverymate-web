@@ -596,10 +596,11 @@ function setupFundEscrow() {
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
     } catch (_) {}
 
-    const res = await api(`/requests/${encodeURIComponent(requestId)}/fund`, {
+    // ✅ Correct backend endpoint
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
       method: "POST",
       role: "sender",
-      body: { amount_nzd: amount },
+      body: { amount_nzd: amount }
     });
 
     if (out) out.textContent = pretty(res);
@@ -616,7 +617,6 @@ function setupFundEscrow() {
     else setResult(result, alertError(res.error || "Failed"));
   });
 }
-
 /* ---------------------------------------------------------
    Release escrow
 --------------------------------------------------------- */
