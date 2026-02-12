@@ -1,25 +1,23 @@
 // public/js/sender.js
-
 import { api } from "./api.js";
-import { $, pretty } from "./utils.js";
+import { $ } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
-import { statusPill, timeline, nextActionText } from "./components/status.js";
 
+// ----- small helpers -----
 function setResult(el, html) {
   if (!el) return;
-  el.innerHTML = html || '';
+  el.innerHTML = html || "";
 }
 
-function setWorking(btn, workingText='Working…') {
+function setWorking(btn, workingText = "Working…") {
   if (!btn) return () => {};
   const oldText = btn.textContent;
   btn.disabled = true;
-  btn.dataset._oldText = oldText;
   btn.textContent = workingText;
   return (ok) => {
     if (ok) {
-      btn.textContent = 'Done ✓';
+      btn.textContent = "Done ✓";
       setTimeout(() => {
         btn.disabled = false;
         btn.textContent = oldText;
@@ -31,51 +29,36 @@ function setWorking(btn, workingText='Working…') {
   };
 }
 
-function maybeOpenDetails(outEl, open) {
-  const d = outEl && outEl.closest && outEl.closest('details');
-  if (d) d.open = !!open;
-}
-
-export function initSenderPage() {
-  console.log("Sender page loaded");
-
-  setupRegistration();
-  setupSenderLogin();
-  setupSenderLogout();
-
-  enforceSenderGate();
-  setupSenderAckGate();
-
-  setupCreateRequest();
-  setupViewRequest();
-  setupAcceptOffer();
-  setupFundEscrow();
-  setupReleaseEscrow();
-  setupSenderRecentUI();
-  setupIssueReport_sender();
-}
-
-function markSenderRegistered(user) {
-  localStorage.setItem('dm_sender_registered', '1');
-  if (user) {
-    localStorage.setItem('dm_user', JSON.stringify(user));
-    sessionStorage.setItem('dm_user', JSON.stringify(user));
-  }
-}
-
-function isSenderRegistered() {
-  return localStorage.getItem('dm_sender_registered') === '1';
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function saveUserToken(tok) {
   if (!tok) return;
-  localStorage.setItem('dm_user_token', String(tok));
-  sessionStorage.setItem('dm_user_token', String(tok));
+  localStorage.setItem("dm_user_token", String(tok));
+  sessionStorage.setItem("dm_user_token", String(tok));
 }
 
-function getSavedUser() {
+function markSenderRegistered(user) {
+  localStorage.setItem("dm_sender_registered", "1");
+  if (user) {
+    localStorage.setItem("dm_user_sender", JSON.stringify(user));
+    sessionStorage.setItem("dm_user_sender", JSON.stringify(user));
+  }
+}
+
+function isSenderRegistered() {
+  return localStorage.getItem("dm_sender_registered") === "1";
+}
+
+function getSavedSenderUser() {
   try {
-    const raw = localStorage.getItem('dm_user');
+    const raw = localStorage.getItem("dm_user_sender");
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -83,650 +66,225 @@ function getSavedUser() {
   }
 }
 
-function setAuthUI() {
-  const locked = !isSenderRegistered();
-
-  const logoutBtn = document.getElementById('senderLogoutBtn');
-  const hint = document.getElementById('senderAuthHint');
-
-  if (logoutBtn) logoutBtn.classList.toggle('hidden', locked);
-
-  if (hint) {
-    if (locked) {
-      hint.textContent = '';
-    } else {
-      const u = getSavedUser();
-      hint.textContent = u?.phone ? `Logged in as ${u.phone}` : 'Logged in';
-    }
-  }
-}
-
-/* Gate dashboard */
 function enforceSenderGate() {
-  const status = document.getElementById('senderAuthStatus');
   const locked = !isSenderRegistered();
+  const authArea = document.getElementById("senderAuthArea");
+  const dash = document.getElementById("senderDashboard");
+  if (authArea) authArea.classList.toggle("hidden", !locked);
+  if (dash) dash.classList.toggle("hidden", locked);
 
-  document.body.classList.toggle('locked', locked);
-  document.body.classList.toggle('unlocked', !locked);
-
-  // Hide Register when unlocked (clean UI)
-  const reg = document.getElementById('senderRegisterSection');
-  if (reg) reg.classList.toggle('hidden', !locked);
-
-  setAuthUI();
-
+  const status = document.getElementById("senderAuthStatus");
+  const u = getSavedSenderUser();
   if (status) {
     status.textContent = locked
-      ? 'Please register or log in to access the sender dashboard.'
-      : 'Sender dashboard unlocked.';
+      ? "Please register or log in to access the sender dashboard."
+      : (u?.phone ? `Logged in: ${u.phone}` : "Sender dashboard unlocked.");
+  }
+
+  const logoutBtn = document.getElementById("senderLogoutBtn");
+  if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
+
+  const ident = document.getElementById("senderIdentityLine");
+  if (ident) {
+    const phone = sessionStorage.getItem("dm_sender_phone") || localStorage.getItem("dm_sender_phone") || (u?.phone || "");
+    ident.innerHTML = phone ? `<span class="muted">Sender: ${escapeHtml(phone)}</span>` : "";
   }
 }
 
-/* ---------------------------------------------------------
-   Sender acknowledgement gate (before creating request)
---------------------------------------------------------- */
-const SENDER_ACK_VERSION = 'sender_terms_2026-01-06';
-const SENDER_ACK_KEY = 'dm_sender_ack_v1_ts';
+// ----- sender ack gate -----
+const SENDER_ACK_VERSION = "sender_terms_2026-01-06";
+const SENDER_ACK_KEY = "dm_sender_ack_v1_ts";
+
+function getSenderAckMeta() {
+  const ts = localStorage.getItem(SENDER_ACK_KEY) || "";
+  return { sender_ack_version: SENDER_ACK_VERSION, sender_ack_ts: ts };
+}
 
 function setupSenderAckGate() {
-  const btn = document.getElementById('createRequestBtn');
-  const a1 = document.getElementById('sAck1');
-  const a2 = document.getElementById('sAck2');
-  const a3 = document.getElementById('sAck3');
-  const a4 = document.getElementById('sAck4');
-  const lastEl = document.getElementById('senderAckLast');
+  const a1 = document.getElementById("sAck1");
+  const a2 = document.getElementById("sAck2");
+  const a3 = document.getElementById("sAck3");
+  const a4 = document.getElementById("sAck4");
+  const lastEl = document.getElementById("senderAckLast");
+  const createBtn = document.getElementById("createRequestBtn");
 
-  if (!btn || !a1 || !a2 || !a3 || !a4) return;
+  if (!a1 || !a2 || !a3 || !a4) return;
 
   const renderLast = () => {
     if (!lastEl) return;
     const ts = localStorage.getItem(SENDER_ACK_KEY);
-    if (!ts) { lastEl.textContent = ''; return; }
+    if (!ts) { lastEl.textContent = ""; return; }
     const d = new Date(ts);
-    if (isNaN(d.getTime())) { lastEl.textContent = ''; return; }
+    if (isNaN(d.getTime())) { lastEl.textContent = ""; return; }
     lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
-  // If previously acknowledged on this device, pre-check for convenience
   const prevTs = localStorage.getItem(SENDER_ACK_KEY);
   if (prevTs) {
-    a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true;
+    a1.checked = true;
+    a2.checked = true;
+    a3.checked = true;
+    a4.checked = true;
   }
 
   const refresh = () => {
     const ok = a1.checked && a2.checked && a3.checked && a4.checked;
-    btn.disabled = !ok;
+    if (createBtn) createBtn.disabled = !ok;
+
     if (ok) localStorage.setItem(SENDER_ACK_KEY, new Date().toISOString());
     renderLast();
   };
 
-  a1.addEventListener('change', refresh);
-  a2.addEventListener('change', refresh);
-  a3.addEventListener('change', refresh);
-  a4.addEventListener('change', refresh);
+  a1.addEventListener("change", refresh);
+  a2.addEventListener("change", refresh);
+  a3.addEventListener("change", refresh);
+  a4.addEventListener("change", refresh);
 
   refresh();
 }
 
-function getSenderAckMeta() {
-  const ts = localStorage.getItem(SENDER_ACK_KEY) || new Date().toISOString();
-  return { sender_ack_version: SENDER_ACK_VERSION, sender_ack_ts: ts };
-}
-
-/* ---------------------------------------------------------
-   1. Sender Registration
---------------------------------------------------------- */
-function setupRegistration() {
+// ----- register/login/logout -----
+function setupSenderRegistration() {
   const form = $("#senderRegForm");
-  const out = $("#senderRegOut");
   const result = $("#senderRegResult");
-
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Loading…");
-    setResult(result, '');
+    const done = setWorking(btn, "Registering…");
+    setResult(result, "");
 
     const data = getFormData(form);
     const res = await api("/users/register", { method: "POST", body: data });
 
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
     done(!!res.ok);
-
-    if (res.ok) {
-      if (res.user) sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-      markSenderRegistered(res.user);
-      enforceSenderGate();
-      setResult(result, alertSuccess("Registered"));
-    } else {
-      setResult(result, alertError(res.error || "Failed"));
-    }
-  });
-}
-
-/* ---------------------------------------------------------
-   2. Sender Login / Logout
---------------------------------------------------------- */
-function setupSenderLogin() {
-  const form = document.getElementById('senderLoginForm');
-  const hint = document.getElementById('senderAuthHint');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const phone = String(fd.get('phone') || '').trim();
-    const invite_code = String(fd.get('invite_code') || '').trim();
-
-    if (hint) hint.textContent = 'Logging in…';
-
-    const res = await api('/users/login', { method: 'POST', body: { phone, invite_code } });
     if (!res.ok) {
-      if (hint) hint.textContent = res.error || 'Login failed';
+      setResult(result, alertError(res.error || "Failed"));
       return;
     }
 
     saveUserToken(res.user_token);
     markSenderRegistered(res.user);
-    sessionStorage.setItem('dm_user', JSON.stringify(res.user));
-    // Cache phone for create-request autofill
-localStorage.setItem('dm_sender_phone', String(res.user?.phone || phone));
-sessionStorage.setItem('dm_sender_phone', String(res.user?.phone || phone));
-    enforceSenderGate();
 
-    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+    // Cache phone for create-request autofill
+    const phone = String(res.user?.phone || data.phone || "");
+    if (phone) {
+      localStorage.setItem("dm_sender_phone", phone);
+      sessionStorage.setItem("dm_sender_phone", phone);
+    }
+
+    enforceSenderGate();
+    setResult(result, alertSuccess("Registered"));
+  });
+}
+
+function setupSenderLogin() {
+  const form = $("#senderLoginForm");
+  const hint = document.getElementById("senderAuthHint");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get("phone") || "").trim();
+    const invite_code = String(fd.get("invite_code") || "").trim();
+    if (hint) hint.textContent = "Logging in…";
+
+    const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
+
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || "Login failed";
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markSenderRegistered(res.user);
+
+    // Cache phone for create-request autofill
+    const p = String(res.user?.phone || phone || "");
+    if (p) {
+      localStorage.setItem("dm_sender_phone", p);
+      sessionStorage.setItem("dm_sender_phone", p);
+    }
+
+    enforceSenderGate();
+    if (hint) hint.textContent = `Logged in as ${p || phone}`;
   });
 }
 
 function setupSenderLogout() {
-  const btn = document.getElementById('senderLogoutBtn');
-  const hint = document.getElementById('senderAuthHint');
+  const btn = document.getElementById("senderLogoutBtn");
+  const hint = document.getElementById("senderAuthHint");
   if (!btn) return;
 
-  btn.addEventListener('click', () => {
-    localStorage.removeItem('dm_sender_registered');
-    localStorage.removeItem('dm_user');
-    sessionStorage.removeItem('dm_user');
-    sessionStorage.removeItem('dm_sender_token');
-    sessionStorage.removeItem('dm_user_token');
-    localStorage.removeItem('dm_user_token');
+  btn.addEventListener("click", () => {
+    localStorage.removeItem("dm_sender_registered");
+    localStorage.removeItem("dm_user_sender");
+    localStorage.removeItem("dm_user_token");
+    sessionStorage.removeItem("dm_user_token");
+    sessionStorage.removeItem("dm_user_sender");
+    // keep dm_sender_phone optional; you can remove it too if you prefer:
+    // localStorage.removeItem("dm_sender_phone");
+    // sessionStorage.removeItem("dm_sender_phone");
 
     enforceSenderGate();
-    if (hint) hint.textContent = '';
+    if (hint) hint.textContent = "";
   });
 }
 
-// Store sender tokens per request (pilot convenience).
-function saveSenderTokenForRequest(requestId, token) {
-  if (!requestId || !token) return;
-  try {
-    const key = 'dm_sender_tokens';
-    const obj = JSON.parse(localStorage.getItem(key) || '{}');
-    obj[String(requestId)] = String(token);
-    localStorage.setItem(key, JSON.stringify(obj));
-    sessionStorage.setItem('dm_sender_token', String(token));
-  } catch (_) {
-    sessionStorage.setItem('dm_sender_token', String(token));
-  }
-}
-
-/* --- Recent requests (local-only) --- */
-const SENDER_RECENT_KEY = 'dm_sender_recent_requests';
-
-function loadSenderRecent() { try { return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || '[]'); } catch { return []; } }
-function saveSenderRecent(list) { try { localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list)); } catch {} }
-
-function addSenderRecent(req) {
-  if (!req?.id) return;
-  const id = String(req.id);
-  const item = { id, pickup: req.pickup_suburb || '', dropoff: req.dropoff_suburb || '', status: req.status || '', ts: req.created_at || new Date().toISOString() };
-  const list = loadSenderRecent().filter(x => String(x.id) !== id);
-  list.unshift(item);
-  saveSenderRecent(list.slice(0, 10));
-  renderSenderRecent();
-}
-
-function renderSenderRecent() {
-  const sel = document.getElementById('senderRecentSelect');
-  if (!sel) return;
-  const list = loadSenderRecent();
-  sel.innerHTML = '';
-  const opt0 = document.createElement('option');
-  opt0.value = '';
-  opt0.textContent = list.length ? 'Select a recent request…' : 'No recent requests yet';
-  sel.appendChild(opt0);
-  for (const it of list) {
-    const o = document.createElement('option');
-    o.value = String(it.id);
-    const route = (it.pickup || it.dropoff) ? ` — ${it.pickup} → ${it.dropoff}` : '';
-    const st = it.status ? ` [${it.status}]` : '';
-    o.textContent = `#${it.id}${st}${route}`;
-    sel.appendChild(o);
-  }
-}
-
-function applySenderRecent(requestId) {
-  if (!requestId) return;
-  const id = String(requestId);
-
-  const formIds = ['viewRequestForm', 'acceptOfferForm', 'senderIssueForm'];
-  for (const formId of formIds) {
-    const f = document.getElementById(formId);
-    if (f && f.request_id) f.request_id.value = id;
-  }
-
-  const fund = document.getElementById('fundRequestId');
-  if (fund) fund.value = id;
-
-  const rel = document.getElementById('releaseRequestId');
-  if (rel) rel.value = id;
-}
-
-function setupSenderRecentUI() {
-  const sel = document.getElementById('senderRecentSelect');
-  const useBtn = document.getElementById('senderRecentUseBtn');
-  const clearBtn = document.getElementById('senderRecentClearBtn');
-  if (!sel) return;
-  renderSenderRecent();
-
-  if (useBtn) useBtn.addEventListener('click', () => applySenderRecent(sel.value));
-  sel.addEventListener('change', () => { if (sel.value) applySenderRecent(sel.value); });
-
-  if (clearBtn) clearBtn.addEventListener('click', () => { saveSenderRecent([]); renderSenderRecent(); });
-}
-
-function loadSenderTokenForRequest(requestId) {
-  if (!requestId) return '';
-  try {
-    const obj = JSON.parse(localStorage.getItem('dm_sender_tokens') || '{}');
-    return obj[String(requestId)] || '';
-  } catch (_) {
-    return '';
-  }
-}
-
-/* ---------------------------------------------------------
-   3. Create Request (requires ack)
---------------------------------------------------------- */
+// ----- create request -----
 function setupCreateRequest() {
   const form = $("#createRequestForm");
-  const out = $("#senderOutput");
   const result = $("#createRequestResult");
-
+  const out = document.getElementById("createRequestOut");
   if (!form) return;
 
- form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-  const btn = document.getElementById('createRequestBtn') || form.querySelector('button[type="submit"]');
-  const done = setWorking(btn, "Creating…");
+    const btn = document.getElementById("createRequestBtn") || form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Creating…");
+    setResult(result, "");
+    if (out) out.textContent = "";
 
-  const data = getFormData(form);
+    const data = getFormData(form);
 
-  // Ensure sender_phone always present (pilot requirement)
-  try {
-    const u = getSavedUser && getSavedUser();
-    const cachedPhone = sessionStorage.getItem('dm_sender_phone') || localStorage.getItem('dm_sender_phone') || '';
+    // Autofill sender_phone for pilot backend requirement
+    const u = getSavedSenderUser();
+    const cachedPhone = sessionStorage.getItem("dm_sender_phone") || localStorage.getItem("dm_sender_phone") || "";
     if (u?.phone) data.sender_phone = u.phone;
     if (!data.sender_phone && cachedPhone) data.sender_phone = cachedPhone;
 
-    if (u?.full_name) data.sender_name = data.sender_name || u.full_name;
-  } catch (_) {}
-
-  // Attach sender acknowledgement meta (if you use it)
-  try {
+    // Attach sender acknowledgement meta (what backend expects)
     Object.assign(data, getSenderAckMeta());
-  } catch (_) {}
 
-  const res = await api("/requests", {
-    method: "POST",
-    body: data,
-    role: 'sender',
-  });
-
-  out.textContent = pretty(res);
-  maybeOpenDetails(out, !res.ok);
-  done(!!res.ok);
-
-  if (res.ok) {
-    setResult(result, alertSuccess("Created"));
-    renderCreateRequestInfo(res);
-  } else {
-    setResult(result, alertError(res.error || "Failed"));
-  }
-});
-}
-
-function renderCreateRequestInfo(res) {
-  try {
-    const box = document.getElementById('senderCreateInfo');
-    if (!box) return;
-    const id = res?.request?.id;
-    const tok = res?.sender_token;
-    if (!id) return;
-
-    if (tok) saveSenderTokenForRequest(id, tok);
-    addSenderRecent(res.request);
-
-    const viewForm = document.getElementById('viewRequestForm');
-    if (viewForm && viewForm.request_id) viewForm.request_id.value = String(id);
-
-    const relInput = document.getElementById('releaseRequestId');
-    if (relInput) relInput.value = String(id);
-
-    const fundInput = document.getElementById('fundRequestId');
-    if (fundInput) fundInput.value = String(id);
-
-    box.innerHTML = `
-      <div class="card compact" style="border:1px solid rgba(15,23,42,.12);">
-        <div><strong>Save your Request ID:</strong> <span id="createdRequestId">${safeText(id)}</span></div>
-        <div class="btn-row" style="margin-top:8px;">
-          <button class="btn secondary" type="button" id="copyRequestIdBtn">Copy ID</button>
-          <button class="btn" type="button" id="loadCreatedRequestBtn">Load request</button>
-        </div>
-        <div class="muted" id="copyRequestIdNote" style="margin-top:6px;"></div>
-      </div>
-    `;
-
-    const copyBtn = document.getElementById('copyRequestIdBtn');
-    const loadBtn = document.getElementById('loadCreatedRequestBtn');
-    const note = document.getElementById('copyRequestIdNote');
-
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(String(id));
-          if (note) note.textContent = 'Copied.';
-        } catch {
-          if (note) note.textContent = 'Copy failed. Please copy manually.';
-        }
-      });
-    }
-    if (loadBtn) {
-      loadBtn.addEventListener('click', () => {
-        if (viewForm) viewForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-      });
-    }
-  } catch (_) {}
-}
-
-function setupViewRequest() {
-  const form = $("#viewRequestForm");
-  if (!form) return;
-
-  const result = $("#viewRequestResult");
-  const reqOut = $("#viewRequestOut");
-  const offersOut = $("#viewOffersOut");
-  const historyOut = $("#viewHistoryOut");
-  const summary = $("#senderReqSummary");
-  const offersList = $("#senderOffersList");
-  const historyList = $("#senderHistoryList");
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, "Loading…");
-    setResult(result, '');
-
-    const id = form.request_id.value;
-
-    const tok = loadSenderTokenForRequest(id);
-    if (tok) sessionStorage.setItem('dm_sender_token', tok);
-
-    const req = await api(`/requests/${id}`);
-    reqOut.textContent = pretty(req);
-
-    const offers = await api(`/requests/${id}/offers`);
-    offersOut.textContent = pretty(offers);
-
-    const hist = await api(`/requests/${id}/history`);
-    historyOut.textContent = pretty(hist);
-
-    renderSenderSummary({ req, offers, hist, summary, offersList, historyList });
-
-    done(!!req.ok);
-    if (req.ok) {
-      setResult(result, alertSuccess("Loaded"));
-      if (req.request) addSenderRecent(req.request);
-    } else {
-      setResult(result, alertError(req.error || "Failed"));
-      maybeOpenDetails(reqOut, true);
-    }
-  });
-}
-
-function renderSenderSummary({ req, offers, hist, summary, offersList, historyList }) {
-  if (!summary || !offersList || !historyList) return;
-  summary.innerHTML = '';
-  offersList.innerHTML = '';
-  historyList.innerHTML = '';
-
-  if (!req || !req.ok || !req.request) {
-    summary.insertAdjacentHTML('beforeend', alertError(req?.error || 'Failed to load request'));
-    return;
-  }
-
-  const r = req.request;
-  const pill = statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status });
-  const tl = timeline({ request_status: r.status, escrow_status: r.escrow_status });
-  const next = nextActionText({ role: 'sender', request_status: r.status, escrow_status: r.escrow_status });
-
-  summary.insertAdjacentHTML('beforeend', `
-    <div class="card compact">
-      ${pill}
-      ${tl}
-      ${next ? `<div class="next-action"><strong>What happens next:</strong> ${next}</div>` : ''}
-      <div class="muted" style="margin-top:10px;">
-        Request #${r.id} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
-      </div>
-    </div>
-  `);
-
-  const canConfirm = (r.status === 'delivered' || r.escrow_status === 'pending_release');
-  if (canConfirm) {
-    summary.insertAdjacentHTML('beforeend', `
-      <div class="card" style="border:1px solid rgba(15,23,42,.12);">
-        <h3 style="margin-top:0;">Confirm delivery</h3>
-        <p class="muted">
-          Confirming will release escrow immediately. If you do nothing, escrow will auto-release after 24 hours.
-        </p>
-        <button class="btn" id="ctaConfirmDeliveryBtn">Confirm delivery & release escrow</button>
-      </div>
-    `);
-
-    const ctaBtn = document.getElementById('ctaConfirmDeliveryBtn');
-    if (ctaBtn) {
-      ctaBtn.addEventListener('click', () => {
-        const rid = String(r.id);
-        const input = document.getElementById('releaseRequestId');
-        const btn = document.getElementById('releaseEscrowBtn');
-        if (input) input.value = rid;
-        if (btn) btn.click();
-      });
-    }
-  }
-
-  const arr = offers && offers.ok && Array.isArray(offers.offers) ? offers.offers : [];
-  if (offers && !offers.ok) {
-    offersList.insertAdjacentHTML('beforeend', alertError(offers.error || 'Failed to load offers'));
-  } else if (arr.length === 0) {
-    offersList.insertAdjacentHTML('beforeend', `<div class="muted">No offers yet.</div>`);
-  } else {
-    offersList.insertAdjacentHTML('beforeend', `
-      <div class="card compact">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Offer</th><th>Driver</th><th>Price</th><th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${arr.map(o => `
-              <tr>
-                <td>#${safeText(o.id)}</td>
-                <td>${safeText(o.driver_name || '')}</td>
-                <td>${o.price_nzd != null ? `$${safeText(o.price_nzd)}` : ''}</td>
-                <td>${safeText(o.status || '')}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div class="muted" style="margin-top:10px;">To accept, copy the Offer ID into “Accept Offer”.</div>
-      </div>
-    `);
-  }
-
-  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
-  if (hist && !hist.ok) {
-    historyList.insertAdjacentHTML('beforeend', alertError(hist.error || 'Failed to load history'));
-  } else if (h.length === 0) {
-    historyList.insertAdjacentHTML('beforeend', `<div class="muted">No history yet.</div>`);
-  } else {
-    historyList.insertAdjacentHTML('beforeend', `
-      <div class="card compact">
-        <ul style="margin:0; padding-left:18px;">
-          ${h.slice(0, 12).map(ev => {
-            const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : '';
-            const note = ev.note || `${ev.from_status || ''} → ${ev.to_status || ''}`;
-            return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
-          }).join('')}
-        </ul>
-      </div>
-    `);
-  }
-}
-
-function setupAcceptOffer() {
-  const form = $("#acceptOfferForm");
-  const out = $("#acceptOfferOut");
-  const result = $("#acceptOfferResult");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn);
-    setResult(result, '');
-
-    const requestId = form.request_id.value;
-    const offerId = form.offer_id.value;
-
-    const res = await api(`/requests/${requestId}/offers/${offerId}/accept`, { method: "POST", role: 'sender' });
-
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
-    done(!!res.ok);
-
-    if (res.ok) setResult(result, alertSuccess("Accepted"));
-    else setResult(result, alertError(res.error || "Failed"));
-  });
-}
-
-function setupFundEscrow() {
-  const btn = $("#fundEscrowBtn");
-  const amountInput = $("#fundAmount");
-  const out = $("#fundEscrowOut");
-  const result = $("#fundEscrowResult");
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    const done = setWorking(btn);
-    setResult(result, '');
-
-    const requestId = (document.getElementById('fundRequestId')?.value || '');
-    const amount = amountInput ? amountInput.value : '';
-
-    const res = await api(`/requests/${requestId}/escrow/fund`, {
-      method: "POST",
-      body: { amount_nzd: amount },
-      role: 'sender',
-    });
-
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
-
-    if (res.ok && res.checkout_url) {
-      done(true);
-      window.location.href = res.checkout_url;
+    // If ack not recorded, show user where
+    if (!data.sender_ack_ts) {
+      done(false);
+      setResult(result, alertError("Please complete Sender acknowledgements above before creating a request."));
+      document.getElementById("senderAckSection")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
       return;
     }
 
-    done(false);
-    setResult(result, alertError(res.error || "Failed to start payment"));
-  });
-}
+    const res = await api("/requests", { method: "POST", body: data, role: "sender" });
 
-function setupReleaseEscrow() {
-  const btn = $("#releaseEscrowBtn");
-  const out = $("#releaseEscrowOut");
-  const result = $("#releaseEscrowResult");
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    const done = setWorking(btn);
-    setResult(result, '');
-
-    const requestId = (document.getElementById('releaseRequestId')?.value || '');
-
-    const res = await api(`/requests/${requestId}/escrow/release`, {
-      method: "POST",
-      role: 'sender',
-    });
-
-    out.textContent = pretty(res);
-    maybeOpenDetails(out, !res.ok);
     done(!!res.ok);
+    if (out) out.textContent = JSON.stringify(res, null, 2);
 
-    if (res.ok) setResult(result, alertSuccess("Released"));
+    if (res.ok) setResult(result, alertSuccess("Created"));
     else setResult(result, alertError(res.error || "Failed"));
   });
 }
 
-function setupIssueReport_sender() {
-  const form = document.getElementById('senderIssueForm');
-  const out = document.getElementById('senderIssueOut');
-  if (!form || !out) return;
+// ----- init -----
+export function initSenderPage() {
+  setupSenderRegistration();
+  setupSenderLogin();
+  setupSenderLogout();
+  enforceSenderGate();
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const requestId = String(fd.get('request_id') || '').trim();
-    const note = String(fd.get('note') || '').trim();
-
-    let snapshot = '';
-    if (requestId) {
-      const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: 'sender' });
-      if (req && req.ok && req.request) {
-        const r = req.request;
-        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(r.pickup_suburb)}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
-      } else {
-        snapshot = `Status snapshot: (unable to load request)`;
-      }
-    }
-
-    const now = new Date().toISOString();
-    const url = window.location.origin;
-    out.textContent = [
-      `DeliveryMate pilot issue report`,
-      `Time: ${now}`,
-      `Role: sender`,
-      requestId ? `Request ID: ${requestId}` : `Request ID: (not provided)`,
-      snapshot ? `\n${snapshot}\n` : '',
-      note ? `Note: ${note}` : 'Note: (none)',
-      `\nPlease include a screenshot if possible.`,
-      `Site: ${url}`
-    ].join('\n');
-  });
-}
-
-function safeText(v) {
-  return String(v ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  // Dashboard features
+  setupSenderAckGate();
+  setupCreateRequest();
 }
