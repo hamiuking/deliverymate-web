@@ -2,6 +2,7 @@
 // Full replacement
 // Fix: ensure driver_ack_version matches backend DRIVER_ACK_VERSION (default: 'v2')
 // Keeps: ack gating, photo handling, registration/login/logout, offer/status flows
+// Adds: server-truth "Recent jobs" dropdown populated from GET /driver/requests
 
 import { api } from "./api.js";
 import { $ } from "./utils.js";
@@ -410,6 +411,10 @@ function setupMakeOffer() {
     else setResult(result, alertError(res.error || "Failed"));
   });
 }
+
+/* -----------------------------
+   Assigned jobs -> populate existing "Recent jobs" card
+----------------------------- */
 async function refreshDriverAssignedJobs() {
   const sel = document.getElementById("driverRecentSelect");
   if (!sel) return;
@@ -444,6 +449,33 @@ async function refreshDriverAssignedJobs() {
     opt.textContent = label;
     sel.appendChild(opt);
   }
+}
+
+function setupDriverRecentJobsAssigned() {
+  const sel = document.getElementById("driverRecentSelect");
+  const useBtn = document.getElementById("driverRecentUseBtn");
+  const clearBtn = document.getElementById("driverRecentClearBtn");
+  const viewForm = document.getElementById("driverViewForm");
+  if (!sel || !useBtn || !clearBtn || !viewForm) return;
+
+  useBtn.addEventListener("click", () => {
+    const id = String(sel.value || "").trim();
+    if (!id) return;
+
+    // Fill the request id field in the View My Job form
+    viewForm.request_id.value = id;
+
+    // Trigger the existing load logic
+    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  });
+
+  // Instead of leaving "(Cleared)" forever, reload from server
+  clearBtn.addEventListener("click", () => {
+    refreshDriverAssignedJobs();
+  });
+
+  // initial load
+  refreshDriverAssignedJobs();
 }
 
 /* -----------------------------
@@ -515,31 +547,6 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
       </ul>
     </div>
   `);
-}
-function setupDriverRecentJobsAssigned() {
-  const sel = document.getElementById("driverRecentSelect");
-  const useBtn = document.getElementById("driverRecentUseBtn");
-  const clearBtn = document.getElementById("driverRecentClearBtn");
-  const viewForm = document.getElementById("driverViewForm");
-  if (!sel || !useBtn || !clearBtn || !viewForm) return;
-
-  useBtn.addEventListener("click", () => {
-    const id = String(sel.value || "").trim();
-    if (!id) return;
-
-    // Fill the request id field in the View My Job form
-    viewForm.request_id.value = id;
-
-    // Trigger the existing load logic
-    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-  });
-
-  clearBtn.addEventListener("click", () => {
-    sel.innerHTML = `<option value="">(Cleared)</option>`;
-  });
-
-  // initial load
-  refreshDriverAssignedJobs();
 }
 
 /* -----------------------------
@@ -635,6 +642,7 @@ export function initDriverPage() {
   setupDriverAckGate();
   setupMakeOffer();
   setupViewJob();
+  setupDriverRecentJobsAssigned(); // ✅ ensure dropdown loads
   setupUpdateStatus();
   setupIssueReport_driver();
 }
