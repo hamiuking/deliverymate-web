@@ -613,7 +613,6 @@ if (res.ok && checkoutUrl) {
   window.location.href = checkoutUrl;
   return;
 }
-
     if (res.ok) setResult(result, alertSuccess("OK"));
     else setResult(result, alertError(res.error || "Failed"));
   });
