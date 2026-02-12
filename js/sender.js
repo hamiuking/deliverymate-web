@@ -315,7 +315,6 @@ function setupRegistration() {
     done(!!res.ok);
 
     if (res.ok) {
-      // Backend returns { user_token, user }
       saveUserProfileAndToken(res.user, res.user_token);
       setResult(result, alertSuccess("Registered on this device"));
       enforceSenderGate();
@@ -376,7 +375,6 @@ function setupCreateRequest() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    // Guard: must be unlocked
     if (!isSenderRegistered()) {
       setResult(result, alertError("Please register or log in first."));
       return;
@@ -394,11 +392,9 @@ function setupCreateRequest() {
 
     const data = getFormData(form);
 
-    // Add ack meta required by backend
     Object.assign(data, getSenderAckMeta());
     if (!data.sender_ack_version) data.sender_ack_version = currentSenderAckVersion();
 
-    // Auto-fill sender_name + sender_phone (backend requires sender_phone in pilot)
     const u = getSavedUser();
     if (u?.phone) data.sender_phone = data.sender_phone || u.phone;
     if (u?.full_name) data.sender_name = data.sender_name || u.full_name;
@@ -479,19 +475,250 @@ function renderCreateRequestInfo(res) {
 }
 
 /* ---------------------------------------------------------
-   Existing features (view / offers / escrow / etc.)
-   NOTE: These functions already exist in your current sender.js in other versions.
-   If your current file already contains them, keep them.
-   If not, you can paste your existing implementations below.
+   View request / offers / history
 --------------------------------------------------------- */
+function setupViewRequest() {
+  const form = document.getElementById("viewRequestForm");
+  const result = document.getElementById("viewRequestResult");
 
-// Placeholder stubs (safe if unused). If your file already has real ones, remove these stubs.
-function setupViewRequest() {}
-function setupAcceptOffer() {}
-function setupFundEscrow() {}
-function setupReleaseEscrow() {}
-function setupIssueReport_sender() {}
+  const reqOut = document.getElementById("viewRequestOut");
+  const offersOut = document.getElementById("viewOffersOut");
+  const historyOut = document.getElementById("viewHistoryOut");
 
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Loading…");
+    setResult(result, "");
+
+    const requestId = String(form.request_id?.value || "").trim();
+    if (!requestId) {
+      done(false);
+      setResult(result, alertError("Request ID is required."));
+      return;
+    }
+
+    const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: "sender" });
+    const offers = await api(`/requests/${encodeURIComponent(requestId)}/offers`, { role: "sender" });
+    const hist = await api(`/requests/${encodeURIComponent(requestId)}/history`, { role: "sender" });
+
+    if (reqOut) reqOut.textContent = pretty(req);
+    if (offersOut) offersOut.textContent = pretty(offers);
+    if (historyOut) historyOut.textContent = pretty(hist);
+
+    // Restore sender token for subsequent sender-only actions on this request
+    try {
+      const tok = loadSenderTokenForRequest(requestId);
+      if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    done(!!req.ok);
+    if (req.ok) setResult(result, alertSuccess("Loaded"));
+    else setResult(result, alertError(req.error || "Failed"));
+  });
+}
+
+/* ---------------------------------------------------------
+   Accept offer
+--------------------------------------------------------- */
+function setupAcceptOffer() {
+  const form = document.getElementById("acceptOfferForm");
+  const out = document.getElementById("acceptOfferOut");
+  const result = document.getElementById("acceptOfferResult");
+
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const requestId = String(form.request_id?.value || "").trim();
+    const offerId = String(form.offer_id?.value || "").trim();
+
+    if (!requestId || !offerId) {
+      setResult(result, alertError("Request ID and Offer ID are required."));
+      return;
+    }
+
+    // ✅ Fix: restore sender token if available (same as fund/release)
+    try {
+      const tok = loadSenderTokenForRequest(requestId);
+      if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Accepting…");
+    setResult(result, "");
+
+    const res = await api(
+      `/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,
+      { method: "POST", role: "sender", body: {} }
+    );
+
+    if (out) out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+
+    if (res.ok) setResult(result, alertSuccess("Offer accepted"));
+    else setResult(result, alertError(res.error || "Failed"));
+  });
+}
+
+/* ---------------------------------------------------------
+   Fund escrow (Stripe)
+--------------------------------------------------------- */
+function setupFundEscrow() {
+  const form = document.getElementById("fundEscrowForm");
+  const out = document.getElementById("fundEscrowOut");
+  const result = document.getElementById("fundEscrowResult");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Starting checkout…");
+    setResult(result, "");
+
+    const requestId = String(form.request_id?.value || "").trim();
+    const amount = String(form.amount_nzd?.value || "").trim();
+
+    if (!requestId) {
+      done(false);
+      setResult(result, alertError("Request ID is required."));
+      return;
+    }
+    if (!amount) {
+      done(false);
+      setResult(result, alertError("Amount is required."));
+      return;
+    }
+
+    // Restore sender token if available
+    try {
+      const tok = loadSenderTokenForRequest(requestId);
+      if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/fund`, {
+      method: "POST",
+      role: "sender",
+      body: { amount_nzd: amount },
+    });
+
+    if (out) out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+
+    if (res.ok && res.url) {
+      setResult(result, alertSuccess("Redirecting to Stripe Checkout…"));
+      window.location.href = res.url;
+      return;
+    }
+
+    if (res.ok) setResult(result, alertSuccess("OK"));
+    else setResult(result, alertError(res.error || "Failed"));
+  });
+}
+
+/* ---------------------------------------------------------
+   Release escrow
+--------------------------------------------------------- */
+function setupReleaseEscrow() {
+  const form = document.getElementById("releaseEscrowForm");
+  const out = document.getElementById("releaseEscrowOut");
+  const result = document.getElementById("releaseEscrowResult");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Releasing…");
+    setResult(result, "");
+
+    const requestId = String(form.request_id?.value || "").trim();
+    if (!requestId) {
+      done(false);
+      setResult(result, alertError("Request ID is required."));
+      return;
+    }
+
+    // Restore sender token if available
+    try {
+      const tok = loadSenderTokenForRequest(requestId);
+      if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, {
+      method: "POST",
+      role: "sender",
+      body: {},
+    });
+
+    if (out) out.textContent = pretty(res);
+    maybeOpenDetails(out, !res.ok);
+    done(!!res.ok);
+
+    if (res.ok) setResult(result, alertSuccess("Escrow released"));
+    else setResult(result, alertError(res.error || "Failed"));
+  });
+}
+
+/* ---------------------------------------------------------
+   Issue report helper
+--------------------------------------------------------- */
+function setupIssueReport_sender() {
+  const form = document.getElementById("senderIssueForm");
+  const out = document.getElementById("senderIssueOut");
+  if (!form || !out) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const requestId = String(fd.get("request_id") || "").trim();
+    const note = String(fd.get("note") || "").trim();
+
+    let snapshot = "";
+    if (requestId) {
+      const req = await api(`/requests/${encodeURIComponent(requestId)}`, { role: "sender" });
+      if (req && req.ok && req.request) {
+        const r = req.request;
+        snapshot = `Status: ${r.status}\nEscrow: ${r.escrow_status}\nPayout: ${r.payout_status}\nPickup: ${safeText(r.pickup_suburb)}\nDrop-off: ${safeText(r.dropoff_suburb)}`;
+      } else {
+        snapshot = "Status snapshot: (unable to load request)";
+      }
+    }
+
+    const now = new Date().toISOString();
+    const url = window.location.origin;
+    out.textContent = [
+      "DeliveryMate pilot issue report",
+      `Time: ${now}`,
+      "Role: sender",
+      requestId ? `Request ID: ${requestId}` : "Request ID: (not provided)",
+      snapshot ? `\n${snapshot}\n` : "",
+      note ? `Note: ${note}` : "Note: (none)",
+      "\nPlease include a screenshot if possible.",
+      `Site: ${url}`,
+    ].join("\n");
+  });
+}
+
+function safeText(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/* ---------------------------------------------------------
+   Init
+--------------------------------------------------------- */
 export function initSenderPage() {
   console.log("Sender page loaded");
 
