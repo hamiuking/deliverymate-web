@@ -646,10 +646,11 @@ function setupReleaseEscrow() {
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
     } catch (_) {}
 
-    const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, {
+    // ✅ Correct backend endpoint
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/release`, {
       method: "POST",
       role: "sender",
-      body: {},
+      body: {}
     });
 
     if (out) out.textContent = pretty(res);
