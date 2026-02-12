@@ -414,12 +414,6 @@ function setupCreateRequest() {
   });
 }
 
-function safeText(x) {
-  return String(x || "").replace(/[&<>"']/g, (m) => {
-    return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]);
-  });
-}
-
 function renderCreateRequestInfo(res) {
   try {
     const box = document.getElementById("senderCreateInfo");
