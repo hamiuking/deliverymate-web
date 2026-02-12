@@ -1,5 +1,7 @@
 // public/js/driver.js
-// Full replacement (keeps your current pilot features, adds robust “Ready ✓” + file-cached apply gating)
+// Full replacement
+// Fix: ensure driver_ack_version matches backend DRIVER_ACK_VERSION (default: 'v2')
+// Keeps: ack gating, photo handling, registration/login/logout, offer/status flows
 
 import { api } from "./api.js";
 import { $ } from "./utils.js";
@@ -99,11 +101,14 @@ function enforceDriverGate() {
 
 /* -----------------------------
    Driver acknowledgements gate
+   IMPORTANT: must match backend DRIVER_ACK_VERSION (default 'v2')
 ----------------------------- */
-const DRIVER_ACK_VERSION = "driver_terms_2026-01-06";
-const DRIVER_ACK_KEY = "dm_driver_ack_v1_ts";
+const DRIVER_ACK_VERSION = "v2";
+const DRIVER_ACK_KEY = "dm_driver_ack_v2_ts";
 
 function getDriverAckMeta() {
+  // Backend only checks driver_ack_version.
+  // We keep a timestamp locally for UI only.
   const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
   return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
 }
@@ -126,6 +131,7 @@ function setupDriverAckGate() {
     lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
+  // Pre-tick if previously agreed on this device
   const prev = localStorage.getItem(DRIVER_ACK_KEY);
   if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; }
 
@@ -133,6 +139,8 @@ function setupDriverAckGate() {
     const ok = a1.checked && a2.checked && a3.checked;
     if (offerBtn) offerBtn.disabled = !ok;
     if (statusBtn) statusBtn.disabled = !ok;
+
+    // Only set timestamp when all are checked
     if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
     renderLast();
   };
@@ -197,8 +205,7 @@ async function fileToDataUrl(file) {
 }
 
 /* -----------------------------
-   Registration (IMPORTANT FIX):
-   cache selected files so submit-time checks never “lose” them
+   Registration: cache selected files so submit-time checks never “lose” them
 ----------------------------- */
 function setupDriverRegistration() {
   const form = $("#driverRegForm");
@@ -212,7 +219,6 @@ function setupDriverRegistration() {
   const frontStatus = document.getElementById("dlFrontStatus");
   const backStatus = document.getElementById("dlBackStatus");
 
-  // Cache selected files here (fixes your “required” false-negative)
   let selectedFrontFile = null;
   let selectedBackFile = null;
 
@@ -244,14 +250,10 @@ function setupDriverRegistration() {
     applyBtn.disabled = !canEnableApply();
   }
 
-  // Initialize button state
   refreshApplyEnabled();
-
-  // Watch text fields
   form.addEventListener("input", refreshApplyEnabled);
   form.addEventListener("change", refreshApplyEnabled);
 
-  // Watch file selection and update cached variables
   if (frontInput) {
     frontInput.addEventListener("change", () => {
       selectedFrontFile = frontInput.files?.[0] || null;
@@ -282,7 +284,6 @@ function setupDriverRegistration() {
 
     const data = getFormData(form);
 
-    // Use cached files (NOT input.files) to avoid “lost file” issue
     const frontFile = selectedFrontFile;
     const backFile = selectedBackFile;
 
@@ -310,8 +311,9 @@ function setupDriverRegistration() {
       enforceDriverGate();
       setResult(result, alertSuccess("Submitted"));
     } else {
-      // Your new api.js will include `details` when server returns non-JSON
-      const msg = res.details ? `${res.error}<br><span class="muted">${escapeHtml(res.details)}</span>` : res.error;
+      const msg = res.details
+        ? `${res.error}<br><span class="muted">${escapeHtml(res.details)}</span>`
+        : res.error;
       setResult(result, alertError(msg || "Failed"));
     }
   });
@@ -389,6 +391,7 @@ function setupMakeOffer() {
     const requestId = data.request_id;
     delete data.request_id;
 
+    // ✅ This is what the backend checks
     Object.assign(data, getDriverAckMeta());
 
     // Optional convenience fields
@@ -396,7 +399,11 @@ function setupMakeOffer() {
     if (u?.phone) data.driver_phone = u.phone;
     if (u?.full_name) data.driver_name = u.full_name;
 
-    const res = await api(`/requests/${requestId}/offers`, { method: "POST", body: data, role: "driver" });
+    const res = await api(`/requests/${requestId}/offers`, {
+      method: "POST",
+      body: data,
+      role: "driver",
+    });
 
     done(!!res.ok);
     if (res.ok) setResult(result, alertSuccess("Offer sent"));
@@ -452,12 +459,12 @@ function renderDriverSummary({ req, hist, summary, historyList }) {
     </div>
   `);
 
-  const h = hist && hist.ok && Array.isArray(hist.history) ? hist.history : [];
+  const h = hist && hist.ok && Array.isArray(hist.events) ? hist.events : (hist?.history || []);
   if (hist && !hist.ok) {
     historyList.insertAdjacentHTML("beforeend", alertError(hist.error || "Failed to load history"));
     return;
   }
-  if (h.length === 0) {
+  if (!h || h.length === 0) {
     historyList.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
     return;
   }
