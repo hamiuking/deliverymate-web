@@ -513,7 +513,11 @@ function setupViewRequest() {
     if (offersOut) offersOut.textContent = pretty(offers);
     if (historyOut) historyOut.textContent = pretty(hist);
 
-    // Restore sender token for subsequent sender-only actions on this request
+    
+    // ✅ UX: render Offers + History cards
+    try { renderSenderOffersList(requestId, offers); } catch (_) {}
+    try { renderSenderHistoryList(hist); } catch (_) {}
+// Restore sender token for subsequent sender-only actions on this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
@@ -747,6 +751,139 @@ function safeText(v) {
     .replace(/'/g, "&#39;");
 }
 
+
+/* ---------------------------------------------------------
+   UX: Render offers + history into sender dashboard cards
+   (minimal additive; uses existing endpoints + forms)
+--------------------------------------------------------- */
+function renderSenderOffersList(requestId, offersObj) {
+  const list = document.getElementById("senderOffersList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!offersObj || !offersObj.ok) {
+    list.insertAdjacentHTML("beforeend", alertError(offersObj?.error || "Failed to load offers"));
+    return;
+  }
+
+  const offers = Array.isArray(offersObj.offers) ? offersObj.offers : [];
+  if (!offers.length) {
+    list.insertAdjacentHTML("beforeend", `<div class="muted">No offers yet.</div>`);
+    return;
+  }
+
+  for (const o of offers) {
+    const driver = safeText(o.driver_name || o.driver_phone || "Driver");
+    const price = (o.price_nzd != null && o.price_nzd !== "") ? safeText(o.price_nzd) : "";
+    const offerId = safeText(o.id);
+    const status = safeText(o.status || "");
+
+    list.insertAdjacentHTML("beforeend", `
+      <div class="card compact" style="margin-top:10px;">
+        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+          <div>
+            <div><strong>${driver}</strong> ${status ? `<span class="muted">(${status})</span>` : ""}</div>
+            <div class="muted">Offer #${offerId}${price ? ` · NZD ${price}` : ""}</div>
+          </div>
+          <div class="btn-row" style="justify-content:flex-end;">
+            <button class="btn secondary senderOfferUseBtn" type="button"
+              data-request-id="${safeText(requestId)}"
+              data-offer-id="${offerId}">Use</button>
+            <button class="btn senderOfferAcceptBtn" type="button"
+              data-request-id="${safeText(requestId)}"
+              data-offer-id="${offerId}">Accept</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+}
+
+function renderSenderHistoryList(histObj) {
+  const list = document.getElementById("senderHistoryList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (!histObj || !histObj.ok) {
+    list.insertAdjacentHTML("beforeend", alertError(histObj?.error || "Failed to load history"));
+    return;
+  }
+
+  const events = Array.isArray(histObj.events) ? histObj.events : [];
+  if (!events.length) {
+    list.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
+    return;
+  }
+
+  list.insertAdjacentHTML("beforeend", `
+    <div class="card compact">
+      <ul style="margin:0; padding-left:18px;">
+        ${events.slice(0, 12).map((ev) => {
+          const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
+          const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
+          return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
+        }).join("")}
+      </ul>
+    </div>
+  `);
+}
+
+function setupSenderOffersActions() {
+  document.addEventListener("click", async (e) => {
+    const useBtn = e.target.closest(".senderOfferUseBtn");
+    const accBtn = e.target.closest(".senderOfferAcceptBtn");
+
+    const btn = useBtn || accBtn;
+    if (!btn) return;
+
+    const requestId = String(btn.dataset.requestId || "").trim();
+    const offerId = String(btn.dataset.offerId || "").trim();
+    if (!requestId || !offerId) return;
+
+    // Fill the accept form for transparency (optional)
+    const acceptForm = document.getElementById("acceptOfferForm");
+    if (acceptForm) {
+      if (acceptForm.request_id) acceptForm.request_id.value = requestId;
+      if (acceptForm.offer_id) acceptForm.offer_id.value = offerId;
+    }
+
+    if (useBtn) {
+      // Just fill the form; do not submit.
+      const out = document.getElementById("acceptOfferResult");
+      if (out) setResult(out, alertSuccess("Offer ID filled below. Click Accept when ready."));
+      return;
+    }
+
+    // Accept now (same endpoint as existing accept form)
+    const out = document.getElementById("acceptOfferResult") || document.getElementById("viewOffersResult") || document.getElementById("viewRequestResult");
+    btn.disabled = true;
+    const old = btn.textContent;
+    btn.textContent = "Accepting…";
+
+    // Restore sender token (if any) for this request
+    try {
+      const tok = loadSenderTokenForRequest(requestId);
+      if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    const res = await api(
+      `/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,
+      { method: "POST", role: "sender", body: {} }
+    );
+
+    btn.disabled = false;
+    btn.textContent = old;
+
+    if (out) setResult(out, res.ok ? alertSuccess("Offer accepted") : alertError(res.error || "Failed"));
+
+    // Refresh current view
+    try {
+      const viewForm = document.getElementById("viewRequestForm");
+      if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    } catch (_) {}
+  });
+}
+
 /* ---------------------------------------------------------
    Paid redirect auto-refresh (Stripe return)
 --------------------------------------------------------- */
@@ -796,5 +933,7 @@ export function initSenderPage() {
   setupSenderRecentUI();
   setupIssueReport_sender();
 
-  handlePaidRedirectRefresh();
+  
+  setupSenderOffersActions();
+handlePaidRedirectRefresh();
 }
