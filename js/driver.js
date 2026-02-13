@@ -474,16 +474,8 @@ function setupDriverRecentJobsAssigned() {
   const viewForm = document.getElementById("driverViewForm");
   if (!sel || !useBtn || !clearBtn || !viewForm) return;
 
-  useBtn.addEventListener("click", () => {
+  const loadSelected = () => {
     const id = String(sel.value || "").trim();
-
-  // UX: auto-load on selection change (no need to click Use)
-  sel.addEventListener(\"change\", () => {
-    const id = String(sel.value || \"\").trim();
-    if (!id) return;
-    viewForm.request_id.value = id;
-    viewForm.dispatchEvent(new Event(\"submit\", { cancelable: true, bubbles: true }));
-  });
     if (!id) return;
 
     // Fill the request id field in the View My Job form
@@ -491,9 +483,13 @@ function setupDriverRecentJobsAssigned() {
 
     // Trigger the existing load logic
     viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-  });
+  };
 
-  // Reload from server
+  // Keep the Use button (optional), but also auto-load when selecting
+  useBtn.addEventListener("click", loadSelected);
+  sel.addEventListener("change", loadSelected);
+
+  // Clear just refreshes the list from server (your existing behaviour)
   clearBtn.addEventListener("click", () => {
     refreshDriverAssignedJobs();
   });
