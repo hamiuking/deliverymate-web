@@ -916,7 +916,7 @@ function handlePaidRedirectRefresh() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
-export function initSenderPage() {
+ function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
