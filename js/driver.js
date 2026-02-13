@@ -480,6 +480,111 @@ function setupDriverRecentJobsAssigned() {
   const loadSelected = () => {
     const id = String(sel.value || "").trim();
     if (!id) return;
+/* -----------------------------
+   Open jobs (marketplace) list
+----------------------------- */
+function formatOpenJobLine(r) {
+  const id = String(r?.id ?? "");
+  const pickup = String(r?.pickup_suburb ?? "");
+  const dropoff = String(r?.dropoff_suburb ?? "");
+  const item = String(r?.item_description ?? r?.item ?? r?.description ?? "");
+  const status = String(r?.status ?? "");
+  const price = r?.price_nzd ?? r?.sender_price_nzd ?? r?.budget_nzd;
+
+  const bits = [];
+  bits.push(`#${id}`);
+  if (pickup || dropoff) bits.push(`${pickup} → ${dropoff}`);
+  if (item) bits.push(item.length > 60 ? item.slice(0, 60) + "…" : item);
+  if (price != null && price !== "") bits.push(`$${price}`);
+  if (status) bits.push(status);
+
+  return bits.filter(Boolean).join(" · ");
+}
+
+async function refreshDriverOpenJobs() {
+  const listEl = document.getElementById("driverOpenJobsList");
+  const resultEl = document.getElementById("driverOpenJobsResult");
+  if (!listEl) return;
+
+  listEl.innerHTML = `<div class="muted">Loading…</div>`;
+  if (resultEl) resultEl.innerHTML = "";
+
+  // Pull recent requests; filter open on the client
+  const res = await api("/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    listEl.innerHTML = `<div class="muted">(Failed to load open jobs)</div>`;
+    if (resultEl) setResult(resultEl, alertError(res?.error || "Load failed"));
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+  const open = all.filter(r => String(r?.status || "").toLowerCase() === "open");
+
+  if (open.length === 0) {
+    listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
+    return;
+  }
+
+  // Render compact rows with Offer/View actions
+  listEl.innerHTML = "";
+  for (const r of open.slice(0, 30)) { // cap for UX
+    const id = String(r.id || "");
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.padding = "10px";
+    row.style.margin = "8px 0";
+
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600;">${escapeHtml(formatOpenJobLine(r))}</div>
+        </div>
+        <div class="btn-row" style="flex-wrap:nowrap; gap:8px;">
+          <button class="btn secondary" type="button" data-act="offer" data-id="${escapeHtml(id)}">Offer</button>
+          <button class="btn ghost" type="button" data-act="view" data-id="${escapeHtml(id)}">View</button>
+        </div>
+      </div>
+    `;
+
+    listEl.appendChild(row);
+  }
+
+  // Event delegation
+  listEl.onclick = (e) => {
+    const btn = e.target?.closest?.("button[data-act]");
+    if (!btn) return;
+    const act = btn.getAttribute("data-act");
+    const id = btn.getAttribute("data-id");
+    if (!id) return;
+
+    if (act === "offer") {
+      const offerForm = document.getElementById("driverOfferForm");
+      if (offerForm?.request_id) {
+        offerForm.request_id.value = id;
+        offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        // focus price if present
+        if (offerForm.price_nzd) offerForm.price_nzd.focus();
+      }
+    }
+
+    if (act === "view") {
+      const viewForm = document.getElementById("driverViewForm");
+      if (viewForm?.request_id) {
+        viewForm.request_id.value = id;
+        viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      }
+    }
+  };
+}
+
+function setupDriverOpenJobs() {
+  const btn = document.getElementById("driverOpenJobsRefreshBtn");
+  if (btn) btn.addEventListener("click", refreshDriverOpenJobs);
+
+  // Load once on init (safe even if card hidden)
+  refreshDriverOpenJobs();
+}
 
     // Fill the request id field in the View My Job form
     viewForm.request_id.value = id;
@@ -711,6 +816,7 @@ export function initDriverPage() {
   setupMakeOffer();
   setupViewJob();
   setupDriverRecentJobsAssigned(); // ✅ ensure dropdown loads
+  setupDriverOpenJobs();           // ✅ NEW: open jobs list
   setupUpdateStatus();
   setupIssueReport_driver();
 }
