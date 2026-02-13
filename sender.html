@@ -65,7 +65,6 @@
 
             <div class="btn-row mt-2">
               <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
-              <button class="btn secondary hidden" type="button" id="senderLogoutBtn">Log out</button>
             </div>
           </form>
 
@@ -88,6 +87,10 @@
 
     <!-- Dashboard (unlocked) -->
     <div id="senderDashboard">
+      <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
+  <div class="muted" id="senderAuthStatus"></div>
+  <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
+</div>
       <section class="card requires-sender">
         <h2>Create Delivery Request</h2>
 
