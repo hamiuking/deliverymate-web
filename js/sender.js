@@ -883,6 +883,7 @@ function setupSenderOffersActions() {
       if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     } catch (_) {}
   });
+});
 }
 
 /* ---------------------------------------------------------
