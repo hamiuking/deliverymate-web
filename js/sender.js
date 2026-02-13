@@ -1,4 +1,7 @@
 // public/js/sender.js
+// Full replacement (minimal additive UX improvements)
+// - Adds a clear status summary (pill + timeline + next action) into #senderReqSummary when viewing a request
+// - Keeps all existing working flows intact
 
 import { api } from "./api.js";
 import { $, pretty } from "./utils.js";
@@ -505,6 +508,7 @@ function setupViewRequest() {
     const offers = await api(`/requests/${encodeURIComponent(requestId)}/offers`, { role: "sender" });
     const hist = await api(`/requests/${encodeURIComponent(requestId)}/history`, { role: "sender" });
 
+    // Debug outputs (safe even if missing)
     if (reqOut) reqOut.textContent = pretty(req);
     if (offersOut) offersOut.textContent = pretty(offers);
     if (historyOut) historyOut.textContent = pretty(hist);
@@ -513,6 +517,31 @@ function setupViewRequest() {
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
+    } catch (_) {}
+
+    // ✅ UX: render a clear status summary into senderReqSummary (if present)
+    try {
+      const box = document.getElementById("senderReqSummary");
+      if (box) {
+        if (!req || !req.ok || !req.request) {
+          box.innerHTML = req?.error ? alertError(req.error) : "";
+        } else {
+          const r = req.request;
+          box.innerHTML = `
+            <div class="card compact">
+              ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
+              ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
+              <div class="next-action" style="margin-top:8px;">
+                <strong>What happens next:</strong>
+                ${nextActionText({ role: "sender", request_status: r.status, escrow_status: r.escrow_status })}
+              </div>
+              <div class="muted" style="margin-top:10px;">
+                Request #${safeText(r.id)} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
+              </div>
+            </div>
+          `;
+        }
+      }
     } catch (_) {}
 
     done(!!req.ok);
