@@ -93,12 +93,15 @@ function enforceDriverGate() {
   if (dash) dash.classList.toggle("hidden", locked);
 
   const status = document.getElementById("driverAuthStatus");
+  const statusDash = document.getElementById("driverAuthStatusDash");
+
   const u = getSavedDriverUser();
-  if (status) {
-    status.textContent = locked
-      ? "Please register or log in to access the driver dashboard."
-      : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
-  }
+  const msg = locked
+    ? "Please register or log in to access the driver dashboard."
+    : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
+
+  if (status) status.textContent = msg;
+  if (statusDash) statusDash.textContent = msg;
 
   const logoutBtn = document.getElementById("driverLogoutBtn");
   if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
