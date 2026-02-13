@@ -29,7 +29,7 @@
     <!-- Auth area (locked): left Register, right Log in -->
     <div id="senderAuthArea">
       <div class="grid">
-        <section class="card" id="senderRegisterSection">
+       <section class="card locked-only" id="senderRegisterSection">
           <h2>Register</h2>
           <p class="muted">Invite-only pilot. Register this device to create requests.</p>
 
@@ -49,14 +49,14 @@
             <button class="btn" type="submit">Register</button>
           </form>
 
-          <details class="debug">
+          <details class="debug hidden">
             <summary>Details (for troubleshooting)</summary>
             <pre id="senderRegOut">{}</pre>
           </details>
           <div class="result" id="senderRegResult"></div>
         </section>
 
-        <section class="card" id="senderLoginSection">
+      <section class="card locked-only" id="senderLoginSection">
           <h2>Log in</h2>
           <form id="senderLoginForm" onsubmit="return false">
             <label>Phone</label>
@@ -145,7 +145,7 @@
         <div class="result" id="createRequestResult"></div>
         <div id="senderCreateInfo"></div>
 
-        <details class="debug">
+      <details class="debug hidden">
           <summary>Details (for troubleshooting)</summary>
           <pre id="senderOutput">{}</pre>
         </details>
@@ -161,7 +161,7 @@
 
 <section class="card compact requires-sender" id="senderStatusCard">
   <h3 style="margin-top:0;">Current Status</h3>
-  <div id="senderStatusSummary"></div>
+  <div id="senderReqSummary"></div>
 </section>
 
       <h3>Offers</h3>
@@ -170,7 +170,7 @@
       <h3>History</h3>
       <div id="senderHistoryList"></div>
 
-      <details class="debug">
+    <details class="debug hidden">
         <summary>Details (for troubleshooting)</summary>
         <h4>Request</h4>
         <pre id="viewRequestOut">{}</pre>
@@ -194,7 +194,7 @@
         <button class="btn" type="submit">Accept</button>
       </form>
 
-      <details class="debug">
+      <details class="debug hidden">
         <summary>Details (for troubleshooting)</summary>
         <pre id="acceptOfferOut">{}</pre>
       </details>
@@ -211,7 +211,7 @@
         <button class="btn" type="submit">Pay</button>
       </form>
 
-      <details class="debug">
+     <details class="debug hidden">
         <summary>Details (for troubleshooting)</summary>
         <pre id="fundEscrowOut">{}</pre>
       </details>
@@ -226,7 +226,7 @@
         <button class="btn" type="submit">Confirm & Release</button>
       </form>
 
-      <details class="debug">
+    <details class="debug hidden">
         <summary>Details (for troubleshooting)</summary>
         <pre id="releaseEscrowOut">{}</pre>
       </details>
