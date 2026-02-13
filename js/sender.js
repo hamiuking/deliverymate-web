@@ -112,7 +112,7 @@ function setAuthUI() {
 /* Gate dashboard sections (CSS-based) */
 function enforceSenderGate() {
   const status = document.getElementById("senderAuthStatus");
-const statusDash = document.getElementById("senderAuthStatusDash");
+  const statusDash = document.getElementById("senderAuthStatusDash");
   const locked = !isSenderRegistered();
 
   document.body.classList.toggle("locked", locked);
@@ -139,7 +139,7 @@ const msg = locked
 
 if (status) status.textContent = msg;
 if (statusDash) statusDash.textContent = msg;
-
+}
 /* ---------------------------------------------------------
    Sender acknowledgement gate (before creating request)
 --------------------------------------------------------- */
@@ -916,7 +916,7 @@ function handlePaidRedirectRefresh() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
- function initSenderPage() {
+ export function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
@@ -938,12 +938,3 @@ function handlePaidRedirectRefresh() {
   setupSenderOffersActions();
 handlePaidRedirectRefresh();
 }
-/* Auto-run when page loads */
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    initSenderPage();
-  } catch (err) {
-    console.error("Sender init failed:", err);
-  }
-});
-
