@@ -112,6 +112,7 @@ function setAuthUI() {
 /* Gate dashboard sections (CSS-based) */
 function enforceSenderGate() {
   const status = document.getElementById("senderAuthStatus");
+const statusDash = document.getElementById("senderAuthStatusDash");
   const locked = !isSenderRegistered();
 
   document.body.classList.toggle("locked", locked);
@@ -129,15 +130,15 @@ function enforceSenderGate() {
 
   setAuthUI();
 
-  if (status) {
-    if (locked) {
-      status.textContent = "Please register or log in to access the sender dashboard.";
-    } else {
+const msg = locked
+  ? "Please register or log in to access the sender dashboard."
+  : (() => {
       const u = getSavedUser();
-      status.textContent = u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
-    }
-  }
-}
+      return u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
+    })();
+
+if (status) status.textContent = msg;
+if (statusDash) statusDash.textContent = msg;
 
 /* ---------------------------------------------------------
    Sender acknowledgement gate (before creating request)
