@@ -438,7 +438,11 @@ function setupMakeOffer() {
 async function refreshDriverAssignedJobs() {
   const sel = document.getElementById("driverRecentSelect");
   if (!sel) return;
-
+  // ✅ Guard: don't call driver-only endpoint unless unlocked/authenticated
+  if (!isDriverRegistered()) {
+    sel.innerHTML = `<option value="">(Log in to see assigned jobs)</option>`;
+    return;
+  }
   sel.innerHTML = `<option value="">Loading…</option>`;
 
   const res = await api("/driver/requests", { method: "GET", role: "driver" });
