@@ -938,3 +938,11 @@ function handlePaidRedirectRefresh() {
   setupSenderOffersActions();
 handlePaidRedirectRefresh();
 }
+/* Auto-run when page loads */
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initSenderPage();
+  } catch (err) {
+    console.error("Sender init failed:", err);
+  }
+});
