@@ -3,6 +3,7 @@
 // - Populates #driverStatusSummary (Current job status card) when a job is loaded
 // - On successful status update: auto-refresh current job + refresh recent jobs list
 // - Login sends phone only (invite_code ignored if present), matching backend
+// - Adds "Open jobs" list (client-filtered from /requests) + 1-click fill Offer/View
 // - Keeps ack gating, photo handling, registration/login/logout, offer/status flows intact
 
 import { api } from "./api.js";
@@ -480,6 +481,27 @@ function setupDriverRecentJobsAssigned() {
   const loadSelected = () => {
     const id = String(sel.value || "").trim();
     if (!id) return;
+
+    // Fill the request id field in the View My Job form
+    viewForm.request_id.value = id;
+
+    // Trigger the existing load logic
+    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  };
+
+  // Keep the Use button (optional), but also auto-load when selecting
+  useBtn.addEventListener("click", loadSelected);
+  sel.addEventListener("change", loadSelected);
+
+  // Clear just refreshes the list from server (your existing behaviour)
+  clearBtn.addEventListener("click", () => {
+    refreshDriverAssignedJobs();
+  });
+
+  // initial load
+  refreshDriverAssignedJobs();
+}
+
 /* -----------------------------
    Open jobs (marketplace) list
 ----------------------------- */
@@ -562,7 +584,6 @@ async function refreshDriverOpenJobs() {
       if (offerForm?.request_id) {
         offerForm.request_id.value = id;
         offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        // focus price if present
         if (offerForm.price_nzd) offerForm.price_nzd.focus();
       }
     }
@@ -584,26 +605,6 @@ function setupDriverOpenJobs() {
 
   // Load once on init (safe even if card hidden)
   refreshDriverOpenJobs();
-}
-
-    // Fill the request id field in the View My Job form
-    viewForm.request_id.value = id;
-
-    // Trigger the existing load logic
-    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-  };
-
-  // Keep the Use button (optional), but also auto-load when selecting
-  useBtn.addEventListener("click", loadSelected);
-  sel.addEventListener("change", loadSelected);
-
-  // Clear just refreshes the list from server (your existing behaviour)
-  clearBtn.addEventListener("click", () => {
-    refreshDriverAssignedJobs();
-  });
-
-  // initial load
-  refreshDriverAssignedJobs();
 }
 
 /* -----------------------------
