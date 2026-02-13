@@ -946,3 +946,4 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("Sender init failed:", err);
   }
 });
+
