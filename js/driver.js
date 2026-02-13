@@ -1,8 +1,9 @@
 // public/js/driver.js
-// Full replacement
-// Fix: ensure driver_ack_version matches backend DRIVER_ACK_VERSION (default: 'v2')
-// Keeps: ack gating, photo handling, registration/login/logout, offer/status flows
-// Adds: server-truth "Recent jobs" dropdown populated from GET /driver/requests
+// Full replacement (minimal additive UX improvements)
+// - Populates #driverStatusSummary (Current job status card) when a job is loaded
+// - On successful status update: auto-refresh current job + refresh recent jobs list
+// - Login sends phone only (invite_code ignored if present), matching backend
+// - Keeps ack gating, photo handling, registration/login/logout, offer/status flows intact
 
 import { api } from "./api.js";
 import { $ } from "./utils.js";
@@ -57,7 +58,6 @@ function saveUserToken(tok) {
   // Optional: driver-only backup (harmless)
   localStorage.setItem("dm_driver_user_token", t);
 }
-
 
 function markDriverRegistered(user) {
   localStorage.setItem("dm_driver_registered", "1");
@@ -339,10 +339,16 @@ function setupDriverLogin() {
     e.preventDefault();
     const fd = new FormData(form);
     const phone = String(fd.get("phone") || "").trim();
-    const invite_code = String(fd.get("invite_code") || "").trim();
+
+    if (!phone) {
+      if (hint) hint.textContent = "Phone is required";
+      return;
+    }
 
     if (hint) hint.textContent = "Logging in…";
-    const res = await api("/users/login", { method: "POST", body: { phone, invite_code } });
+
+    // Backend login no longer requires invite_code (invite codes are onboarding only)
+    const res = await api("/users/login", { method: "POST", body: { phone } });
 
     if (!res.ok) {
       if (hint) hint.textContent = res.error || "Login failed";
@@ -365,9 +371,12 @@ function setupDriverLogout() {
     localStorage.removeItem("dm_driver_registered");
     localStorage.removeItem("dm_user_driver");
     sessionStorage.removeItem("dm_user_driver");
+
+    // clear tokens
     sessionStorage.removeItem("dm_driver_token");
     sessionStorage.removeItem("dm_user_token");
     localStorage.removeItem("dm_user_token");
+    localStorage.removeItem("dm_driver_user_token");
 
     enforceDriverGate();
     if (hint) hint.textContent = "";
@@ -476,7 +485,7 @@ function setupDriverRecentJobsAssigned() {
     viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
   });
 
-  // Instead of leaving "(Cleared)" forever, reload from server
+  // Reload from server
   clearBtn.addEventListener("click", () => {
     refreshDriverAssignedJobs();
   });
@@ -496,6 +505,12 @@ function setupViewJob() {
   const historyList = document.getElementById("driverHistoryList");
   const result = document.getElementById("driverViewResult");
 
+  // New: top status card summary (from driver.html change)
+  const statusSummary = document.getElementById("driverStatusSummary");
+  if (statusSummary) {
+    statusSummary.innerHTML = `<div class="muted">Load a job to see its current status.</div>`;
+  }
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
@@ -507,6 +522,32 @@ function setupViewJob() {
     const hist = await api(`/requests/${requestId}/history`);
 
     renderDriverSummary({ req, hist, summary, historyList });
+
+    // Mirror a compact status summary into the "Current job status" card
+    try {
+      if (statusSummary) {
+        if (!req || !req.ok || !req.request) {
+          statusSummary.innerHTML = req?.error
+            ? alertError(req.error)
+            : `<div class="muted">Unable to load job status.</div>`;
+        } else {
+          const r = req.request;
+          statusSummary.innerHTML = `
+            <div class="card compact">
+              ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
+              ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
+              <div class="next-action" style="margin-top:8px;">
+                <strong>What happens next:</strong>
+                ${nextActionText({ role: "driver", request_status: r.status, escrow_status: r.escrow_status })}
+              </div>
+              <div class="muted" style="margin-top:10px;">
+                Request #${escapeHtml(r.id)} · ${escapeHtml(r.pickup_suburb)} → ${escapeHtml(r.dropoff_suburb)}
+              </div>
+            </div>
+          `;
+        }
+      }
+    } catch (_) {}
 
     done(!!req.ok);
     if (result) setResult(result, req.ok ? alertSuccess("Loaded") : alertError(req.error || "Failed"));
@@ -604,6 +645,19 @@ function setupUpdateStatus() {
 
     done(!!res.ok);
     if (result) setResult(result, res.ok ? alertSuccess("Updated") : alertError(res.error || "Failed"));
+
+    // ✅ UX: after a successful update, refresh job view + recent jobs list
+    if (res && res.ok) {
+      try {
+        const viewForm = document.getElementById("driverViewForm");
+        if (viewForm && viewForm.request_id && viewForm.request_id.value) {
+          viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+      } catch (_) {}
+      try {
+        refreshDriverAssignedJobs();
+      } catch (_) {}
+    }
   });
 }
 
