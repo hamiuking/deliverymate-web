@@ -152,7 +152,7 @@
       </section>
 
       <section class="card requires-driver">
-        <h2>Recent jobs</h2>
+       <h2>My assigned jobs</h2>
         <div class="btn-row">
           <select id="driverRecentSelect"></select>
           <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
@@ -160,6 +160,19 @@
         </div>
         <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
       </section>
+<section class="card requires-driver">
+  <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <h2 style="margin:0;">Open jobs</h2>
+    <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
+  </div>
+
+  <div class="muted" style="margin-top:6px;">
+    Tap <b>Offer</b> to auto-fill the Request ID in “Make Offer”. Tap <b>View</b> to load details.
+  </div>
+
+  <div id="driverOpenJobsList" style="margin-top:10px;"></div>
+  <div class="result" id="driverOpenJobsResult"></div>
+</section>
 
       <section class="card requires-driver">
   <h2>Current job status</h2>
