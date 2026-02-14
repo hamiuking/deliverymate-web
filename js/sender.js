@@ -192,19 +192,26 @@ function getSenderAckMeta() {
 
 /* ---------------------------------------------------------
    Recent requests + sender token helpers
+   (scoped per sender phone, not per device)
 --------------------------------------------------------- */
-const SENDER_RECENT_KEY = "dm_sender_recent_requests";
+const SENDER_RECENT_KEY_BASE = "dm_sender_recent_requests";
+
+function senderRecentKey() {
+  const u = getSavedUser();
+  const phone = String(u?.phone || "").trim();
+  return phone ? `${SENDER_RECENT_KEY_BASE}:${phone}` : `${SENDER_RECENT_KEY_BASE}:anon`;
+}
 
 function loadSenderRecent() {
   try {
-    return JSON.parse(localStorage.getItem(SENDER_RECENT_KEY) || "[]");
+    return JSON.parse(localStorage.getItem(senderRecentKey()) || "[]");
   } catch {
     return [];
   }
 }
 function saveSenderRecent(list) {
   try {
-    localStorage.setItem(SENDER_RECENT_KEY, JSON.stringify(list));
+    localStorage.setItem(senderRecentKey(), JSON.stringify(list));
   } catch {}
 }
 
@@ -1155,7 +1162,7 @@ function renderNextActionFromRequest(r) {
    UX: Render offers + history into sender dashboard cards
    (minimal additive; uses existing endpoints + forms)
 --------------------------------------------------------- */
-function renderSenderOffersList(requestId, offersObj) {
+function renderSenderOffersList(requestId, offersObj, reqObj) {
   const list = document.getElementById("senderOffersList");
   if (!list) return;
   list.innerHTML = "";
@@ -1171,6 +1178,11 @@ function renderSenderOffersList(requestId, offersObj) {
     return;
   }
 
+  // ✅ Add these lines here (before the loop)
+  const reqStatus = String(reqObj?.status || "").toLowerCase();
+  const requestAlreadyAccepted =
+    reqStatus === "accepted" || reqStatus === "picked_up" || reqStatus === "delivered" || reqStatus === "completed";
+
   for (const o of offers) {
     const driver = safeText(o.driver_name || o.driver_phone || "Driver");
     const rawPrice = offerPriceFromOfferObj(o);
@@ -1182,22 +1194,18 @@ function renderSenderOffersList(requestId, offersObj) {
     const status = safeText(o.status || "");
 
     list.insertAdjacentHTML("beforeend", `
-      <div class="card compact" style="margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-          <div>
-            <div><strong>${driver}</strong> ${status ? `<span class="muted">(${status})</span>` : ""}</div>
-            <div class="muted">Offer #${offerId}${price ? ` · NZD ${price}` : ""}</div>
-          </div>
-          <div class="btn-row" style="justify-content:flex-end;">
-            <button class="btn secondary senderOfferUseBtn" type="button"
-              data-request-id="${safeText(requestId)}"
-              data-offer-id="${offerId}"
-              data-offer-price="${price}">Use</button>
+              <div class="btn-row" style="justify-content:flex-end;">
             <button class="btn senderOfferAcceptBtn" type="button"
               data-request-id="${safeText(requestId)}"
               data-offer-id="${offerId}"
-              data-offer-price="${price}">Accept</button>
+              data-offer-price="${price}"
+              ${requestAlreadyAccepted || String(o.status || "").toLowerCase() === "accepted" ? "disabled" : ""}>
+              ${String(o.status || "").toLowerCase() === "accepted"
+                ? "Accepted"
+                : (requestAlreadyAccepted ? "Not available" : "Accept")}
+            </button>
           </div>
+
         </div>
       </div>
     `);
@@ -1235,10 +1243,7 @@ function renderSenderHistoryList(histObj) {
 
 function setupSenderOffersActions() {
   document.addEventListener("click", async (e) => {
-    const useBtn = e.target.closest(".senderOfferUseBtn");
-    const accBtn = e.target.closest(".senderOfferAcceptBtn");
-
-    const btn = useBtn || accBtn;
+    const btn = e.target.closest(".senderOfferAcceptBtn");
     if (!btn) return;
 
     const requestId = String(btn.dataset.requestId || "").trim();
@@ -1246,32 +1251,15 @@ function setupSenderOffersActions() {
     const offerPrice = normaliseNzdAmount(btn.dataset.offerPrice || "");
     if (!requestId || !offerId) return;
 
-    // Fill the accept form for transparency (optional)
-    const acceptForm = document.getElementById("acceptOfferForm");
-    if (acceptForm) {
-      if (acceptForm.request_id) acceptForm.request_id.value = requestId;
-      if (acceptForm.offer_id) acceptForm.offer_id.value = offerId;
-    }
-
-    if (useBtn) {
-      // Just fill the form; do not submit.
-      // UX: remember this offer price so escrow funding can be auto-filled later.
-      try { if (offerPrice) saveOfferPriceForRequestOffer(requestId, offerId, offerPrice); } catch (_) {}
-      try {
-        const fundForm = document.getElementById("fundEscrowForm");
-        if (fundForm?.amount_nzd && !String(fundForm.amount_nzd.value || "").trim() && offerPrice) {
-          fundForm.amount_nzd.value = offerPrice;
-        }
-      } catch (_) {}
-
-      const out = document.getElementById("acceptOfferResult");
-      if (out) setResult(out, alertSuccess("Offer filled below. Click Accept when ready."));
-      return;
-    }
-
-    // Accept now (same endpoint as existing accept form)
-    const out = document.getElementById("acceptOfferResult") || document.getElementById("viewOffersResult") || document.getElementById("viewRequestResult");
+    // Prevent double-clicks immediately
+    if (btn.disabled) return;
     btn.disabled = true;
+
+    const out =
+      document.getElementById("viewOffersResult") ||
+      document.getElementById("viewRequestResult") ||
+      document.getElementById("acceptOfferResult"); // (in case you haven't deleted manual form yet)
+
     const old = btn.textContent;
     btn.textContent = "Accepting…";
 
@@ -1286,24 +1274,49 @@ function setupSenderOffersActions() {
       { method: "POST", role: "sender", body: {} }
     );
 
-    btn.disabled = false;
+    // Always restore button label
     btn.textContent = old;
 
-    if (out) setResult(out, res.ok ? alertSuccess("Offer accepted") : alertError(res.error || "Failed"));
-
     if (res.ok) {
+      if (out) setResult(out, alertSuccess("Offer accepted"));
+
+      // Lock the UI immediately: only one accept per request
+      try {
+        document
+          .querySelectorAll(`.senderOfferAcceptBtn[data-request-id="${CSS.escape(requestId)}"]`)
+          .forEach((b) => {
+            b.disabled = true;
+            if (String(b.dataset.offerId || "") === offerId) b.textContent = "Accepted";
+            else b.textContent = "Not selected";
+          });
+      } catch (_) {}
+
+      // Save accepted price for auto-fill funding
       const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
       if (p) {
         try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
         try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
       }
+
+      // Refresh current view (so request status / escrow status updates)
+      try {
+        const viewForm = document.getElementById("viewRequestForm");
+        if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      } catch (_) {}
+
+      return;
     }
 
-    // Refresh current view
-    try {
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    } catch (_) {}
+    // Failure: re-enable so sender can retry
+    btn.disabled = false;
+
+    // Friendlier messaging for "already accepted"
+    const msg = String(res.error || "Failed");
+    if (msg.toLowerCase().includes("cannot accept when request is accepted")) {
+      if (out) setResult(out, alertError("This request already has an accepted offer. Please refresh to see the selected driver."));
+    } else {
+      if (out) setResult(out, alertError(msg || "Failed"));
+    }
   });
 }
 
