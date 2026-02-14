@@ -11,18 +11,20 @@ export function getUserToken() {
     ""
   );
 }
+
 export function getSenderToken() {
   return sessionStorage.getItem("dm_sender_token") || "";
 }
+
 export function getDriverToken() {
   return sessionStorage.getItem("dm_driver_token") || "";
 }
+
 export function getAdminToken() {
   return sessionStorage.getItem("dm_admin_token") || "";
 }
 
 function buildUrl(path) {
-  // Allow same-origin calls if API_BASE is empty or "/"
   const base = (API_BASE || "").trim();
   if (!base || base === "/") return path;
   return base.replace(/\/+$/, "") + path;
@@ -57,7 +59,6 @@ export async function api(
     try {
       opts.headers["Idempotency-Key"] = crypto.randomUUID();
     } catch {
-      // very old browsers only; ignore
       opts.headers["Idempotency-Key"] =
         String(Date.now()) + "-" + String(Math.random()).slice(2);
     }
@@ -70,10 +71,19 @@ export async function api(
   }
 
   // Attach tokens
-  const userTok = getUserToken();
+  let userTok = getUserToken();
   const senderTok = getSenderToken();
   const driverTok = getDriverToken();
   const adminTok = getAdminToken();
+
+  // Backward-compatible fallback:
+  // If user token is missing but a role token exists, send it as X-User-Token too.
+  // This prevents 401s when some pages store only dm_sender_token / dm_driver_token / dm_admin_token.
+  if (!userTok) {
+    if (senderTok) userTok = senderTok;
+    else if (driverTok) userTok = driverTok;
+    else if (adminTok) userTok = adminTok;
+  }
 
   if (userTok) opts.headers["X-User-Token"] = userTok;
   if (senderTok) opts.headers["X-Sender-Token"] = senderTok;
@@ -111,12 +121,10 @@ export async function api(
   if (ct.includes("application/json") || looksJson) {
     try {
       const data = text ? JSON.parse(text) : {};
-      // Preserve server payload; ensure ok/status exist
       if (typeof data.ok === "undefined") data.ok = res.ok;
       if (typeof data.status === "undefined") data.status = res.status;
       return data;
     } catch {
-      // JSON parse failed: return a useful error snippet
       return {
         ok: false,
         status: res.status,
