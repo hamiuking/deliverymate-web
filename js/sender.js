@@ -862,21 +862,39 @@ function senderInlineActions(r) {
   const requestId = String(r.id);
 
   const status = String(r.status || "").toLowerCase();
-  const canPay = (status === "accepted") && !isEscrowFunded(r.escrow_status);
-  const canRelease = isEscrowReleasable(r);
+  const escrow = String(r.escrow_status || "").toLowerCase();
+
+  const canPay = status === "accepted" && escrow !== "funded" && escrow !== "pending_release" && escrow !== "released";
+  const canRelease = escrow === "pending_release" || status === "delivered";
 
   const amt = suggestedEscrowAmount(requestId);
-  const payLabel = amt ? `Pay NZD ${safeText(amt)}` : "Pay (enter amount)";
+  const payLabel = amt ? `Pay NZD ${safeText(amt)}` : "Pay";
 
   return `
-    <div class="btn-row" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
-      <button class="btn ghost" type="button" data-sender-act="copy" data-request-id="${safeText(requestId)}">Copy ID</button>
-      <button class="btn ghost" type="button" data-sender-act="refresh" data-request-id="${safeText(requestId)}">Refresh</button>
-      ${canPay ? `<button class="btn secondary" type="button" data-sender-act="pay" data-request-id="${safeText(requestId)}">${payLabel}</button>` : ``}
-      ${canRelease ? `<button class="btn" type="button" data-sender-act="release" data-request-id="${safeText(requestId)}">Confirm & release</button>` : ``}
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn ghost" type="button"
+        data-sender-act="refresh"
+        data-request-id="${safeText(requestId)}">
+        Refresh
+      </button>
+      ${canPay ? `
+        <button class="btn secondary"
+          type="button"
+          data-sender-act="pay"
+          data-request-id="${safeText(requestId)}">
+          ${payLabel}
+        </button>` : ""}
+      ${canRelease ? `
+        <button class="btn"
+          type="button"
+          data-sender-act="release"
+          data-request-id="${safeText(requestId)}">
+          Confirm & release
+        </button>` : ""}
     </div>
   `;
 }
+
 
 function setupSenderInlineActions() {
   document.addEventListener("click", async (e) => {
@@ -1048,25 +1066,43 @@ function renderSenderOffersList(requestId, offersObj) {
     return;
   }
 
+  const accepted = offers.find(o => String(o.status).toLowerCase() === "accepted");
+  const acceptedId = accepted ? String(accepted.id) : "";
+
   for (const o of offers) {
     const driver = safeText(o.driver_name || o.driver_phone || "Driver");
-    const price = (o.price_nzd != null && o.price_nzd !== "") ? safeText(o.price_nzd) : "";
     const priceVal = String(o.price_nzd ?? o.amount_nzd ?? "").trim();
-    const offerId = safeText(o.id);
-    const status = safeText(o.status || "");
+    const offerId = String(o.id);
+    const status = String(o.status || "").toLowerCase();
+
+    const isAccepted = acceptedId && offerId === acceptedId;
+    const isLockedOut = acceptedId && offerId !== acceptedId;
+
+    let buttonHtml;
+
+    if (isAccepted) {
+      buttonHtml = `<button class="btn" type="button" disabled>Accepted ✓</button>`;
+    } else if (isLockedOut) {
+      buttonHtml = `<button class="btn ghost" type="button" disabled>Not selected</button>`;
+    } else {
+      buttonHtml = `
+        <button class="btn senderOfferAcceptBtn"
+          type="button"
+          data-request-id="${safeText(requestId)}"
+          data-offer-id="${safeText(offerId)}"
+          data-offer-price="${safeText(priceVal)}">
+          Accept
+        </button>`;
+    }
 
     list.insertAdjacentHTML("beforeend", `
       <div class="card compact" style="margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div><strong>${driver}</strong> ${status ? `<span class="muted">(${status})</span>` : ""}</div>
-            <div class="muted">Offer #${offerId}${price ? ` · NZD ${price}` : ""}</div>
+            <div><strong>${driver}</strong></div>
+            <div class="muted">NZD ${safeText(priceVal)}</div>
           </div>
-          <div class="btn-row" style="justify-content:flex-end;">
-<button class="btn senderOfferAcceptBtn" type="button"
-              data-request-id="${safeText(requestId)}"
-              data-offer-id="${offerId}" data-offer-price="${safeText(priceVal)}">Accept</button>
-          </div>
+          <div>${buttonHtml}</div>
         </div>
       </div>
     `);
