@@ -274,90 +274,6 @@ function loadSenderTokenForRequest(requestId) {
   }
 }
 
-
-/* ---------------------------------------------------------
-   Offer price helpers (UX)
-   - Store offer price per request+offer so escrow funding can be auto-filled after acceptance
-   - Store accepted price per request (device-only convenience; server remains authoritative)
---------------------------------------------------------- */
-const SENDER_OFFER_PRICES_KEY = "dm_sender_offer_prices_by_request";      // { [requestId]: { [offerId]: "12.34" } }
-const SENDER_ACCEPTED_PRICE_KEY = "dm_sender_accepted_price_by_request"; // { [requestId]: "12.34" }
-
-function normaliseNzdAmount(v) {
-  const s = String(v ?? "").trim();
-  if (!s) return "";
-  // Keep digits + dot only
-  const cleaned = s.replace(/[^\d.]/g, "");
-  if (!cleaned) return "";
-  const n = Number(cleaned);
-  if (!Number.isFinite(n) || n <= 0) return "";
-  // Preserve as plain string (avoid forcing 2dp; Stripe backend can decide)
-  return String(cleaned);
-}
-
-function offerPriceFromOfferObj(o) {
-  // Best-effort: accept common field names
-  return normaliseNzdAmount(o?.price_nzd ?? o?.amount_nzd ?? o?.offer_price_nzd ?? o?.driver_price_nzd);
-}
-
-function saveOfferPriceForRequestOffer(requestId, offerId, amountNzd) {
-  if (!requestId || !offerId) return;
-  const amt = normaliseNzdAmount(amountNzd);
-  if (!amt) return;
-  try {
-    const root = JSON.parse(localStorage.getItem(SENDER_OFFER_PRICES_KEY) || "{}");
-    const rid = String(requestId);
-    const oid = String(offerId);
-    if (!root[rid]) root[rid] = {};
-    root[rid][oid] = amt;
-    localStorage.setItem(SENDER_OFFER_PRICES_KEY, JSON.stringify(root));
-  } catch (_) {}
-}
-
-function loadOfferPriceForRequestOffer(requestId, offerId) {
-  if (!requestId || !offerId) return "";
-  try {
-    const root = JSON.parse(localStorage.getItem(SENDER_OFFER_PRICES_KEY) || "{}");
-    return String(root[String(requestId)]?.[String(offerId)] || "");
-  } catch (_) {
-    return "";
-  }
-}
-
-function saveAcceptedPriceForRequest(requestId, amountNzd) {
-  if (!requestId) return;
-  const amt = normaliseNzdAmount(amountNzd);
-  if (!amt) return;
-  try {
-    const obj = JSON.parse(localStorage.getItem(SENDER_ACCEPTED_PRICE_KEY) || "{}");
-    obj[String(requestId)] = amt;
-    localStorage.setItem(SENDER_ACCEPTED_PRICE_KEY, JSON.stringify(obj));
-  } catch (_) {}
-}
-
-function loadAcceptedPriceForRequest(requestId) {
-  if (!requestId) return "";
-  try {
-    const obj = JSON.parse(localStorage.getItem(SENDER_ACCEPTED_PRICE_KEY) || "{}");
-    return String(obj[String(requestId)] || "");
-  } catch (_) {
-    return "";
-  }
-}
-
-function applyAcceptedPriceToFundForm(requestId) {
-  const form = document.getElementById("fundEscrowForm");
-  if (!form || !form.amount_nzd) return;
-  const amt = loadAcceptedPriceForRequest(requestId);
-  if (!amt) return;
-
-  // Only auto-fill if empty (never overwrite what the sender typed)
-  if (!String(form.amount_nzd.value || "").trim()) {
-    form.amount_nzd.value = amt;
-  }
-}
-
-
 function applySenderRecent(requestId) {
   if (!requestId) return;
   const id = String(requestId);
@@ -370,10 +286,6 @@ function applySenderRecent(requestId) {
 
   const fund = document.getElementById("fundRequestId");
   if (fund) fund.value = id;
-
-
-  // UX: auto-fill escrow amount if we already know the accepted offer price
-  try { applyAcceptedPriceToFundForm(id); } catch (_) {}
 
   const rel = document.getElementById("releaseRequestId");
   if (rel) rel.value = id;
@@ -434,7 +346,6 @@ function setupSenderQuickActions() {
       const id = getId();
       if (!id) return;
       applySenderRecent(id);
-      try { applyAcceptedPriceToFundForm(id); } catch (_) {}
       const fundForm = document.getElementById("fundEscrowForm");
       if (fundForm) {
         fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -681,10 +592,7 @@ function setupViewRequest() {
     
     // ✅ UX: render Offers + History cards
     try { renderSenderOffersList(requestId, offers); } catch (_) {}
-    
-    // UX: if we already know accepted price for this request, auto-fill Fund Escrow amount
-    try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
-try { renderSenderHistoryList(hist); } catch (_) {}
+    try { renderSenderHistoryList(hist); } catch (_) {}
 // Restore sender token for subsequent sender-only actions on this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
@@ -764,14 +672,6 @@ function setupAcceptOffer() {
 
     safeOut(out, res, !res.ok);
     done(!!res.ok);
-
-    if (res.ok) {
-      const p = loadOfferPriceForRequestOffer(requestId, offerId);
-      if (p) {
-        try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
-        try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
-      }
-    }
 
     if (res.ok) setResult(result, alertSuccess("Offer accepted"));
     else setResult(result, alertError(res.error || "Failed"));
@@ -939,83 +839,62 @@ function safeText(v) {
    Inline actions for the loaded request (safe UI shortcuts)
    - Never changes backend logic; only scrolls/fills existing forms
 --------------------------------------------------------- */
+function isEscrowFunded(escrowStatus) {
+  const v = String(escrowStatus || "").toLowerCase();
+  return v === "funded" || v === "pending_release" || v === "released";
+}
+function isEscrowReleasable(r) {
+  const e = String(r?.escrow_status || "").toLowerCase();
+  const s = String(r?.status || "").toLowerCase();
+  if (e === "released") return false;
+  return e === "pending_release" || s === "pending_release" || s === "delivered";
+}
+function suggestedEscrowAmount(requestId) {
+  const fundForm = document.getElementById("fundEscrowForm");
+  const typed = fundForm?.amount_nzd ? String(fundForm.amount_nzd.value || "").trim() : "";
+  if (typed) return typed;
+  const saved = loadAcceptedPriceForRequest(requestId);
+  return String(saved || "").trim();
+}
+
 function senderInlineActions(r) {
   if (!r || !r.id) return "";
-  const id = safeText(r.id);
+  const requestId = String(r.id);
+
   const status = String(r.status || "").toLowerCase();
-  const escrow = String(r.escrow_status || "").toLowerCase();
+  const canPay = (status === "accepted") && !isEscrowFunded(r.escrow_status);
+  const canRelease = isEscrowReleasable(r);
 
-  const acts = [];
-
-  // Always useful
-  acts.push({ act: "copy", label: "Copy ID", cls: "btn ghost" });
-  acts.push({ act: "view", label: "Refresh", cls: "btn secondary" });
-
-  // Status-driven helpers
-  if (status === "open") {
-    acts.push({ act: "offers", label: "See offers", cls: "btn" });
-  }
-
-  // If an offer has been accepted but escrow isn't funded
-  if (status === "accepted" && (escrow === "" || escrow === "none" || escrow === "created")) {
-    acts.push({ act: "pay", label: "Pay escrow", cls: "btn" });
-  }
-
-  // Delivery confirmation / release
-  if (status === "pending_release" || status === "delivered" || escrow === "pending_release") {
-    acts.push({ act: "release", label: "Confirm & release", cls: "btn" });
-  }
-
-  // After release, the main action is usually just view/refresh
-  const btns = acts.map(a =>
-    `<button type="button" class="${a.cls}" data-sender-act="${a.act}" data-request-id="${id}">${safeText(a.label)}</button>`
-  ).join("");
+  const amt = suggestedEscrowAmount(requestId);
+  const payLabel = amt ? `Pay NZD ${safeText(amt)}` : "Pay (enter amount)";
 
   return `
-    <div class="btn-row" style="margin-top:10px; flex-wrap:wrap; gap:8px;">
-      ${btns}
+    <div class="btn-row" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
+      <button class="btn ghost" type="button" data-sender-act="copy" data-request-id="${safeText(requestId)}">Copy ID</button>
+      <button class="btn ghost" type="button" data-sender-act="refresh" data-request-id="${safeText(requestId)}">Refresh</button>
+      ${canPay ? `<button class="btn secondary" type="button" data-sender-act="pay" data-request-id="${safeText(requestId)}">${payLabel}</button>` : ``}
+      ${canRelease ? `<button class="btn" type="button" data-sender-act="release" data-request-id="${safeText(requestId)}">Confirm & release</button>` : ``}
     </div>
   `;
 }
 
 function setupSenderInlineActions() {
   document.addEventListener("click", async (e) => {
-    const btn = e.target?.closest?.("button[data-sender-act]");
+    const btn = e.target?.closest?.("[data-sender-act]");
     if (!btn) return;
 
-    const act = String(btn.getAttribute("data-sender-act") || "");
+    const act = btn.getAttribute("data-sender-act");
     const requestId = String(btn.getAttribute("data-request-id") || "").trim();
     if (!act || !requestId) return;
 
-    // Keep request id filled everywhere
-    applySenderRecent(requestId);
+    const viewForm = document.getElementById("viewRequestForm");
 
-    if (act === "view") {
-      const f = document.getElementById("viewRequestForm");
-      if (f) f.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-      return;
-    }
-
-    if (act === "offers") {
-      const el = document.getElementById("senderOffersList") || document.getElementById("viewRequestForm");
-      el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      return;
-    }
-
-    if (act === "pay") {
-      const fundForm = document.getElementById("fundEscrowForm");
-      if (fundForm) {
-        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (fundForm.amount_nzd) fundForm.amount_nzd.focus();
-      }
-      return;
-    }
-
-    if (act === "release") {
-      const relForm = document.getElementById("releaseEscrowForm");
-      relForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      return;
-    }
+    const restoreTok = () => {
+      try {
+        const tok = loadSenderTokenForRequest(requestId);
+        if (tok) sessionStorage.setItem("dm_sender_token", tok);
+      } catch (_) {}
+    };
 
     if (act === "copy") {
       try {
@@ -1024,6 +903,73 @@ function setupSenderInlineActions() {
       } catch {
         setNextActionBanner(`<div class="banner"><strong>Copy failed</strong><div class="muted" style="margin-top:6px;">Please copy manually: ${safeText(requestId)}</div></div>`);
       }
+      return;
+    }
+
+    if (act === "refresh") {
+      if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      return;
+    }
+
+    if (act === "pay") {
+      restoreTok();
+
+      const amt = suggestedEscrowAmount(requestId);
+      if (!amt) {
+        const fundForm = document.getElementById("fundEscrowForm");
+        if (fundForm?.request_id) fundForm.request_id.value = requestId;
+        fundForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        if (fundForm?.amount_nzd) fundForm.amount_nzd.focus();
+        setResult(document.getElementById("fundEscrowResult"), alertError("Please enter an amount to pay."));
+        return;
+      }
+
+      btn.disabled = true;
+      const old = btn.textContent;
+      btn.textContent = "Starting checkout…";
+
+      const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
+        method: "POST",
+        role: "sender",
+        body: { amount_nzd: amt },
+      });
+
+      btn.disabled = false;
+      btn.textContent = old;
+
+      const out = document.getElementById("fundEscrowResult") || document.getElementById("viewRequestResult");
+      if (out) setResult(out, res.ok ? alertSuccess("Redirecting to Stripe Checkout…") : alertError(res.error || "Failed"));
+
+      const checkoutUrl = res.url || res.checkout_url || res.checkoutUrl || res.session_url || res.sessionUrl;
+      if (res.ok && checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      return;
+    }
+
+    if (act === "release") {
+      restoreTok();
+
+      btn.disabled = true;
+      const old = btn.textContent;
+      btn.textContent = "Releasing…";
+
+      const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/release`, {
+        method: "POST",
+        role: "sender",
+        body: {},
+      });
+
+      btn.disabled = false;
+      btn.textContent = old;
+
+      const out = document.getElementById("releaseEscrowResult") || document.getElementById("viewRequestResult");
+      if (out) setResult(out, res.ok ? alertSuccess("Escrow released") : alertError(res.error || "Failed"));
+
+      if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       return;
     }
   });
@@ -1104,12 +1050,9 @@ function renderSenderOffersList(requestId, offersObj) {
 
   for (const o of offers) {
     const driver = safeText(o.driver_name || o.driver_phone || "Driver");
-    const rawPrice = offerPriceFromOfferObj(o);
-    const price = rawPrice ? safeText(rawPrice) : "";
+    const price = (o.price_nzd != null && o.price_nzd !== "") ? safeText(o.price_nzd) : "";
+    const priceVal = String(o.price_nzd ?? o.amount_nzd ?? "").trim();
     const offerId = safeText(o.id);
-
-    // Persist per-offer price for later auto-fill when this offer is accepted
-    try { if (rawPrice) saveOfferPriceForRequestOffer(requestId, o.id, rawPrice); } catch (_) {}
     const status = safeText(o.status || "");
 
     list.insertAdjacentHTML("beforeend", `
@@ -1120,14 +1063,9 @@ function renderSenderOffersList(requestId, offersObj) {
             <div class="muted">Offer #${offerId}${price ? ` · NZD ${price}` : ""}</div>
           </div>
           <div class="btn-row" style="justify-content:flex-end;">
-            <button class="btn secondary senderOfferUseBtn" type="button"
+<button class="btn senderOfferAcceptBtn" type="button"
               data-request-id="${safeText(requestId)}"
-              data-offer-id="${offerId}"
-              data-offer-price="${price}">Use</button>
-            <button class="btn senderOfferAcceptBtn" type="button"
-              data-request-id="${safeText(requestId)}"
-              data-offer-id="${offerId}"
-              data-offer-price="${price}">Accept</button>
+              data-offer-id="${offerId}" data-offer-price="${safeText(priceVal)}">Accept</button>
           </div>
         </div>
       </div>
@@ -1166,15 +1104,12 @@ function renderSenderHistoryList(histObj) {
 
 function setupSenderOffersActions() {
   document.addEventListener("click", async (e) => {
-    const useBtn = e.target.closest(".senderOfferUseBtn");
     const accBtn = e.target.closest(".senderOfferAcceptBtn");
+    if (!accBtn) return;
 
-    const btn = useBtn || accBtn;
-    if (!btn) return;
-
-    const requestId = String(btn.dataset.requestId || "").trim();
-    const offerId = String(btn.dataset.offerId || "").trim();
-    const offerPrice = normaliseNzdAmount(btn.dataset.offerPrice || "");
+    const requestId = String(accBtn.dataset.requestId || "").trim();
+    const offerId = String(accBtn.dataset.offerId || "").trim();
+    const offerPrice = String(accBtn.dataset.offerPrice || "").trim();
     if (!requestId || !offerId) return;
 
     // Fill the accept form for transparency (optional)
@@ -1184,27 +1119,10 @@ function setupSenderOffersActions() {
       if (acceptForm.offer_id) acceptForm.offer_id.value = offerId;
     }
 
-    if (useBtn) {
-      // Just fill the form; do not submit.
-      // UX: remember this offer price so escrow funding can be auto-filled later.
-      try { if (offerPrice) saveOfferPriceForRequestOffer(requestId, offerId, offerPrice); } catch (_) {}
-      try {
-        const fundForm = document.getElementById("fundEscrowForm");
-        if (fundForm?.amount_nzd && !String(fundForm.amount_nzd.value || "").trim() && offerPrice) {
-          fundForm.amount_nzd.value = offerPrice;
-        }
-      } catch (_) {}
-
-      const out = document.getElementById("acceptOfferResult");
-      if (out) setResult(out, alertSuccess("Offer filled below. Click Accept when ready."));
-      return;
-    }
-
-    // Accept now (same endpoint as existing accept form)
     const out = document.getElementById("acceptOfferResult") || document.getElementById("viewOffersResult") || document.getElementById("viewRequestResult");
-    btn.disabled = true;
-    const old = btn.textContent;
-    btn.textContent = "Accepting…";
+    accBtn.disabled = true;
+    const old = accBtn.textContent;
+    accBtn.textContent = "Accepting…";
 
     // Restore sender token (if any) for this request
     try {
@@ -1217,18 +1135,16 @@ function setupSenderOffersActions() {
       { method: "POST", role: "sender", body: {} }
     );
 
-    btn.disabled = false;
-    btn.textContent = old;
-
-    if (out) setResult(out, res.ok ? alertSuccess("Offer accepted") : alertError(res.error || "Failed"));
+    accBtn.disabled = false;
+    accBtn.textContent = old;
 
     if (res.ok) {
-      const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
-      if (p) {
-        try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
-        try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
-      }
+      // Store accepted price for auto-filling escrow amount
+      if (offerPrice) saveAcceptedPriceForRequest(requestId, offerPrice);
+      applyAcceptedPriceToFundForm(requestId);
     }
+
+    if (out) setResult(out, res.ok ? alertSuccess("Offer accepted") : alertError(res.error || "Failed"));
 
     // Refresh current view
     try {
