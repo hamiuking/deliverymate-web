@@ -1,23 +1,25 @@
-// public/js/router.js
-
 import { initSenderPage } from "./sender.js";
 import { initDriverPage } from "./driver.js";
 import { initAdminPage } from "./admin.js";
 
 export function initRouter() {
-  const path = window.location.pathname;
-
-  if (path.endsWith("/sender.html")) {
+  // Sender page
+  if (document.getElementById("senderLoginForm") || document.getElementById("senderDashboard")) {
     initSenderPage();
+    return;
   }
 
-  if (path.endsWith("/driver.html")) {
+  // Driver page
+  if (document.getElementById("driverLoginForm") || document.getElementById("driverDashboard")) {
     initDriverPage();
+    return;
   }
 
-  if (path.endsWith("/admin.html")) {
+  // Admin page
+  if (document.getElementById("adminLoginForm") || document.getElementById("adminDashboard")) {
     initAdminPage();
+    return;
   }
 
-  // index.html and about.html do not need JS initialization
+  // Index / other pages: do nothing
 }
