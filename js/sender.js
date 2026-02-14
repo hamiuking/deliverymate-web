@@ -1220,7 +1220,7 @@ function setupSenderOffersActions() {
     btn.disabled = false;
     btn.textContent = old;
 
-    if \(out\) setResult\(out, res\.ok \? alertSuccess\(\"Offer accepted\"\) : alertError\(res\.error \|\| \"Failed\"\)\);
+    if (out) setResult(out, res.ok ? alertSuccess("Offer accepted") : alertError(res.error || "Failed"));
 
     if (res.ok) {
       const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
