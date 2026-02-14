@@ -1,8 +1,11 @@
 // public/js/driver.js
 // Full replacement (minimal additive UX improvements)
-// - Adds counts: #driverAssignedCount and #driverOpenCount
-// - Adds safe auto-refresh (open+assigned) when unlocked, pauses when tab hidden
-// - Keeps existing flows intact
+// - Populates #driverStatusSummary (Current job status card) when a job is loaded
+// - On successful status update: auto-refresh current job + refresh recent jobs list
+// - Login sends phone only (invite_code ignored if present), matching backend
+// - Adds "Open jobs" list (client-filtered from /requests) + 1-click fill Offer/View
+// - Keeps ack gating, photo handling, registration/login/logout, offer/status flows intact
+// - NEW: Open-jobs "View" becomes safe Preview (no protected endpoints) unless job is assigned to driver
 
 import { api } from "./api.js";
 import { $ } from "./utils.js";
@@ -50,15 +53,11 @@ function saveUserToken(tok) {
   if (!tok) return;
   const t = String(tok);
 
-  // Universal key (used by many parts)
+  // What api.js expects:
   localStorage.setItem("dm_user_token", t);
   sessionStorage.setItem("dm_user_token", t);
 
-  // Driver-specific key (some api.js builds look for this)
-  localStorage.setItem("dm_driver_token", t);
-  sessionStorage.setItem("dm_driver_token", t);
-
-  // Optional backup (harmless)
+  // Optional: driver-only backup (harmless)
   localStorage.setItem("dm_driver_user_token", t);
 }
 
@@ -85,39 +84,6 @@ function getSavedDriverUser() {
 }
 
 /* -----------------------------
-   Auto-refresh (safe)
------------------------------ */
-let dmDriverAutoTimer = null;
-
-function stopDriverAutoRefresh() {
-  if (dmDriverAutoTimer) {
-    clearInterval(dmDriverAutoTimer);
-    dmDriverAutoTimer = null;
-  }
-}
-
-function startDriverAutoRefresh() {
-  stopDriverAutoRefresh();
-
-  // Only auto-refresh when unlocked
-  if (!isDriverRegistered()) return;
-
-  const tick = async () => {
-    // Pause if tab hidden
-    if (document.visibilityState !== "visible") return;
-
-    try { await refreshDriverOpenJobs(); } catch (_) {}
-    try { await refreshDriverAssignedJobs(); } catch (_) {}
-  };
-
-  // Initial tick
-  tick();
-
-  // Refresh cadence
-  dmDriverAutoTimer = setInterval(tick, 25000); // 25s
-}
-
-/* -----------------------------
    Gate: show Auth area when locked; show Dashboard when unlocked
 ----------------------------- */
 function enforceDriverGate() {
@@ -129,15 +95,12 @@ function enforceDriverGate() {
   if (dash) dash.classList.toggle("hidden", locked);
 
   const status = document.getElementById("driverAuthStatus");
-  const statusDash = document.getElementById("driverAuthStatusDash");
-
   const u = getSavedDriverUser();
-  const msg = locked
-    ? "Please register or log in to access the driver dashboard."
-    : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
-
-  if (status) status.textContent = msg;
-  if (statusDash) statusDash.textContent = msg;
+  if (status) {
+    status.textContent = locked
+      ? "Please register or log in to access the driver dashboard."
+      : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
+  }
 
   const logoutBtn = document.getElementById("driverLogoutBtn");
   if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
@@ -154,6 +117,8 @@ const DRIVER_ACK_VERSION = "v2";
 const DRIVER_ACK_KEY = "dm_driver_ack_v2_ts";
 
 function getDriverAckMeta() {
+  // Backend only checks driver_ack_version.
+  // We keep a timestamp locally for UI only.
   const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
   return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
 }
@@ -176,6 +141,7 @@ function setupDriverAckGate() {
     lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
+  // Pre-tick if previously agreed on this device
   const prev = localStorage.getItem(DRIVER_ACK_KEY);
   if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; }
 
@@ -184,6 +150,7 @@ function setupDriverAckGate() {
     if (offerBtn) offerBtn.disabled = !ok;
     if (statusBtn) statusBtn.disabled = !ok;
 
+    // Only set timestamp when all are checked
     if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
     renderLast();
   };
@@ -382,6 +349,7 @@ function setupDriverLogin() {
 
     if (hint) hint.textContent = "Logging in…";
 
+    // Backend login no longer requires invite_code (invite codes are onboarding only)
     const res = await api("/users/login", { method: "POST", body: { phone } });
 
     if (!res.ok) {
@@ -393,10 +361,6 @@ function setupDriverLogin() {
     markDriverRegistered(res.user);
     enforceDriverGate();
     if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
-
-    // ✅ After login, refresh lists + start auto-refresh
-    try { refreshDriverAssignedJobs(); } catch (_) {}
-    try { startDriverAutoRefresh(); } catch (_) {}
   });
 }
 
@@ -416,17 +380,8 @@ function setupDriverLogout() {
     localStorage.removeItem("dm_user_token");
     localStorage.removeItem("dm_driver_user_token");
 
-    // ✅ stop auto-refresh
-    stopDriverAutoRefresh();
-
     enforceDriverGate();
     if (hint) hint.textContent = "";
-
-    // Clear counts (optional)
-    const a = document.getElementById("driverAssignedCount");
-    if (a) a.textContent = "";
-    const o = document.getElementById("driverOpenCount");
-    if (o) o.textContent = "";
   });
 }
 
@@ -455,8 +410,10 @@ function setupMakeOffer() {
     const requestId = data.request_id;
     delete data.request_id;
 
+    // ✅ This is what the backend checks
     Object.assign(data, getDriverAckMeta());
 
+    // Optional convenience fields
     const u = getSavedDriverUser();
     if (u?.phone) data.driver_phone = u.phone;
     if (u?.full_name) data.driver_name = u.full_name;
@@ -480,27 +437,18 @@ async function refreshDriverAssignedJobs() {
   const sel = document.getElementById("driverRecentSelect");
   if (!sel) return;
 
-  const countEl = document.getElementById("driverAssignedCount");
-
-  // ✅ Guard: don't call driver-only endpoint unless unlocked/authenticated
-  if (!isDriverRegistered()) {
-    sel.innerHTML = `<option value="">(Log in to see assigned jobs)</option>`;
-    if (countEl) countEl.textContent = "";
-    return;
-  }
-
   sel.innerHTML = `<option value="">Loading…</option>`;
-  if (countEl) countEl.textContent = "";
 
   const res = await api("/driver/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
     sel.innerHTML = `<option value="">(Failed to load jobs)</option>`;
-    if (countEl) countEl.textContent = "Assigned jobs: ?";
     return;
   }
 
   const list = Array.isArray(res.requests) ? res.requests : [];
-  if (countEl) countEl.textContent = `Assigned jobs: ${list.length}`;
+
+  // Track which requests are assigned to this driver (used to decide Preview vs Full View)
+  dmAssignedJobIds = new Set(list.map(r => String(r?.id ?? "")));
 
   sel.innerHTML = "";
 
@@ -536,19 +484,29 @@ function setupDriverRecentJobsAssigned() {
     const id = String(sel.value || "").trim();
     if (!id) return;
 
+    // Fill the request id field in the View My Job form
     viewForm.request_id.value = id;
+
+    // Trigger the existing load logic
     viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
   };
 
+  // Keep the Use button (optional), but also auto-load when selecting
   useBtn.addEventListener("click", loadSelected);
   sel.addEventListener("change", loadSelected);
 
+  // Clear just refreshes the list from server (your existing behaviour)
   clearBtn.addEventListener("click", () => {
     refreshDriverAssignedJobs();
   });
 
+  // initial load
   refreshDriverAssignedJobs();
 }
+
+// Cache for open jobs preview + quick auth gating
+let dmOpenJobsCache = {};          // id -> request summary
+let dmAssignedJobIds = new Set();  // assigned request ids
 
 /* -----------------------------
    Open jobs (marketplace) list
@@ -576,15 +534,13 @@ async function refreshDriverOpenJobs() {
   const resultEl = document.getElementById("driverOpenJobsResult");
   if (!listEl) return;
 
-  const countEl = document.getElementById("driverOpenCount");
-
   listEl.innerHTML = `<div class="muted">Loading…</div>`;
   if (resultEl) resultEl.innerHTML = "";
 
+  // Pull recent requests; filter open on the client
   const res = await api("/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
     listEl.innerHTML = `<div class="muted">(Failed to load open jobs)</div>`;
-    if (countEl) countEl.textContent = "Open jobs: ?";
     if (resultEl) setResult(resultEl, alertError(res?.error || "Load failed"));
     return;
   }
@@ -592,15 +548,21 @@ async function refreshDriverOpenJobs() {
   const all = Array.isArray(res.requests) ? res.requests : [];
   const open = all.filter(r => String(r?.status || "").toLowerCase() === "open");
 
-  if (countEl) countEl.textContent = `Open jobs: ${open.length}`;
+  // Cache open jobs for safe preview (avoids calling protected endpoints for unassigned jobs)
+  dmOpenJobsCache = {};
+  for (const r of open) {
+    const id = String(r?.id ?? "");
+    if (id) dmOpenJobsCache[id] = r;
+  }
 
   if (open.length === 0) {
     listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
     return;
   }
 
+  // Render compact rows with Offer/View actions
   listEl.innerHTML = "";
-  for (const r of open.slice(0, 30)) {
+  for (const r of open.slice(0, 30)) { // cap for UX
     const id = String(r.id || "");
     const row = document.createElement("div");
     row.className = "card";
@@ -622,6 +584,7 @@ async function refreshDriverOpenJobs() {
     listEl.appendChild(row);
   }
 
+  // Event delegation
   listEl.onclick = (e) => {
     const btn = e.target?.closest?.("button[data-act]");
     if (!btn) return;
@@ -634,17 +597,49 @@ async function refreshDriverOpenJobs() {
       if (offerForm?.request_id) {
         offerForm.request_id.value = id;
         offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        // focus price if present
         if (offerForm.price_nzd) offerForm.price_nzd.focus();
       }
     }
 
     if (act === "view") {
-      const viewForm = document.getElementById("driverViewForm");
-      if (viewForm?.request_id) {
-        viewForm.request_id.value = id;
-        viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      // If this job is assigned to this driver, allow full load (details + history)
+      if (dmAssignedJobIds && dmAssignedJobIds.has(String(id))) {
+        const viewForm = document.getElementById("driverViewForm");
+        if (viewForm?.request_id) {
+          viewForm.request_id.value = id;
+          viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+          viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+        return;
       }
+
+      // Otherwise, show a safe preview using cached marketplace data
+      const r = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
+
+      const statusSummary = document.getElementById("driverStatusSummary");
+      const viewResult = document.getElementById("driverViewResult");
+
+      const line = r ? formatOpenJobLine(r) : `#${id}`;
+      const msg = "This is an open marketplace job. Full status and history are available after the job is assigned to you.";
+
+      if (statusSummary) {
+        statusSummary.innerHTML = `
+          <div class="card compact">
+            <div style="font-weight:600;">${escapeHtml(line)}</div>
+            <div class="muted" style="margin-top:8px;">${escapeHtml(msg)}</div>
+          </div>
+        `;
+      }
+      if (viewResult) {
+        setResult(viewResult, alertError("Preview only (not assigned)."));
+      }
+
+      // Still fill the View form ID for convenience
+      const viewForm = document.getElementById("driverViewForm");
+      if (viewForm?.request_id) viewForm.request_id.value = id;
+
+      if (statusSummary) statusSummary.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 }
@@ -652,6 +647,8 @@ async function refreshDriverOpenJobs() {
 function setupDriverOpenJobs() {
   const btn = document.getElementById("driverOpenJobsRefreshBtn");
   if (btn) btn.addEventListener("click", refreshDriverOpenJobs);
+
+  // Load once on init (safe even if card hidden)
   refreshDriverOpenJobs();
 }
 
@@ -666,6 +663,7 @@ function setupViewJob() {
   const historyList = document.getElementById("driverHistoryList");
   const result = document.getElementById("driverViewResult");
 
+  // New: top status card summary (from driver.html change)
   const statusSummary = document.getElementById("driverStatusSummary");
   if (statusSummary) {
     statusSummary.innerHTML = `<div class="muted">Load a job to see its current status.</div>`;
@@ -683,6 +681,7 @@ function setupViewJob() {
 
     renderDriverSummary({ req, hist, summary, historyList });
 
+    // Mirror a compact status summary into the "Current job status" card
     try {
       if (statusSummary) {
         if (!req || !req.ok || !req.request) {
@@ -805,6 +804,7 @@ function setupUpdateStatus() {
     done(!!res.ok);
     if (result) setResult(result, res.ok ? alertSuccess("Updated") : alertError(res.error || "Failed"));
 
+    // ✅ UX: after a successful update, refresh job view + recent jobs list
     if (res && res.ok) {
       try {
         const viewForm = document.getElementById("driverViewForm");
@@ -812,7 +812,9 @@ function setupUpdateStatus() {
           viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
         }
       } catch (_) {}
-      try { refreshDriverAssignedJobs(); } catch (_) {}
+      try {
+        refreshDriverAssignedJobs();
+      } catch (_) {}
     }
   });
 }
@@ -855,19 +857,12 @@ export function initDriverPage() {
 
   enforceDriverGate();
 
+  // Dashboard features (safe to init even when hidden)
   setupDriverAckGate();
   setupMakeOffer();
   setupViewJob();
-  setupDriverRecentJobsAssigned();
-  setupDriverOpenJobs();
+  setupDriverRecentJobsAssigned(); // ✅ ensure dropdown loads
+  setupDriverOpenJobs();           // ✅ open jobs list
   setupUpdateStatus();
   setupIssueReport_driver();
-
-  // ✅ start auto-refresh if already logged in on this device
-  startDriverAutoRefresh();
-
-  // ✅ resume refresh on tab focus
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") startDriverAutoRefresh();
-  });
 }
