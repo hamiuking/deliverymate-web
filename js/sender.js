@@ -765,29 +765,27 @@ function setupQuickButtons() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
+export function initSenderPage() {
+   setupSenderAuth();
+   setupCreateRequest();
+   setupViewRequest();
+   setupFundEscrow();
+   setupConfirmRelease();
+   setupSenderOffersActions();
+   setupQuickButtons();
+   handlePaidRedirectRefresh();
 
-function init() {
-  setupSenderAuth();
-  setupCreateRequest();
-  setupViewRequest();
-  setupFundEscrow();
-  setupConfirmRelease();
-  setupSenderOffersActions();
-  setupQuickButtons();
-  handlePaidRedirectRefresh();
+   const tok = getSessionToken();
+   const u = getSavedUser();
 
-  // Initial auth state
-  const tok = getSessionToken();
-  const u = getSavedUser();
-  if (tok && u?.phone) {
-    setAuthStatus(`Logged in as ${u.phone}`);
-    setDashboardVisible(true);
-  } else {
-    setAuthStatus("Not logged in");
-    setDashboardVisible(false);
-  }
+   if (tok) {
+     setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+     setDashboardVisible(true);
+   } else {
+     setAuthStatus("Not logged in");
+     setDashboardVisible(false);
+   }
 
-  renderRecentRequests();
+   renderRecentRequests();
 }
 
-init();
