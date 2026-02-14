@@ -478,7 +478,7 @@ function setupCreateRequest() {
   const form = document.getElementById("createRequestForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
+  
     e.preventDefault();
     const out = document.getElementById("createRequestResult");
     const fd = getFormData(form);
@@ -517,7 +517,7 @@ function setupFundEscrow() {
   const form = document.getElementById("fundEscrowForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
+  
     e.preventDefault();
     const out = document.getElementById("fundEscrowResult");
     const fd = getFormData(form);
@@ -559,7 +559,7 @@ function setupConfirmRelease() {
   const form = document.getElementById("confirmReleaseForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
+  
     e.preventDefault();
     const out = document.getElementById("confirmReleaseResult");
     const fd = getFormData(form);
@@ -730,19 +730,19 @@ if (!invite_code) {
 
 const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
 
-// On success, remember invite code for future logins (phone-only)
-if (res.ok) {
-  try { saveInviteCodeForPhone(phone, invite_code); } catch (_) {}
+if (!res.ok) {
+  if (out) setResult(out, alertError(res.error || "Login failed"));
+  setAuthStatus("Not logged in");
+  setDashboardVisible(false);
+  return;
 }
 
-    if (!res.ok) {
-      if (out) setResult(out, alertError(res.error || "Login failed"));
-      setAuthStatus("Not logged in");
-      setDashboardVisible(false);
-      return;
-    }
+// ✅ Only here, after success:
+try { saveInviteCodeForPhone(phone, invite_code); } catch (_) {}
 
-    setSessionToken(res.user_token);
+setSessionToken(res.user_token);
+sessionStorage.setItem("dm_user_token", res.user_token);
+   
     saveUser({ phone });
     setAuthStatus(`Logged in as ${phone}`);
     setDashboardVisible(true);
