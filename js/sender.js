@@ -130,15 +130,15 @@ function enforceSenderGate() {
 
   setAuthUI();
 
-  const msg = locked
-    ? "Please register or log in to access the sender dashboard."
-    : (() => {
-        const u = getSavedUser();
-        return u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
-      })();
+const msg = locked
+  ? "Please register or log in to access the sender dashboard."
+  : (() => {
+      const u = getSavedUser();
+      return u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
+    })();
 
-  if (status) status.textContent = msg;
-  if (statusDash) statusDash.textContent = msg;
+if (status) status.textContent = msg;
+if (statusDash) statusDash.textContent = msg;
 }
 /* ---------------------------------------------------------
    Sender acknowledgement gate (before creating request)
@@ -319,6 +319,8 @@ function setupSenderRecentUI() {
   }
 }
 
+
+
 function setupSenderQuickActions() {
   const sel = document.getElementById("senderRecentSelect");
   const viewBtn = document.getElementById("senderQuickViewBtn");
@@ -375,6 +377,7 @@ function setupSenderQuickActions() {
     });
   }
 }
+
 
 /* ---------------------------------------------------------
    1) Register + Login + Logout
@@ -590,7 +593,7 @@ function setupViewRequest() {
     // ✅ UX: render Offers + History cards
     try { renderSenderOffersList(requestId, offers); } catch (_) {}
     try { renderSenderHistoryList(hist); } catch (_) {}
-    // Restore sender token for subsequent sender-only actions on this request
+// Restore sender token for subsequent sender-only actions on this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
@@ -612,6 +615,9 @@ function setupViewRequest() {
                 <strong>What happens next:</strong>
                 ${nextActionText({ role: "sender", request_status: r.status, escrow_status: r.escrow_status })}
               </div>
+
+              ${senderInlineActions(r)}
+
               <div class="muted" style="margin-top:10px;">
                 Request #${safeText(r.id)} · ${safeText(r.pickup_suburb)} → ${safeText(r.dropoff_suburb)}
               </div>
@@ -823,6 +829,104 @@ function safeText(v) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+
+
+
+
+/* ---------------------------------------------------------
+   Inline actions for the loaded request (safe UI shortcuts)
+   - Never changes backend logic; only scrolls/fills existing forms
+--------------------------------------------------------- */
+function senderInlineActions(r) {
+  if (!r || !r.id) return "";
+  const id = safeText(r.id);
+  const status = String(r.status || "").toLowerCase();
+  const escrow = String(r.escrow_status || "").toLowerCase();
+
+  const acts = [];
+
+  // Always useful
+  acts.push({ act: "copy", label: "Copy ID", cls: "btn ghost" });
+  acts.push({ act: "view", label: "Refresh", cls: "btn secondary" });
+
+  // Status-driven helpers
+  if (status === "open") {
+    acts.push({ act: "offers", label: "See offers", cls: "btn" });
+  }
+
+  // If an offer has been accepted but escrow isn't funded
+  if (status === "accepted" && (escrow === "" || escrow === "none" || escrow === "created")) {
+    acts.push({ act: "pay", label: "Pay escrow", cls: "btn" });
+  }
+
+  // Delivery confirmation / release
+  if (status === "pending_release" || status === "delivered" || escrow === "pending_release") {
+    acts.push({ act: "release", label: "Confirm & release", cls: "btn" });
+  }
+
+  // After release, the main action is usually just view/refresh
+  const btns = acts.map(a =>
+    `<button type="button" class="${a.cls}" data-sender-act="${a.act}" data-request-id="${id}">${safeText(a.label)}</button>`
+  ).join("");
+
+  return `
+    <div class="btn-row" style="margin-top:10px; flex-wrap:wrap; gap:8px;">
+      ${btns}
+    </div>
+  `;
+}
+
+function setupSenderInlineActions() {
+  document.addEventListener("click", async (e) => {
+    const btn = e.target?.closest?.("button[data-sender-act]");
+    if (!btn) return;
+
+    const act = String(btn.getAttribute("data-sender-act") || "");
+    const requestId = String(btn.getAttribute("data-request-id") || "").trim();
+    if (!act || !requestId) return;
+
+    // Keep request id filled everywhere
+    applySenderRecent(requestId);
+
+    if (act === "view") {
+      const f = document.getElementById("viewRequestForm");
+      if (f) f.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      return;
+    }
+
+    if (act === "offers") {
+      const el = document.getElementById("senderOffersList") || document.getElementById("viewRequestForm");
+      el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (act === "pay") {
+      const fundForm = document.getElementById("fundEscrowForm");
+      if (fundForm) {
+        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (fundForm.amount_nzd) fundForm.amount_nzd.focus();
+      }
+      return;
+    }
+
+    if (act === "release") {
+      const relForm = document.getElementById("releaseEscrowForm");
+      relForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (act === "copy") {
+      try {
+        await navigator.clipboard.writeText(requestId);
+        setNextActionBanner(`<div class="banner"><strong>Copied</strong><div class="muted" style="margin-top:6px;">Request ID ${safeText(requestId)} copied.</div></div>`);
+      } catch {
+        setNextActionBanner(`<div class="banner"><strong>Copy failed</strong><div class="muted" style="margin-top:6px;">Please copy manually: ${safeText(requestId)}</div></div>`);
+      }
+      return;
+    }
+  });
 }
 
 /* ---------------------------------------------------------
@@ -1041,7 +1145,7 @@ function handlePaidRedirectRefresh() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
-export function initSenderPage() {
+ export function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
@@ -1060,6 +1164,8 @@ export function initSenderPage() {
   setupSenderQuickActions();
   setupIssueReport_sender();
 
+  
   setupSenderOffersActions();
-  handlePaidRedirectRefresh();
+  setupSenderInlineActions();
+handlePaidRedirectRefresh();
 }
