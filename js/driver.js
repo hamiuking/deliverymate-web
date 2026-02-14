@@ -528,6 +528,48 @@ function formatOpenJobLine(r) {
 
   return bits.filter(Boolean).join(" · ");
 }
+function renderOpenJobPreview(r) {
+  const jobSummary = document.getElementById("driverJobSummary");
+  const historyList = document.getElementById("driverHistoryList");
+  const statusSummary = document.getElementById("driverStatusSummary");
+  const viewResult = document.getElementById("driverViewResult");
+
+  const id = String(r?.id ?? "");
+  const pickup = String(r?.pickup_suburb ?? "");
+  const dropoff = String(r?.dropoff_suburb ?? "");
+  const item = String(r?.item_description ?? r?.item ?? r?.description ?? "");
+  const price = r?.price_nzd ?? r?.sender_price_nzd ?? r?.budget_nzd;
+  const status = String(r?.status ?? "open");
+
+  const line = formatOpenJobLine(r);
+
+  const previewCard = `
+    <div class="card compact">
+      <div style="font-weight:600;">${escapeHtml(line)}</div>
+      <div class="muted" style="margin-top:8px;">
+        Preview only — full details and history appear after this job is assigned to you.
+      </div>
+      <div style="margin-top:10px;">
+        <div><strong>Pickup:</strong> ${escapeHtml(pickup || "-")}</div>
+        <div><strong>Drop-off:</strong> ${escapeHtml(dropoff || "-")}</div>
+        ${item ? `<div style="margin-top:6px;"><strong>Item:</strong> ${escapeHtml(item)}</div>` : ``}
+        ${price != null && price !== "" ? `<div style="margin-top:6px;"><strong>Sender budget:</strong> $${escapeHtml(price)}</div>` : ``}
+        <div style="margin-top:6px;"><strong>Status:</strong> ${escapeHtml(status)}</div>
+      </div>
+    </div>
+  `;
+
+  if (statusSummary) statusSummary.innerHTML = previewCard;
+  if (jobSummary) jobSummary.innerHTML = previewCard;
+
+  if (historyList) {
+    historyList.innerHTML = `<div class="muted">History is available after assignment.</div>`;
+  }
+
+  if (viewResult) {
+    setResult(viewResult, alertSuccess("Preview loaded"));
+  }
+}
 
 async function refreshDriverOpenJobs() {
   const listEl = document.getElementById("driverOpenJobsList");
