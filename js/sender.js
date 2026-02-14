@@ -130,15 +130,15 @@ function enforceSenderGate() {
 
   setAuthUI();
 
-const msg = locked
-  ? "Please register or log in to access the sender dashboard."
-  : (() => {
-      const u = getSavedUser();
-      return u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
-    })();
+  const msg = locked
+    ? "Please register or log in to access the sender dashboard."
+    : (() => {
+        const u = getSavedUser();
+        return u?.phone ? `Sender dashboard unlocked (${u.phone}).` : "Sender dashboard unlocked.";
+      })();
 
-if (status) status.textContent = msg;
-if (statusDash) statusDash.textContent = msg;
+  if (status) status.textContent = msg;
+  if (statusDash) statusDash.textContent = msg;
 }
 /* ---------------------------------------------------------
    Sender acknowledgement gate (before creating request)
@@ -210,20 +210,26 @@ function saveSenderRecent(list) {
 
 function renderSenderRecent() {
   const sel = document.getElementById("senderRecentSelect");
+  const countEl = document.getElementById("senderRecentCount");
   if (!sel) return;
   const list = loadSenderRecent();
+
+  if (countEl) {
+    countEl.textContent = list.length ? `${list.length} recent request(s) on this device` : "No recent requests on this device yet";
+  }
+
   sel.innerHTML = "";
 
   const opt0 = document.createElement("option");
   opt0.value = "";
-  opt0.textContent = list.length ? "Select a recent request…" : "No recent requests yet";
+  opt0.textContent = list.length ? "Select a request…" : "No recent requests yet";
   sel.appendChild(opt0);
 
   for (const it of list) {
     const o = document.createElement("option");
     o.value = String(it.id);
     const route = it.pickup || it.dropoff ? ` — ${it.pickup} → ${it.dropoff}` : "";
-    const st = it.status ? ` [${it.status}]` : "";
+    const st = it.status ? ` · ${humanRequestStatus(it.status)}` : "";
     o.textContent = `#${it.id}${st}${route}`;
     sel.appendChild(o);
   }
@@ -287,22 +293,87 @@ function applySenderRecent(requestId) {
 
 function setupSenderRecentUI() {
   const sel = document.getElementById("senderRecentSelect");
-  const useBtn = document.getElementById("senderRecentUseBtn");
   const clearBtn = document.getElementById("senderRecentClearBtn");
   if (!sel) return;
 
   renderSenderRecent();
 
-  if (useBtn) useBtn.addEventListener("click", () => applySenderRecent(sel.value));
+  // Auto-fill all forms when selecting a request
   sel.addEventListener("change", () => {
-    if (sel.value) applySenderRecent(sel.value);
+    if (!sel.value) return;
+    applySenderRecent(sel.value);
+
+    // Auto-load the request to reduce friction
+    const viewForm = document.getElementById("viewRequestForm");
+    if (viewForm) {
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    }
   });
 
-  if (clearBtn)
+  if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       saveSenderRecent([]);
       renderSenderRecent();
+      setNextActionBanner("");
     });
+  }
+}
+
+function setupSenderQuickActions() {
+  const sel = document.getElementById("senderRecentSelect");
+  const viewBtn = document.getElementById("senderQuickViewBtn");
+  const payBtn = document.getElementById("senderQuickPayBtn");
+  const relBtn = document.getElementById("senderQuickReleaseBtn");
+  const copyBtn = document.getElementById("senderQuickCopyBtn");
+
+  const getId = () => String(sel?.value || "").trim();
+
+  if (viewBtn) {
+    viewBtn.addEventListener("click", () => {
+      const id = getId();
+      if (!id) return;
+      applySenderRecent(id);
+      const viewForm = document.getElementById("viewRequestForm");
+      if (viewForm) viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      viewForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  if (payBtn) {
+    payBtn.addEventListener("click", () => {
+      const id = getId();
+      if (!id) return;
+      applySenderRecent(id);
+      const fundForm = document.getElementById("fundEscrowForm");
+      if (fundForm) {
+        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (fundForm.amount_nzd) fundForm.amount_nzd.focus();
+      }
+    });
+  }
+
+  if (relBtn) {
+    relBtn.addEventListener("click", () => {
+      const id = getId();
+      if (!id) return;
+      applySenderRecent(id);
+      const relForm = document.getElementById("releaseEscrowForm");
+      if (relForm) relForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const id = getId();
+      if (!id) return;
+      try {
+        await navigator.clipboard.writeText(id);
+        setNextActionBanner(`<div class="banner"><strong>Copied</strong><div class="muted" style="margin-top:6px;">Request ID ${safeText(id)} copied to clipboard.</div></div>`);
+      } catch {
+        setNextActionBanner(`<div class="banner"><strong>Copy failed</strong><div class="muted" style="margin-top:6px;">Please copy manually: ${safeText(id)}</div></div>`);
+      }
+    });
+  }
 }
 
 /* ---------------------------------------------------------
@@ -434,6 +505,7 @@ function renderCreateRequestInfo(res) {
 
     if (tok) saveSenderTokenForRequest(id, tok);
     addSenderRecent(res.request);
+    try { renderNextActionFromRequest(res.request); } catch (_) {}
 
     const viewForm = document.getElementById("viewRequestForm");
     if (viewForm && viewForm.request_id) viewForm.request_id.value = String(id);
@@ -518,7 +590,7 @@ function setupViewRequest() {
     // ✅ UX: render Offers + History cards
     try { renderSenderOffersList(requestId, offers); } catch (_) {}
     try { renderSenderHistoryList(hist); } catch (_) {}
-// Restore sender token for subsequent sender-only actions on this request
+    // Restore sender token for subsequent sender-only actions on this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem("dm_sender_token", tok);
@@ -529,7 +601,7 @@ function setupViewRequest() {
       const box = document.getElementById("senderReqSummary");
       if (box) {
         if (!req || !req.ok || !req.request) {
-          box.innerHTML = req?.error ? alertError(req.error) : "";
+          box.innerHTML = req?.error ? alertError(req.error) : ""; try { setNextActionBanner(""); } catch (_) {}
         } else {
           const r = req.request;
           box.innerHTML = `
@@ -545,6 +617,7 @@ function setupViewRequest() {
               </div>
             </div>
           `;
+          try { renderNextActionFromRequest(r); } catch (_) {}
         }
       }
     } catch (_) {}
@@ -752,6 +825,58 @@ function safeText(v) {
     .replace(/'/g, "&#39;");
 }
 
+/* ---------------------------------------------------------
+   UX helpers: human-readable labels + next-action banner
+--------------------------------------------------------- */
+function humanRequestStatus(s) {
+  const v = String(s || "").toLowerCase();
+  const map = {
+    open: "Open for offers",
+    accepted: "Driver selected",
+    in_transit: "In progress",
+    delivered: "Delivered (awaiting your confirmation)",
+    pending_release: "Awaiting release",
+    released: "Paid out",
+    cancelled: "Cancelled",
+  };
+  return map[v] || (s ? String(s) : "");
+}
+
+function humanEscrowStatus(s) {
+  const v = String(s || "").toLowerCase();
+  const map = {
+    none: "Not funded",
+    created: "Not funded",
+    funded: "Funded",
+    pending_release: "Pending release",
+    released: "Released",
+  };
+  return map[v] || (s ? String(s) : "");
+}
+
+function setNextActionBanner(html) {
+  const el = document.getElementById("senderNextActionBanner");
+  if (!el) return;
+  el.innerHTML = html || "";
+}
+
+function renderNextActionFromRequest(r) {
+  if (!r) { setNextActionBanner(""); return; }
+
+  const reqStatus = humanRequestStatus(r.status);
+  const escrow = humanEscrowStatus(r.escrow_status);
+  const next = nextActionText({ role: "sender", request_status: r.status, escrow_status: r.escrow_status });
+
+  setNextActionBanner(`
+    <div class="banner">
+      <strong>Next step</strong>
+      <div class="muted" style="margin-top:6px;">${safeText(next)}</div>
+      <div class="muted" style="margin-top:8px;">
+        Status: ${safeText(reqStatus)} · Escrow: ${safeText(escrow)}
+      </div>
+    </div>
+  `);
+}
 
 /* ---------------------------------------------------------
    UX: Render offers + history into sender dashboard cards
@@ -916,7 +1041,7 @@ function handlePaidRedirectRefresh() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
- export function initSenderPage() {
+export function initSenderPage() {
   console.log("Sender page loaded");
 
   setupRegistration();
@@ -932,9 +1057,9 @@ function handlePaidRedirectRefresh() {
   setupFundEscrow();
   setupReleaseEscrow();
   setupSenderRecentUI();
+  setupSenderQuickActions();
   setupIssueReport_sender();
 
-  
   setupSenderOffersActions();
-handlePaidRedirectRefresh();
+  handlePaidRedirectRefresh();
 }
