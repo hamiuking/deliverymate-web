@@ -697,28 +697,30 @@ function setupSenderAuth() {
   const form = document.getElementById("senderLoginForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const out = document.getElementById("senderLoginResult");
-    const fd = getFormData(form);
-const phone = String(fd.phone || "").trim();
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-// 1) Try form field if it exists (hidden or not), otherwise use saved value for this phone
-let invite_code = String(fd.invite_code || "").trim();
-if (!invite_code) invite_code = loadInviteCodeForPhone(phone);
+  const fd = getFormData(form);
+  const phone = String(fd.phone || "").trim();
 
-// Output element fallback so user always sees something
-const out = document.getElementById("senderLoginResult") || document.getElementById("senderAuthHint");
+  // Try form field first, otherwise use stored invite code for this phone
+  let invite_code = String(fd.invite_code || "").trim();
+  if (!invite_code) invite_code = loadInviteCodeForPhone(phone);
 
-if (!phone) {
-  if (out) setResult(out, alertError("Phone is required."));
-  return;
-}
+  // Single output declaration (ONLY ONCE)
+  const out =
+    document.getElementById("senderLoginResult") ||
+    document.getElementById("senderAuthHint");
 
-if (!invite_code) {
-  if (out) setResult(out, alertError("Invite code is required the first time on this device. Please register or enter it once."));
-  return;
-}
+  if (!phone) {
+    if (out) setResult(out, alertError("Phone is required."));
+    return;
+  }
+
+  if (!invite_code) {
+    if (out) setResult(out, alertError("Invite code is required the first time on this device."));
+    return;
+  }
 
 const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
 
