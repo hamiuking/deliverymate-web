@@ -674,8 +674,8 @@ function setupViewJob() {
     if (result) setResult(result, "");
 
     const requestId = form.request_id.value;
-    const req = await api(`/requests/${requestId}`);
-    const hist = await api(`/requests/${requestId}/history`);
+    const req = await api(`/requests/${requestId}`, { method: "GET", role: "driver" });
+    const hist = await api(`/requests/${requestId}/history`, { method: "GET", role: "driver" });
 
     renderDriverSummary({ req, hist, summary, historyList });
 
