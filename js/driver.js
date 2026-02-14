@@ -50,11 +50,15 @@ function saveUserToken(tok) {
   if (!tok) return;
   const t = String(tok);
 
-  // What api.js expects:
+  // Universal key (used by many parts)
   localStorage.setItem("dm_user_token", t);
   sessionStorage.setItem("dm_user_token", t);
 
-  // Optional: driver-only backup (harmless)
+  // Driver-specific key (some api.js builds look for this)
+  localStorage.setItem("dm_driver_token", t);
+  sessionStorage.setItem("dm_driver_token", t);
+
+  // Optional backup (harmless)
   localStorage.setItem("dm_driver_user_token", t);
 }
 
