@@ -48,7 +48,7 @@
             <button class="btn" type="submit">Register</button>
           </form>
 
-          <details class="debug hidden">
+          <details class="debug">
             <summary>Details (for troubleshooting)</summary>
             <pre id="senderRegOut">{}</pre>
           </details>
@@ -87,6 +87,35 @@
   <div class="muted" id="senderAuthStatusDash"></div>
   <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
 </div>
+
+      <section class="card requires-sender" id="senderMyRequestsCard">
+        <h2>My requests</h2>
+        <div class="muted" id="senderRecentCount" style="margin-top:6px;"></div>
+
+        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
+          <select id="senderRecentSelect" class="select"></select>
+          <button class="btn secondary" type="button" id="senderQuickViewBtn">View</button>
+          <button class="btn ghost" type="button" id="senderQuickCopyBtn">Copy ID</button>
+          <span style="flex:1;"></span>
+          <button class="btn secondary" type="button" id="senderQuickPayBtn">Pay</button>
+          <button class="btn" type="button" id="senderQuickReleaseBtn">Release</button>
+        </div>
+
+        <div class="muted" style="margin-top:8px;">
+          Select a request to auto-fill forms below. “Pay” and “Release” will scroll you to the right section.
+        </div>
+
+        <div id="senderNextActionBanner" style="margin-top:10px;"></div>
+
+        <details class="debug" style="margin-top:10px;">
+          <summary>Troubleshooting</summary>
+          <div class="muted" style="margin-top:6px;">Convenience only: request list is stored on this device. Server data is authoritative.</div>
+          <div class="btn-row" style="margin-top:10px;">
+            <button class="btn ghost" type="button" id="senderRecentClearBtn">Clear local list</button>
+          </div>
+        </details>
+      </section>
+
       <section class="card requires-sender">
         <h2>Create Delivery Request</h2>
 
@@ -144,7 +173,7 @@
         <div class="result" id="createRequestResult"></div>
         <div id="senderCreateInfo"></div>
 
-      <details class="debug hidden">
+      <details class="debug">
           <summary>Details (for troubleshooting)</summary>
           <pre id="senderOutput">{}</pre>
         </details>
@@ -169,7 +198,7 @@
       <h3>History</h3>
       <div id="senderHistoryList"></div>
 
-    <details class="debug hidden">
+    <details class="debug">
         <summary>Details (for troubleshooting)</summary>
         <h4>Request</h4>
         <pre id="viewRequestOut">{}</pre>
@@ -193,7 +222,7 @@
         <button class="btn" type="submit">Accept</button>
       </form>
 
-      <details class="debug hidden">
+      <details class="debug">
         <summary>Details (for troubleshooting)</summary>
         <pre id="acceptOfferOut">{}</pre>
       </details>
@@ -210,7 +239,7 @@
         <button class="btn" type="submit">Pay</button>
       </form>
 
-     <details class="debug hidden">
+     <details class="debug">
         <summary>Details (for troubleshooting)</summary>
         <pre id="fundEscrowOut">{}</pre>
       </details>
@@ -225,23 +254,11 @@
         <button class="btn" type="submit">Confirm & Release</button>
       </form>
 
-    <details class="debug hidden">
+    <details class="debug">
         <summary>Details (for troubleshooting)</summary>
         <pre id="releaseEscrowOut">{}</pre>
       </details>
       <div class="result" id="releaseEscrowResult"></div>
-    </section>
-
-    <section class="card requires-sender">
-      <h2>Recent requests (this device)</h2>
-      <div class="row" style="gap:10px;flex-wrap:wrap;">
-        <select id="senderRecentSelect" class="select"></select>
-        <button class="btn secondary" type="button" id="senderRecentUseBtn">Use</button>
-        <button class="btn ghost" type="button" id="senderRecentClearBtn">Clear</button>
-      </div>
-      <div class="muted" style="margin-top:8px;">
-        Convenience only (localStorage). Your actual data lives on the server.
-      </div>
     </section>
   </main>
 </body>
