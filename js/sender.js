@@ -88,6 +88,21 @@ function saveSenderRecent(list) {
   } catch (_) {}
 }
 
+function senderInviteKey(phone) {
+  return `dm_sender_invite_code:${String(phone || "").trim()}`;
+}
+function saveInviteCodeForPhone(phone, inviteCode) {
+  const p = String(phone || "").trim();
+  const c = String(inviteCode || "").trim();
+  if (!p || !c) return;
+  try { localStorage.setItem(senderInviteKey(p), c); } catch (_) {}
+}
+function loadInviteCodeForPhone(phone) {
+  const p = String(phone || "").trim();
+  if (!p) return "";
+  try { return localStorage.getItem(senderInviteKey(p)) || ""; } catch (_) { return ""; }
+}
+
 /* ---------------------------------------------------------
    Per-request token + accepted offer price caching
 --------------------------------------------------------- */
@@ -686,15 +701,32 @@ function setupSenderAuth() {
     e.preventDefault();
     const out = document.getElementById("senderLoginResult");
     const fd = getFormData(form);
+const phone = String(fd.phone || "").trim();
 
-    const phone = String(fd.phone || "").trim();
-    const invite_code = String(fd.invite_code || "").trim();
-    if (!phone || !invite_code) {
-      if (out) setResult(out, alertError("Phone and invite code are required"));
-      return;
-    }
+// 1) Try form field if it exists (hidden or not), otherwise use saved value for this phone
+let invite_code = String(fd.invite_code || "").trim();
+if (!invite_code) invite_code = loadInviteCodeForPhone(phone);
 
-    const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
+// Output element fallback so user always sees something
+const out = document.getElementById("senderLoginResult") || document.getElementById("senderAuthHint");
+
+if (!phone) {
+  if (out) setResult(out, alertError("Phone is required."));
+  return;
+}
+
+if (!invite_code) {
+  if (out) setResult(out, alertError("Invite code is required the first time on this device. Please register or enter it once."));
+  return;
+}
+
+const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
+
+// On success, remember invite code for future logins (phone-only)
+if (res.ok) {
+  try { saveInviteCodeForPhone(phone, invite_code); } catch (_) {}
+}
+
     if (!res.ok) {
       if (out) setResult(out, alertError(res.error || "Login failed"));
       setAuthStatus("Not logged in");
