@@ -356,7 +356,56 @@ function applyAcceptedPriceToFundForm(requestId) {
     form.amount_nzd.value = amt;
   }
 }
+function setFundFormAmountFromRequest(r) {
+  const form = document.getElementById("fundEscrowForm");
+  if (!form || !form.amount_nzd) return;
 
+  const rs = String(r?.status || "").toLowerCase();
+  const es = String(r?.escrow_status || "").toLowerCase();
+
+  // Prefer server-authoritative price
+  const serverAmt =
+    normaliseNzdAmount(r?.agreed_price_nzd) ||
+    normaliseNzdAmount(r?.escrow_amount_nzd);
+
+  // When accepted and not funded yet, lock amount to agreed price (reduces manual input)
+  const needsFunding =
+    rs === "accepted" && (es === "" || es === "none" || es === "created");
+
+  if (needsFunding) {
+    if (serverAmt) form.amount_nzd.value = serverAmt;
+    form.amount_nzd.readOnly = true;
+    form.amount_nzd.title = "Auto-filled from accepted driver offer.";
+    return;
+  }
+
+  // If already funded/pending/released, keep it locked and show escrow amount if present
+  if (es === "funded" || es === "pending_release" || es === "released") {
+    if (serverAmt) form.amount_nzd.value = serverAmt;
+    form.amount_nzd.readOnly = true;
+    form.amount_nzd.title = "Escrow already funded.";
+    return;
+  }
+
+  // Otherwise allow editing (for edge cases)
+  form.amount_nzd.readOnly = false;
+  form.amount_nzd.title = "";
+}
+
+function updateSenderQuickButtonsFromRequest(r) {
+  const payBtn = document.getElementById("senderQuickPayBtn");
+  const relBtn = document.getElementById("senderQuickReleaseBtn");
+  if (!payBtn || !relBtn) return;
+
+  const rs = String(r?.status || "").toLowerCase();
+  const es = String(r?.escrow_status || "").toLowerCase();
+
+  const showPay = rs === "accepted" && (es === "" || es === "none" || es === "created");
+  const showRelease = (es === "pending_release") || rs === "delivered" || rs === "pending_release";
+
+  payBtn.classList.toggle("hidden", !showPay);
+  relBtn.classList.toggle("hidden", !showRelease);
+}
 
 function applySenderRecent(requestId) {
   if (!requestId) return;
@@ -716,6 +765,8 @@ try { renderSenderHistoryList(hist); } catch (_) {}
             </div>
           `;
           try { renderNextActionFromRequest(r); } catch (_) {}
+          try { setFundFormAmountFromRequest(r); } catch (_) {}
+          try { updateSenderQuickButtonsFromRequest(r); } catch (_) {}
         }
       }
     } catch (_) {}
@@ -773,8 +824,26 @@ function setupAcceptOffer() {
       }
     }
 
-    if (res.ok) setResult(result, alertSuccess("Offer accepted"));
-    else setResult(result, alertError(res.error || "Failed"));
+if (res.ok) {
+  setResult(result, alertSuccess("Offer accepted"));
+
+  // Refresh the request view
+  try {
+    const viewForm = document.getElementById("viewRequestForm");
+    if (viewForm) {
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    }
+  } catch (_) {}
+
+  // Scroll user to Fund Escrow section
+  try {
+    const fundForm = document.getElementById("fundEscrowForm");
+    fundForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  } catch (_) {}
+
+} else {
+  setResult(result, alertError(res.error || "Failed"));
+}
   });
 }
 
