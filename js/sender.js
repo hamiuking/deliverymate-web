@@ -1,12 +1,12 @@
 // public/js/sender.js
-// Full replacement (minimal additive UX improvements)
-// - Adds a clear status summary (pill + timeline + next action) into #senderReqSummary when viewing a request
-// - Keeps all existing working flows intact
+// Aligned to 0215sender.html (minimal additive fixes)
+// - Fix Create Request enablement (acks) + payload fields
+// - Fix auth/dashboard IDs + release form IDs
+// - Keep existing offer accept + fund escrow flows intact
 
 import { api } from "./api.js";
-import { $, pretty } from "./utils.js";
-import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
+import { alertSuccess, alertError } from "./components/alerts.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
 
 /* ---------------------------------------------------------
@@ -47,7 +47,7 @@ function offerPriceFromOfferObj(o) {
 }
 
 /* ---------------------------------------------------------
-   Local storage keys (scoped per sender phone, not per device)
+   Local storage keys (scoped per sender phone)
 --------------------------------------------------------- */
 
 const SENDER_USER_KEY = "dm_sender_user";
@@ -86,21 +86,6 @@ function saveSenderRecent(list) {
   try {
     localStorage.setItem(senderRecentKey(), JSON.stringify(list));
   } catch (_) {}
-}
-
-function senderInviteKey(phone) {
-  return `dm_sender_invite_code:${String(phone || "").trim()}`;
-}
-function saveInviteCodeForPhone(phone, inviteCode) {
-  const p = String(phone || "").trim();
-  const c = String(inviteCode || "").trim();
-  if (!p || !c) return;
-  try { localStorage.setItem(senderInviteKey(p), c); } catch (_) {}
-}
-function loadInviteCodeForPhone(phone) {
-  const p = String(phone || "").trim();
-  if (!p) return "";
-  try { return localStorage.getItem(senderInviteKey(p)) || ""; } catch (_) { return ""; }
 }
 
 /* ---------------------------------------------------------
@@ -174,7 +159,8 @@ function loadOfferPriceForRequestOffer(requestId, offerId) {
 --------------------------------------------------------- */
 
 function setAuthStatus(text) {
-  const el = document.getElementById("senderAuthStatus");
+  // 0215sender.html uses senderAuthStatusDash
+  const el = document.getElementById("senderAuthStatusDash") || document.getElementById("senderAuthStatus");
   if (el) el.textContent = text || "";
 }
 
@@ -191,14 +177,15 @@ function setSessionToken(token) {
 }
 
 function setDashboardVisible(isAuthed) {
+  // 0215sender.html uses senderAuthArea (not senderAuthCard)
   const dash = document.getElementById("senderDashboard");
-  const auth = document.getElementById("senderAuthCard");
+  const auth = document.getElementById("senderAuthArea") || document.getElementById("senderAuthCard");
   if (dash) dash.classList.toggle("hidden", !isAuthed);
   if (auth) auth.classList.toggle("hidden", !!isAuthed);
 }
 
 /* ---------------------------------------------------------
-   Recent requests UI
+   Recent requests UI (aligned to senderMyRequestsCard)
 --------------------------------------------------------- */
 
 function addRecentRequest(requestId) {
@@ -210,20 +197,28 @@ function addRecentRequest(requestId) {
 }
 
 function renderRecentRequests() {
-  const box = document.getElementById("senderRecentRequests");
   const sel = document.getElementById("senderRecentSelect");
-  if (!box || !sel) return;
+  if (!sel) return;
 
   const list = loadSenderRecent();
-  if (!list.length) {
-    box.classList.add("hidden");
-    return;
-  }
 
-  box.classList.remove("hidden");
-  sel.innerHTML = `<option value="">Select a recent request…</option>`;
+  // Update count (if present)
+  const cnt = document.getElementById("senderRecentCount");
+  if (cnt) cnt.textContent = list.length ? `${list.length} saved on this device` : `No saved requests on this device yet.`;
+
+  sel.innerHTML = `<option value="">Select a request…</option>`;
   for (const id of list) {
     sel.insertAdjacentHTML("beforeend", `<option value="${safeText(id)}">Request #${safeText(id)}</option>`);
+  }
+
+  // Clear button (if present)
+  const clr = document.getElementById("senderRecentClearBtn");
+  if (clr && !clr.__bound) {
+    clr.__bound = true;
+    clr.addEventListener("click", () => {
+      saveSenderRecent([]);
+      renderRecentRequests();
+    });
   }
 }
 
@@ -254,11 +249,24 @@ function renderRequestSummary(r) {
   `;
 }
 
-function renderNextActionFromRequest(r) {
-  const el = document.getElementById("senderNextAction");
-  if (!el) return;
-  const next = nextActionText(r);
-  el.textContent = next || "";
+/* ---------------------------------------------------------
+   Create request acknowledgement gating
+--------------------------------------------------------- */
+
+function setupCreateAcksGate() {
+  const btn = document.getElementById("createRequestBtn");
+  if (!btn) return;
+
+  const ids = ["sAck1", "sAck2", "sAck3", "sAck4"];
+  const boxes = ids.map((id) => document.getElementById(id)).filter(Boolean);
+
+  const refresh = () => {
+    const ok = boxes.length === 4 && boxes.every((b) => b.checked);
+    btn.disabled = !ok;
+  };
+
+  boxes.forEach((b) => b.addEventListener("change", refresh));
+  refresh();
 }
 
 /* ---------------------------------------------------------
@@ -291,7 +299,6 @@ function renderSenderOffersList(requestId, offersObj, reqObj) {
     const price = rawPrice ? safeText(rawPrice) : "";
     const offerId = safeText(o.id);
 
-    // Persist per-offer price for later auto-fill when this offer is accepted
     try { if (rawPrice) saveOfferPriceForRequestOffer(requestId, o.id, rawPrice); } catch (_) {}
     const status = safeText(o.status || "");
 
@@ -357,11 +364,7 @@ function applyAcceptedPriceToFundForm(requestId) {
   if (!form || !form.amount_nzd) return;
   const amt = loadAcceptedPriceForRequest(requestId);
   if (!amt) return;
-
-  // Only auto-fill if empty (never overwrite what the sender typed)
-  if (!String(form.amount_nzd.value || "").trim()) {
-    form.amount_nzd.value = amt;
-  }
+  if (!String(form.amount_nzd.value || "").trim()) form.amount_nzd.value = amt;
 }
 
 function setFundFormAmountFromRequest(r) {
@@ -375,40 +378,21 @@ function setFundFormAmountFromRequest(r) {
     normaliseNzdAmount(r?.agreed_price_nzd) ||
     normaliseNzdAmount(r?.escrow_amount_nzd);
 
-  const needsFunding =
-    rs === "accepted" && (es === "" || es === "none" || es === "created");
+  const needsFunding = rs === "accepted" && (es === "" || es === "none" || es === "created");
 
   if (needsFunding) {
     if (serverAmt) form.amount_nzd.value = serverAmt;
     form.amount_nzd.readOnly = true;
-    form.amount_nzd.title = "Auto-filled from accepted driver offer.";
     return;
   }
 
   if (es === "funded" || es === "pending_release" || es === "released") {
     if (serverAmt) form.amount_nzd.value = serverAmt;
     form.amount_nzd.readOnly = true;
-    form.amount_nzd.title = "Escrow already funded.";
     return;
   }
 
   form.amount_nzd.readOnly = false;
-  form.amount_nzd.title = "";
-}
-
-function updateSenderQuickButtonsFromRequest(r) {
-  const payBtn = document.getElementById("senderQuickPayBtn");
-  const relBtn = document.getElementById("senderQuickReleaseBtn");
-  if (!payBtn || !relBtn) return;
-
-  const rs = String(r?.status || "").toLowerCase();
-  const es = String(r?.escrow_status || "").toLowerCase();
-
-  const showPay = rs === "accepted" && (es === "" || es === "none" || es === "created");
-  const showRelease = (es === "pending_release") || rs === "delivered" || rs === "pending_release";
-
-  payBtn.classList.toggle("hidden", !showPay);
-  relBtn.classList.toggle("hidden", !showRelease);
 }
 
 function setupViewRequest() {
@@ -419,7 +403,6 @@ function setupViewRequest() {
     e.preventDefault();
     const out = document.getElementById("viewRequestResult");
     const offersOut = document.getElementById("viewOffersResult");
-    const histOut = document.getElementById("viewHistoryResult");
 
     const fd = getFormData(form);
     const requestId = String(fd.request_id || "").trim();
@@ -428,13 +411,11 @@ function setupViewRequest() {
     addRecentRequest(requestId);
     renderRecentRequests();
 
-    // Cache sender token for this request (so accept/fund actions reuse auth)
     try {
       const tok = getSessionToken();
       if (tok) saveSenderTokenForRequest(requestId, tok);
     } catch (_) {}
 
-    // Load request
     const req = await api(`/requests/${encodeURIComponent(requestId)}`, { method: "GET", role: "sender" });
     if (!req.ok) {
       if (out) setResult(out, alertError(req.error || "Failed to load request"));
@@ -443,11 +424,8 @@ function setupViewRequest() {
 
     if (out) setResult(out, alertSuccess("Request loaded"));
     try { renderRequestSummary(req.request); } catch (_) {}
-    try { renderNextActionFromRequest(req.request); } catch (_) {}
     try { setFundFormAmountFromRequest(req.request); } catch (_) {}
-    try { updateSenderQuickButtonsFromRequest(req.request); } catch (_) {}
 
-    // Load offers
     const offers = await api(`/requests/${encodeURIComponent(requestId)}/offers`, { method: "GET", role: "sender" });
     if (!offers.ok) {
       if (offersOut) setResult(offersOut, alertError(offers.error || "Failed to load offers"));
@@ -456,22 +434,15 @@ function setupViewRequest() {
     }
     try { renderSenderOffersList(requestId, offers, req?.request); } catch (_) {}
 
-    // Load history
     const hist = await api(`/requests/${encodeURIComponent(requestId)}/history`, { method: "GET", role: "sender" });
-    if (!hist.ok) {
-      if (histOut) setResult(histOut, alertError(hist.error || "Failed to load history"));
-    } else {
-      if (histOut) setResult(histOut, alertSuccess("History loaded"));
-    }
     try { renderSenderHistoryList(hist); } catch (_) {}
 
-    // UX: if we already have an accepted offer price cached, try to auto-fill fund form
     try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
   });
 }
 
 /* ---------------------------------------------------------
-   Create request
+   Create request (aligned to current form fields)
 --------------------------------------------------------- */
 
 function setupCreateRequest() {
@@ -483,23 +454,30 @@ function setupCreateRequest() {
     const out = document.getElementById("createRequestResult");
     const fd = getFormData(form);
 
+    // IMPORTANT: match 0215sender.html input names
     const body = {
-      pickup_address: fd.pickup_address || "",
-      pickup_suburb: fd.pickup_suburb || "",
-      dropoff_address: fd.dropoff_address || "",
-      dropoff_suburb: fd.dropoff_suburb || "",
-      item_desc: fd.item_desc || "",
-      notes: fd.notes || ""
+      pickup_suburb: String(fd.pickup_suburb || "").trim(),
+      dropoff_suburb: String(fd.dropoff_suburb || "").trim(),
+      item_desc: String(fd.item_desc || "").trim(),
+      weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
+      suggested_price_nzd:
+        fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
+      sender_note: String(fd.sender_note || "").trim()
     };
 
+    if (!body.pickup_suburb || !body.dropoff_suburb || !body.item_desc) {
+      if (out) setResult(out, alertError("Pickup suburb, drop-off suburb, and item description are required."));
+      return;
+    }
+
     const res = await api("/requests", { method: "POST", role: "sender", body });
+
     if (out) setResult(out, res.ok ? alertSuccess(`Request created (ID ${res.request_id})`) : alertError(res.error || "Failed"));
 
     if (res.ok && res.request_id) {
       addRecentRequest(res.request_id);
       renderRecentRequests();
 
-      // Auto-load newly created request for convenience
       const viewForm = document.getElementById("viewRequestForm");
       if (viewForm && viewForm.request_id) {
         viewForm.request_id.value = res.request_id;
@@ -508,7 +486,6 @@ function setupCreateRequest() {
     }
   });
 }
-
 
 /* ---------------------------------------------------------
    Fund escrow (Stripe Checkout)
@@ -530,7 +507,6 @@ function setupFundEscrow() {
       return;
     }
 
-    // Restore sender token if stored for this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
@@ -552,18 +528,18 @@ function setupFundEscrow() {
   });
 }
 
-
 /* ---------------------------------------------------------
-   Confirm + Release
+   Confirm + Release (aligned to releaseEscrowForm)
 --------------------------------------------------------- */
 
 function setupConfirmRelease() {
-  const form = document.getElementById("confirmReleaseForm");
+  // 0215sender.html uses releaseEscrowForm / releaseEscrowResult
+  const form = document.getElementById("releaseEscrowForm") || document.getElementById("confirmReleaseForm");
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const out = document.getElementById("confirmReleaseResult");
+    const out = document.getElementById("releaseEscrowResult") || document.getElementById("confirmReleaseResult");
     const fd = getFormData(form);
 
     const requestId = String(fd.request_id || "").trim();
@@ -572,20 +548,23 @@ function setupConfirmRelease() {
       return;
     }
 
-    // Restore sender token if stored for this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
     } catch (_) {}
 
-    const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, { method: "POST", role: "sender", body: {} });
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, {
+      method: "POST",
+      role: "sender",
+      body: {}
+    });
+
     if (out) setResult(out, res.ok ? alertSuccess("Funds released") : alertError(res.error || "Failed"));
   });
 }
 
-
 /* ---------------------------------------------------------
-   Offers accept button action (single place, single click)
+   Offers accept action
 --------------------------------------------------------- */
 
 function setupSenderOffersActions() {
@@ -603,13 +582,11 @@ function setupSenderOffersActions() {
 
     const out =
       document.getElementById("viewOffersResult") ||
-      document.getElementById("viewRequestResult") ||
-      document.getElementById("acceptOfferResult"); // (in case manual form still exists)
+      document.getElementById("viewRequestResult");
 
     const old = btn.textContent;
     btn.textContent = "Accepting…";
 
-    // Restore sender token (if any) for this request
     try {
       const tok = loadSenderTokenForRequest(requestId);
       if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
@@ -625,7 +602,6 @@ function setupSenderOffersActions() {
     if (res.ok) {
       if (out) setResult(out, alertSuccess("Offer accepted"));
 
-      // Lock the UI immediately: only one accept per request
       try {
         document
           .querySelectorAll(`.senderOfferAcceptBtn[data-request-id="${CSS.escape(requestId)}"]`)
@@ -642,7 +618,6 @@ function setupSenderOffersActions() {
         try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
       }
 
-      // Refresh current view
       try {
         const viewForm = document.getElementById("viewRequestForm");
         if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -651,20 +626,13 @@ function setupSenderOffersActions() {
       return;
     }
 
-    // Failure: re-enable so sender can retry
     btn.disabled = false;
-
-    const msg = String(res.error || "Failed");
-    if (msg.toLowerCase().includes("cannot accept when request is accepted")) {
-      if (out) setResult(out, alertError("This request already has an accepted offer. Please refresh to see the selected driver."));
-    } else {
-      if (out) setResult(out, alertError(msg || "Failed"));
-    }
+    if (out) setResult(out, alertError(res.error || "Failed"));
   });
 }
 
 /* ---------------------------------------------------------
-   Paid redirect auto-refresh (Stripe return)
+   Stripe return auto-refresh
 --------------------------------------------------------- */
 
 function getQueryParam(name) {
@@ -675,7 +643,6 @@ function getQueryParam(name) {
 function handlePaidRedirectRefresh() {
   const paid = getQueryParam("paid");
   const requestId = getQueryParam("request_id");
-
   if (paid !== "1" || !requestId) return;
 
   const form = document.getElementById("viewRequestForm");
@@ -693,56 +660,58 @@ function handlePaidRedirectRefresh() {
 }
 
 /* ---------------------------------------------------------
-   Login + logout
+   Login + logout (use /users/login with phone)
 --------------------------------------------------------- */
 
 function setupSenderAuth() {
   const form = document.getElementById("senderLoginForm");
   if (!form) return;
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-const fd = getFormData(form);
-const phone = String(fd.phone || "").trim();
+    const fd = getFormData(form);
+    const phone = String(fd.phone || "").trim();
 
-const out =
-  document.getElementById("senderLoginResult") ||
-  document.getElementById("senderAuthHint");
+    const out =
+      document.getElementById("senderLoginResult") ||
+      document.getElementById("senderAuthHint");
 
-if (!phone) {
-  if (out) setResult(out, alertError("Phone is required."));
-  return;
-}
+    if (!phone) {
+      if (out) setResult(out, alertError("Phone is required."));
+      return;
+    }
 
-const res = await api("/users/login", {
-  method: "POST",
-  role: "sender",
-  body: { phone }
-});
+    const res = await api("/users/login", {
+      method: "POST",
+      role: "sender",
+      body: { phone }
+    });
 
-if (!res.ok) {
-  if (out) setResult(out, alertError(res.error || "Login failed"));
-  setAuthStatus("Not logged in");
-  setDashboardVisible(false);
-  return;
-}
+    if (!res.ok) {
+      if (out) setResult(out, alertError(res.error || "Login failed"));
+      setAuthStatus("Not logged in");
+      setDashboardVisible(false);
+      return;
+    }
 
-// Store token where api.js expects it
-sessionStorage.setItem("dm_user_token", res.user_token);
-setSessionToken(res.user_token); // keep if your sender page uses dm_sender_token internally
+    // Ensure api.js can always auth via X-User-Token
+    sessionStorage.setItem("dm_user_token", res.user_token);
+    setSessionToken(res.user_token);
 
-saveUser({ phone });
-setAuthStatus(`Logged in as ${phone}`);
-setDashboardVisible(true);
-if (out) setResult(out, alertSuccess("Logged in"));
+    saveUser({ phone });
+    setAuthStatus(`Logged in as ${phone}`);
+    setDashboardVisible(true);
 
-renderRecentRequests();
+    if (out) setResult(out, alertSuccess("Logged in"));
+    renderRecentRequests();
   });
 
   const logoutBtn = document.getElementById("senderLogoutBtn");
-  if (logoutBtn) {
+  if (logoutBtn && !logoutBtn.__bound) {
+    logoutBtn.__bound = true;
     logoutBtn.addEventListener("click", () => {
+      sessionStorage.removeItem("dm_user_token");
       setSessionToken("");
       setAuthStatus("Not logged in");
       setDashboardVisible(false);
@@ -758,27 +727,43 @@ function setupQuickButtons() {
   const payBtn = document.getElementById("senderQuickPayBtn");
   const relBtn = document.getElementById("senderQuickReleaseBtn");
   const viewBtn = document.getElementById("senderQuickViewBtn");
+  const copyBtn = document.getElementById("senderQuickCopyBtn");
 
-  if (payBtn) {
+  if (payBtn && !payBtn.__bound) {
+    payBtn.__bound = true;
     payBtn.addEventListener("click", () => {
       document.getElementById("fundEscrowForm")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
 
-  if (relBtn) {
+  if (relBtn && !relBtn.__bound) {
+    relBtn.__bound = true;
     relBtn.addEventListener("click", () => {
-      document.getElementById("confirmReleaseForm")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      (document.getElementById("releaseEscrowForm") || document.getElementById("confirmReleaseForm"))
+        ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
 
-  if (viewBtn) {
+  if (viewBtn && !viewBtn.__bound) {
+    viewBtn.__bound = true;
     viewBtn.addEventListener("click", () => {
       document.getElementById("viewRequestForm")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     });
   }
 
+  if (copyBtn && !copyBtn.__bound) {
+    copyBtn.__bound = true;
+    copyBtn.addEventListener("click", async () => {
+      const sel = document.getElementById("senderRecentSelect");
+      const id = String(sel?.value || "").trim();
+      if (!id) return;
+      try { await navigator.clipboard.writeText(id); } catch (_) {}
+    });
+  }
+
   const recentSel = document.getElementById("senderRecentSelect");
-  if (recentSel) {
+  if (recentSel && !recentSel.__bound) {
+    recentSel.__bound = true;
     recentSel.addEventListener("change", () => {
       const id = String(recentSel.value || "").trim();
       if (!id) return;
@@ -794,27 +779,28 @@ function setupQuickButtons() {
 /* ---------------------------------------------------------
    Init
 --------------------------------------------------------- */
+
 export function initSenderPage() {
-   setupSenderAuth();
-   setupCreateRequest();
-   setupViewRequest();
-   setupFundEscrow();
-   setupConfirmRelease();
-   setupSenderOffersActions();
-   setupQuickButtons();
-   handlePaidRedirectRefresh();
+  setupSenderAuth();
+  setupCreateAcksGate();   // ✅ enables Create button when acked
+  setupCreateRequest();    // ✅ payload aligned to current HTML
+  setupViewRequest();
+  setupFundEscrow();
+  setupConfirmRelease();
+  setupSenderOffersActions();
+  setupQuickButtons();
+  handlePaidRedirectRefresh();
 
-   const tok = getSessionToken();
-   const u = getSavedUser();
+  const tok = getSessionToken();
+  const u = getSavedUser();
 
-   if (tok) {
-     setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
-     setDashboardVisible(true);
-   } else {
-     setAuthStatus("Not logged in");
-     setDashboardVisible(false);
-   }
+  if (tok) {
+    setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+    setDashboardVisible(true);
+  } else {
+    setAuthStatus("Not logged in");
+    setDashboardVisible(false);
+  }
 
-   renderRecentRequests();
+  renderRecentRequests();
 }
-
