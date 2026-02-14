@@ -9,7 +9,7 @@ export function initRouter() {
   if (page === "driver") { initDriverPage(); return; }
   if (page === "admin") { initAdminPage(); return; }
 
-  // fallback: old ID detection (optional)
+  // fallback (optional)
   if (document.getElementById("senderLoginForm") || document.getElementById("senderDashboard")) { initSenderPage(); return; }
   if (document.getElementById("driverLoginForm") || document.getElementById("driverDashboard")) { initDriverPage(); return; }
   if (document.getElementById("adminLoginForm") || document.getElementById("adminDashboard")) { initAdminPage(); return; }
