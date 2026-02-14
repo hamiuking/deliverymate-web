@@ -703,8 +703,7 @@ function setupSenderAuth() {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const fd = getFormData(form);
- const fd = getFormData(form);
+const fd = getFormData(form);
 const phone = String(fd.phone || "").trim();
 
 const out =
