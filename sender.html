@@ -213,23 +213,6 @@
     </section>
 
     <section class="card requires-sender">
-      <h2>Accept Offer</h2>
-      <form id="acceptOfferForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input name="request_id" required />
-        <label>Offer ID</label>
-        <input name="offer_id" required />
-        <button class="btn" type="submit">Accept</button>
-      </form>
-
-      <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="acceptOfferOut">{}</pre>
-      </details>
-      <div class="result" id="acceptOfferResult"></div>
-    </section>
-
-    <section class="card requires-sender">
       <h2>Fund Escrow (Stripe test mode)</h2>
       <form id="fundEscrowForm" onsubmit="return false">
         <label>Request ID</label>
