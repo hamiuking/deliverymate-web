@@ -717,10 +717,16 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  if (!invite_code) {
-    if (out) setResult(out, alertError("Invite code is required the first time on this device."));
-    return;
-  }
+if (!invite_code) {
+  // Reveal invite code input only when needed
+  const wrap = document.getElementById("senderInviteWrap");
+  const inp = document.getElementById("senderInviteCodeInput");
+  if (wrap) wrap.classList.remove("hidden");
+  if (inp) inp.focus();
+
+  if (out) setResult(out, alertError("This device hasn’t logged in before. Please enter the invite code once."));
+  return;
+}
 
 const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
 
