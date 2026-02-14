@@ -478,7 +478,7 @@ function setupCreateRequest() {
   const form = document.getElementById("createRequestForm");
   if (!form) return;
 
-  
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const out = document.getElementById("createRequestResult");
     const fd = getFormData(form);
@@ -509,6 +509,7 @@ function setupCreateRequest() {
   });
 }
 
+
 /* ---------------------------------------------------------
    Fund escrow (Stripe Checkout)
 --------------------------------------------------------- */
@@ -517,7 +518,7 @@ function setupFundEscrow() {
   const form = document.getElementById("fundEscrowForm");
   if (!form) return;
 
-  
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const out = document.getElementById("fundEscrowResult");
     const fd = getFormData(form);
@@ -551,6 +552,7 @@ function setupFundEscrow() {
   });
 }
 
+
 /* ---------------------------------------------------------
    Confirm + Release
 --------------------------------------------------------- */
@@ -559,7 +561,7 @@ function setupConfirmRelease() {
   const form = document.getElementById("confirmReleaseForm");
   if (!form) return;
 
-  
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const out = document.getElementById("confirmReleaseResult");
     const fd = getFormData(form);
@@ -580,6 +582,7 @@ function setupConfirmRelease() {
     if (out) setResult(out, res.ok ? alertSuccess("Funds released") : alertError(res.error || "Failed"));
   });
 }
+
 
 /* ---------------------------------------------------------
    Offers accept button action (single place, single click)
