@@ -644,45 +644,36 @@ async function refreshDriverOpenJobs() {
       }
     }
 
-    if (act === "view") {
-      // If this job is assigned to this driver, allow full load (details + history)
-      if (dmAssignedJobIds && dmAssignedJobIds.has(String(id))) {
-        const viewForm = document.getElementById("driverViewForm");
-        if (viewForm?.request_id) {
-          viewForm.request_id.value = id;
-          viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
-          viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-        }
-        return;
-      }
-
-      // Otherwise, show a safe preview using cached marketplace data
-      const r = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
-
-      const statusSummary = document.getElementById("driverStatusSummary");
-      const viewResult = document.getElementById("driverViewResult");
-
-      const line = r ? formatOpenJobLine(r) : `#${id}`;
-      const msg = "This is an open marketplace job. Full status and history are available after the job is assigned to you.";
-
-      if (statusSummary) {
-        statusSummary.innerHTML = `
-          <div class="card compact">
-            <div style="font-weight:600;">${escapeHtml(line)}</div>
-            <div class="muted" style="margin-top:8px;">${escapeHtml(msg)}</div>
-          </div>
-        `;
-      }
-      if (viewResult) {
-        setResult(viewResult, alertError("Preview only (not assigned)."));
-      }
-
-      // Still fill the View form ID for convenience
-      const viewForm = document.getElementById("driverViewForm");
-      if (viewForm?.request_id) viewForm.request_id.value = id;
-
-      if (statusSummary) statusSummary.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (act === "view") {
+  // If this job is assigned to this driver, allow full load (details + history)
+  if (dmAssignedJobIds && dmAssignedJobIds.has(String(id))) {
+    const viewForm = document.getElementById("driverViewForm");
+    if (viewForm?.request_id) {
+      viewForm.request_id.value = id;
+      viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
     }
+    return;
+  }
+
+  // Otherwise: safe preview using cached marketplace data (no protected endpoints)
+  const r = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
+
+  if (r) {
+    renderOpenJobPreview(r);
+  } else {
+    const viewResult = document.getElementById("driverViewResult");
+    if (viewResult) setResult(viewResult, alertError("Preview unavailable."));
+  }
+
+  // Still fill the View form ID for convenience
+  const viewForm = document.getElementById("driverViewForm");
+  if (viewForm?.request_id) viewForm.request_id.value = id;
+
+  // Scroll to the status card so "Preview" feels responsive
+  const statusSummary = document.getElementById("driverStatusSummary");
+  if (statusSummary) statusSummary.scrollIntoView({ behavior: "smooth", block: "start" });
+}
   };
 }
 
