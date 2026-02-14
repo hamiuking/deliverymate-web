@@ -455,15 +455,24 @@ function setupCreateRequest() {
     const fd = getFormData(form);
 
     // IMPORTANT: match 0215sender.html input names
-    const body = {
-      pickup_suburb: String(fd.pickup_suburb || "").trim(),
-      dropoff_suburb: String(fd.dropoff_suburb || "").trim(),
-      item_desc: String(fd.item_desc || "").trim(),
-      weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
-      suggested_price_nzd:
-        fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
-      sender_note: String(fd.sender_note || "").trim()
-    };
+    const u = getSavedUser();
+const sender_phone = String(u?.phone || "").trim();
+
+const body = {
+  sender_phone, // ✅ required by backend (pilot)
+  pickup_suburb: String(fd.pickup_suburb || "").trim(),
+  dropoff_suburb: String(fd.dropoff_suburb || "").trim(),
+  item_desc: String(fd.item_desc || "").trim(),
+  weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
+  suggested_price_nzd:
+    fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
+  sender_note: String(fd.sender_note || "").trim()
+};
+
+if (!sender_phone) {
+  if (out) setResult(out, alertError("Your login session is missing a phone number. Please log out and log in again."));
+  return;
+}
 
     if (!body.pickup_suburb || !body.dropoff_suburb || !body.item_desc) {
       if (out) setResult(out, alertError("Pickup suburb, drop-off suburb, and item description are required."));
