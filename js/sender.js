@@ -704,34 +704,23 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const fd = getFormData(form);
-  const phone = String(fd.phone || "").trim();
+ const fd = getFormData(form);
+const phone = String(fd.phone || "").trim();
 
-  // Try form field first, otherwise use stored invite code for this phone
-  let invite_code = String(fd.invite_code || "").trim();
-  if (!invite_code) invite_code = loadInviteCodeForPhone(phone);
+const out =
+  document.getElementById("senderLoginResult") ||
+  document.getElementById("senderAuthHint");
 
-  // Single output declaration (ONLY ONCE)
-  const out =
-    document.getElementById("senderLoginResult") ||
-    document.getElementById("senderAuthHint");
-
-  if (!phone) {
-    if (out) setResult(out, alertError("Phone is required."));
-    return;
-  }
-
-if (!invite_code) {
-  // Reveal invite code input only when needed
-  const wrap = document.getElementById("senderInviteWrap");
-  const inp = document.getElementById("senderInviteCodeInput");
-  if (wrap) wrap.classList.remove("hidden");
-  if (inp) inp.focus();
-
-  if (out) setResult(out, alertError("This device hasn’t logged in before. Please enter the invite code once."));
+if (!phone) {
+  if (out) setResult(out, alertError("Phone is required."));
   return;
 }
 
-const res = await api("/auth/login", { method: "POST", role: "sender", body: { phone, invite_code } });
+const res = await api("/users/login", {
+  method: "POST",
+  role: "sender",
+  body: { phone }
+});
 
 if (!res.ok) {
   if (out) setResult(out, alertError(res.error || "Login failed"));
@@ -740,18 +729,16 @@ if (!res.ok) {
   return;
 }
 
-// ✅ Only here, after success:
-try { saveInviteCodeForPhone(phone, invite_code); } catch (_) {}
-
-setSessionToken(res.user_token);
+// Store token where api.js expects it
 sessionStorage.setItem("dm_user_token", res.user_token);
-   
-    saveUser({ phone });
-    setAuthStatus(`Logged in as ${phone}`);
-    setDashboardVisible(true);
-    if (out) setResult(out, alertSuccess("Logged in"));
+setSessionToken(res.user_token); // keep if your sender page uses dm_sender_token internally
 
-    renderRecentRequests();
+saveUser({ phone });
+setAuthStatus(`Logged in as ${phone}`);
+setDashboardVisible(true);
+if (out) setResult(out, alertSuccess("Logged in"));
+
+renderRecentRequests();
   });
 
   const logoutBtn = document.getElementById("senderLogoutBtn");
