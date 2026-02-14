@@ -3,23 +3,14 @@ import { initDriverPage } from "./driver.js";
 import { initAdminPage } from "./admin.js";
 
 export function initRouter() {
-  // Sender page
-  if (document.getElementById("senderLoginForm") || document.getElementById("senderDashboard")) {
-    initSenderPage();
-    return;
-  }
+  const page = document.body?.dataset?.page || "";
 
-  // Driver page
-  if (document.getElementById("driverLoginForm") || document.getElementById("driverDashboard")) {
-    initDriverPage();
-    return;
-  }
+  if (page === "sender") { initSenderPage(); return; }
+  if (page === "driver") { initDriverPage(); return; }
+  if (page === "admin") { initAdminPage(); return; }
 
-  // Admin page
-  if (document.getElementById("adminLoginForm") || document.getElementById("adminDashboard")) {
-    initAdminPage();
-    return;
-  }
-
-  // Index / other pages: do nothing
+  // fallback: old ID detection (optional)
+  if (document.getElementById("senderLoginForm") || document.getElementById("senderDashboard")) { initSenderPage(); return; }
+  if (document.getElementById("driverLoginForm") || document.getElementById("driverDashboard")) { initDriverPage(); return; }
+  if (document.getElementById("adminLoginForm") || document.getElementById("adminDashboard")) { initAdminPage(); return; }
 }
