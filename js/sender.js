@@ -503,25 +503,33 @@ function setupCreateRequest() {
 
   const res = await api("/requests", { method: "POST", role: "sender", body });
 
-  if (out) {
-    setResult(
-      out,
-      res.ok
-        ? alertSuccess(`Request created (ID ${res.request_id})`)
-        : alertError(res.error || "Failed")
-    );
-  }
+const createdId =
+  res.request_id ??
+  res.id ??
+  res.request?.id ??
+  res.request?.request_id ??
+  res.data?.id ??
+  res.data?.request_id;
 
-  if (res.ok && res.request_id) {
-    addRecentRequest(res.request_id);
-    renderRecentRequests();
+if (out) {
+  setResult(
+    out,
+    res.ok
+      ? alertSuccess(`Request created (ID ${createdId ?? "unknown"})`)
+      : alertError(res.error || "Failed")
+  );
+}
 
-    const viewForm = document.getElementById("viewRequestForm");
-    if (viewForm && viewForm.request_id) {
-      viewForm.request_id.value = res.request_id;
-      viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    }
+if (res.ok && createdId) {
+  addRecentRequest(createdId);
+  renderRecentRequests();
+
+  const viewForm = document.getElementById("viewRequestForm");
+  if (viewForm && viewForm.request_id) {
+    viewForm.request_id.value = createdId;
+    viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   }
+}
 });
 }
 
