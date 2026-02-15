@@ -660,31 +660,49 @@ function setupSenderOffersActions() {
     btn.textContent = old;
 
     if (res.ok) {
-      if (out) setResult(out, alertSuccess("Offer accepted"));
+  if (out) setResult(out, alertSuccess("Offer accepted"));
 
-      try {
-        document
-          .querySelectorAll(`.senderOfferAcceptBtn[data-request-id="${CSS.escape(requestId)}"]`)
-          .forEach((b) => {
-            b.disabled = true;
-            if (String(b.dataset.offerId || "") === offerId) b.textContent = "Accepted";
-            else b.textContent = "Not selected";
-          });
-      } catch (_) {}
+  try {
+    document
+      .querySelectorAll(`.senderOfferAcceptBtn[data-request-id="${CSS.escape(requestId)}"]`)
+      .forEach((b) => {
+        b.disabled = true;
+        if (String(b.dataset.offerId || "") === offerId) b.textContent = "Accepted";
+        else b.textContent = "Not selected";
+      });
+  } catch (_) {}
 
-      const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
-      if (p) {
-        try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
-        try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
+  const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
+  if (p) {
+    try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
+    try { applyAcceptedPriceToFundForm(requestId); } catch (_) {}
+  }
+
+  // ✅ INSERT THIS BLOCK RIGHT HERE
+  try {
+    const fundForm = document.getElementById("fundEscrowForm");
+    if (fundForm) {
+      if (fundForm.request_id) fundForm.request_id.value = requestId;
+
+      const amt = p || loadAcceptedPriceForRequest(requestId);
+      if (fundForm.amount_nzd && amt) {
+        fundForm.amount_nzd.value = amt;
+        fundForm.amount_nzd.readOnly = true;
       }
 
-      try {
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      } catch (_) {}
-
-      return;
+      fundForm.scrollIntoView?.({ behavior: "smooth", block: "start" });
     }
+  } catch (_) {}
+  // ✅ END INSERT
+
+  try {
+    const viewForm = document.getElementById("viewRequestForm");
+    if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  } catch (_) {}
+
+  return;
+}
+
 
     btn.disabled = false;
     if (out) setResult(out, alertError(res.error || "Failed"));
