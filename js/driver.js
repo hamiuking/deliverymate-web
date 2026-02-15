@@ -12,6 +12,7 @@ import { $ } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
 import { getFormData } from "./components/forms.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
+import { startPolling } from "./polling.js";
 
 /* -----------------------------
    Small helpers
@@ -80,6 +81,159 @@ function getSavedDriverUser() {
     return JSON.parse(raw);
   } catch {
     return null;
+  }
+}
+
+/* -----------------------------
+   NEW: Smart Next Action Banner for Drivers
+----------------------------- */
+function updateDriverNextActionBanner(requestData) {
+  const banner = document.getElementById("driverNextActionBanner");
+  if (!banner) return;
+
+  if (!requestData || !requestData.id) {
+    banner.innerHTML = `
+      <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
+        <strong>🔍 No active jobs</strong>
+        <div class="muted" style="margin-top:4px;">Browse open jobs below and submit offers to get started.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const r = requestData;
+  const status = String(r.status || "").toLowerCase();
+  const escrowStatus = String(r.escrow_status || "none").toLowerCase();
+  const driverName = r.driver_name || r.assigned_driver_name || "";
+  const u = getSavedDriverUser();
+  const myName = u?.full_name || u?.phone || "";
+  
+  // Check if this job is assigned to me
+  const isMyJob = driverName && myName && String(driverName).toLowerCase().includes(String(myName).toLowerCase());
+
+  let html = "";
+
+  // State: Open (not assigned to me)
+  if (status === "open" && !isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
+        <strong>📋 Open job available</strong>
+        <div class="muted" style="margin-top:4px;">Submit an offer if you're interested in this delivery.</div>
+      </div>
+    `;
+  }
+
+  // State: Offer submitted, waiting for acceptance
+  if (status === "open" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
+        <strong>⏳ Offer submitted</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender to accept your offer on Request #${r.id}.</div>
+      </div>
+    `;
+  }
+
+  // State: Accepted, waiting for escrow funding
+  if (status === "accepted" && escrowStatus === "none" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
+        <strong>✓ Offer accepted!</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender to fund escrow. You'll be notified when ready for pickup.</div>
+      </div>
+    `;
+  }
+
+  // State: Accepted, escrow funded, ready for pickup!
+  if (status === "accepted" && escrowStatus === "funded" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
+        <strong>💰 Payment confirmed - Ready for pickup!</strong>
+        <div class="muted" style="margin-top:4px;">
+          Pickup: ${escapeHtml(r.pickup_suburb || "—")} · Drop-off: ${escapeHtml(r.dropoff_suburb || "—")}
+        </div>
+        <div class="muted" style="margin-top:4px;">Mark as picked up when you collect the item.</div>
+        <button class="btn mt-2" id="bannerPickupBtn" style="background: #16a34a; border-color: #16a34a;">Mark Picked Up</button>
+      </div>
+    `;
+  }
+
+  // State: Picked up, in transit
+  if (status === "picked_up" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
+        <strong>🚗 Item picked up - In transit</strong>
+        <div class="muted" style="margin-top:4px;">Drop-off: ${escapeHtml(r.dropoff_suburb || "—")}</div>
+        <div class="muted" style="margin-top:4px;">Mark as delivered when drop-off is complete (delivery photo required).</div>
+        <button class="btn mt-2" id="bannerDeliverBtn" style="background: #0284c7; border-color: #0284c7;">Mark Delivered</button>
+      </div>
+    `;
+  }
+
+  // State: Delivered, pending release
+  if (status === "delivered" && escrowStatus === "pending_release" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
+        <strong>✓ Marked delivered</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender confirmation (auto-release in 24 hours).</div>
+      </div>
+    `;
+  }
+
+  // State: Payment released!
+  if (escrowStatus === "released" && isMyJob) {
+    html = `
+      <div class="alert success">
+        <strong>💸 Payment released!</strong>
+        <div class="muted" style="margin-top:4px;">Escrow released. Payout processing. Track with admin if needed.</div>
+      </div>
+    `;
+  }
+
+  // State: Cancelled
+  if (status === "cancelled") {
+    html = `
+      <div class="alert error">
+        <strong>Cancelled</strong>
+        <div class="muted" style="margin-top:4px;">This request has been cancelled.</div>
+      </div>
+    `;
+  }
+
+  banner.innerHTML = html;
+
+  // Wire up banner buttons
+  const pickupBtn = document.getElementById("bannerPickupBtn");
+  if (pickupBtn && !pickupBtn.__bound) {
+    pickupBtn.__bound = true;
+    pickupBtn.addEventListener("click", () => {
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = r.id;
+        const statusSelect = document.getElementById("driverStatusSelect");
+        if (statusSelect) statusSelect.value = "picked_up";
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  const deliverBtn = document.getElementById("bannerDeliverBtn");
+  if (deliverBtn && !deliverBtn.__bound) {
+    deliverBtn.__bound = true;
+    deliverBtn.addEventListener("click", () => {
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = r.id;
+        const statusSelect = document.getElementById("driverStatusSelect");
+        if (statusSelect) statusSelect.value = "delivered";
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        
+        // Focus on photo upload
+        const photoInput = document.getElementById("delivered_photo_file");
+        if (photoInput) {
+          setTimeout(() => photoInput.scrollIntoView({ behavior: "smooth", block: "center" }), 500);
+        }
+      }
+    });
   }
 }
 
@@ -427,6 +581,20 @@ function setupMakeOffer() {
     done(!!res.ok);
     if (res.ok) setResult(result, alertSuccess("Offer sent"));
     else setResult(result, alertError(res.error || "Failed"));
+    
+    // NEW: After successful offer, refresh assigned jobs and update banner
+    if (res && res.ok) {
+      try {
+        refreshDriverAssignedJobs();
+        
+        // Show banner for submitted offer
+        updateDriverNextActionBanner({
+          id: requestId,
+          status: "open",
+          driver_name: getSavedDriverUser()?.full_name || "",
+        });
+      } catch (_) {}
+    }
   });
 }
 
@@ -478,7 +646,13 @@ function setupDriverRecentJobsAssigned() {
   const useBtn = document.getElementById("driverRecentUseBtn");
   const clearBtn = document.getElementById("driverRecentClearBtn");
   const viewForm = document.getElementById("driverViewForm");
-  if (!sel || !useBtn || !clearBtn || !viewForm) return;
+  
+  // NEW: Quick action buttons
+  const quickViewBtn = document.getElementById("driverQuickViewBtn");
+  const quickCopyBtn = document.getElementById("driverQuickCopyBtn");
+  const quickUpdateBtn = document.getElementById("driverQuickUpdateBtn");
+  
+  if (!sel || !viewForm) return;
 
   const loadSelected = () => {
     const id = String(sel.value || "").trim();
@@ -492,13 +666,53 @@ function setupDriverRecentJobsAssigned() {
   };
 
   // Keep the Use button (optional), but also auto-load when selecting
-  useBtn.addEventListener("click", loadSelected);
+  if (useBtn) useBtn.addEventListener("click", loadSelected);
   sel.addEventListener("change", loadSelected);
 
+  // NEW: Quick View button
+  if (quickViewBtn && !quickViewBtn.__bound) {
+    quickViewBtn.__bound = true;
+    quickViewBtn.addEventListener("click", () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      viewForm.request_id.value = id;
+      viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+  }
+
+  // NEW: Quick Copy ID button
+  if (quickCopyBtn && !quickCopyBtn.__bound) {
+    quickCopyBtn.__bound = true;
+    quickCopyBtn.addEventListener("click", async () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      try {
+        await navigator.clipboard.writeText(id);
+      } catch (_) {}
+    });
+  }
+
+  // NEW: Quick Update Status button
+  if (quickUpdateBtn && !quickUpdateBtn.__bound) {
+    quickUpdateBtn.__bound = true;
+    quickUpdateBtn.addEventListener("click", () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = id;
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
   // Clear just refreshes the list from server (your existing behaviour)
-  clearBtn.addEventListener("click", () => {
-    refreshDriverAssignedJobs();
-  });
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      refreshDriverAssignedJobs();
+    });
+  }
 
   // initial load
   refreshDriverAssignedJobs();
@@ -742,6 +956,13 @@ function setupViewJob() {
 
     done(!!req.ok);
     if (result) setResult(result, req.ok ? alertSuccess("Loaded") : alertError(req.error || "Failed"));
+    
+    // NEW: Update next action banner
+    if (req && req.ok && req.request) {
+      try {
+        updateDriverNextActionBanner(req.request);
+      } catch (_) {}
+    }
   });
 }
 
@@ -898,4 +1119,45 @@ export function initDriverPage() {
   setupDriverOpenJobs();           // ✅ open jobs list
   setupUpdateStatus();
   setupIssueReport_driver();
+  
+  // NEW: Start real-time polling for status updates
+  try {
+    const poller = startPolling({
+      apiRole: 'driver',
+      getRequestId: () => {
+        const form = document.getElementById('driverViewForm');
+        return form?.request_id?.value || null;
+      },
+      onUpdate: (request) => {
+        // Silently update UI without showing "success" message
+        try {
+          // Update status summary card
+          const statusSummary = document.getElementById("driverStatusSummary");
+          if (statusSummary && request) {
+            statusSummary.innerHTML = `
+              <div class="card compact">
+                ${statusPill({ request_status: request.status, escrow_status: request.escrow_status, payout_status: request.payout_status })}
+                ${timeline({ request_status: request.status, escrow_status: request.escrow_status })}
+                <div class="next-action" style="margin-top:8px;">
+                  <strong>What happens next:</strong>
+                  ${nextActionText({ role: "driver", request_status: request.status, escrow_status: request.escrow_status })}
+                </div>
+                <div class="muted" style="margin-top:10px;">
+                  Request #${escapeHtml(request.id)} · ${escapeHtml(request.pickup_suburb)} → ${escapeHtml(request.dropoff_suburb)}
+                </div>
+              </div>
+            `;
+          }
+          
+          // Update next action banner
+          updateDriverNextActionBanner(request);
+        } catch (err) {
+          console.error('Polling update error:', err);
+        }
+      },
+      interval: 30000 // Poll every 30 seconds
+    });
+  } catch (err) {
+    console.error('Failed to start polling:', err);
+  }
 }
