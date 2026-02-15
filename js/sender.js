@@ -880,12 +880,25 @@ function setupQuickButtons() {
 --------------------------------------------------------- */
 
 export function initSenderPage() {
+   // Restore dm_user_token into sessionStorage if missing (Stripe return fix)
    try {
   const s = sessionStorage.getItem("dm_user_token");
   const l = localStorage.getItem("dm_user_token");
   if (!s && l) sessionStorage.setItem("dm_user_token", l);
 } catch (_) {}
 
+  // Immediately update UI based on restored token
+   const tok = getSessionToken();
+   const u = getSavedUser();
+
+  if (tok) {
+    setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+    setDashboardVisible(true);
+  } else {
+    setAuthStatus("Not logged in");
+    setDashboardVisible(false);
+  }
+   // Now load the rest of the page
   setupSenderAuth();
   setupCreateAcksGate();   // ✅ enables Create button when acked
   setupCreateRequest();    // ✅ payload aligned to current HTML
@@ -895,17 +908,6 @@ export function initSenderPage() {
   setupSenderOffersActions();
   setupQuickButtons();
   handlePaidRedirectRefresh();
-
-  const tok = getSessionToken();
-  const u = getSavedUser();
-
-  if (tok) {
-    setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
-    setDashboardVisible(true);
-  } else {
-    setAuthStatus("Not logged in");
-    setDashboardVisible(false);
-  }
 
   renderRecentRequests();
 }
