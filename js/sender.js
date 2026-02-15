@@ -573,8 +573,16 @@ function setupViewRequest() {
         offers_count: (offers.ok && Array.isArray(offers.offers)) ? offers.offers.length : 0
       });
 
+      // ✅ Show the details section
+      const detailsSection = document.getElementById("senderRequestDetails");
+      if (detailsSection) detailsSection.classList.remove("hidden");
+
       if (result) setResult(result, alertSuccess("Loaded"));
     } else {
+      // ✅ Hide details section on error
+      const detailsSection = document.getElementById("senderRequestDetails");
+      if (detailsSection) detailsSection.classList.add("hidden");
+      
       if (result) setResult(result, alertError(req.error || "Failed to load request"));
       
       // Clear banner on error
