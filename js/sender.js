@@ -1035,6 +1035,57 @@ function handlePaidRedirectRefresh() {
 --------------------------------------------------------- */
 
 function setupSenderAuth() {
+  // --- Registration form ---
+  const regForm = document.getElementById("senderRegForm");
+  const regResult = document.getElementById("senderRegResult");
+
+  if (regForm) {
+    regForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = getFormData(regForm);
+      const phone = String(fd.phone || "").trim();
+      const invite_code = String(fd.invite_code || "").trim();
+      const full_name = String(fd.full_name || "").trim();
+      const email = String(fd.email || "").trim() || undefined;
+
+      if (!phone) {
+        if (regResult) setResult(regResult, alertError("Phone is required."));
+        return;
+      }
+      if (!invite_code) {
+        if (regResult) setResult(regResult, alertError("Invite code is required."));
+        return;
+      }
+
+      const btn = regForm.querySelector("button[type=submit]");
+      const done = setWorking(btn, "Registering...");
+
+      const res = await api("/users/register", {
+        method: "POST",
+        role: "sender",
+        body: { phone, invite_code, full_name, ...(email && { email }) },
+      });
+
+      done(!!res.ok);
+
+      if (!res.ok) {
+        if (regResult) setResult(regResult, alertError(res.error || "Registration failed"));
+        return;
+      }
+
+      // Save token and log in automatically
+      sessionStorage.setItem("dm_user_token", res.user_token);
+      localStorage.setItem("dm_user_token", res.user_token);
+      saveUser({ phone, email });
+      setAuthStatus(`Logged in as ${phone}`);
+      setDashboardVisible(true);
+      if (regResult) setResult(regResult, alertSuccess("Registered and logged in!"));
+      renderRecentRequests();
+      setTimeout(() => renderSenderActiveRequests(), 500);
+    });
+  }
+
+  // --- Login form ---
   const form = document.getElementById("senderLoginForm");
   if (!form) return;
 
