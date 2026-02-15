@@ -574,8 +574,23 @@ try {
       return;
     }
 
-    if (out) setResult(out, alertSuccess("Redirecting to Stripe Checkout…"));
-    if (res.url) window.location.href = res.url;
+if (out) setResult(out, alertSuccess("Redirecting to Stripe Checkout…"));
+
+const checkoutUrl =
+  res.url ||
+  res.checkout_url ||
+  res.checkoutUrl ||
+  res.session_url ||
+  res.sessionUrl;
+
+if (!checkoutUrl) {
+  if (out) setResult(out, alertError("Payment session created, but no checkout URL was returned."));
+  return;
+}
+
+// Prefer same-tab redirect (most reliable)
+window.location.assign(checkoutUrl);
+
   });
 }
 
