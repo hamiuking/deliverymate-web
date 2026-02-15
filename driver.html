@@ -136,25 +136,7 @@
         </div>
       </section>
 
-      <!-- My Assigned Jobs (Quick Access) -->
-      <section class="card requires-driver">
-        <h2>My Assigned Jobs</h2>
-        <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
-
-        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
-          <select id="driverRecentSelect" class="select"></select>
-          <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
-          <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
-          <span style="flex:1;"></span>
-          <button class="btn" type="button" id="driverQuickUpdateBtn">Update Status</button>
-        </div>
-
-        <div class="muted" style="margin-top:8px;">
-          Select a job to view details or quickly update its status.
-        </div>
-      </section>
-
-      <!-- Open Jobs (Browse & Offer) -->
+      <!-- Open Jobs (Browse & Offer) - TOP PRIORITY -->
       <section class="card requires-driver">
         <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <h2 style="margin:0;">Open Jobs</h2>
@@ -162,61 +144,38 @@
         </div>
         <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
         <div class="muted" style="margin-top:6px;">
-          Click <b>Make Offer</b> to auto-fill the form below. Click <b>View</b> to see full details.
+          Click <b>Make Offer</b> to quickly submit your price. Click <b>View</b> for full details.
         </div>
 
         <div id="driverOpenJobsList" style="margin-top:10px;"></div>
         <div class="result" id="driverOpenJobsResult"></div>
-      </section>
-
-      <!-- Make Offer -->
-      <section class="card requires-driver">
-        <h2>Make Offer</h2>
-        <p class="muted">Submit your price for an open delivery request.</p>
-
-        <form id="driverOfferForm">
-          <label>Request ID</label>
-          <input name="request_id" id="driverOfferRequestId" required />
-
-          <label>Price (NZD)</label>
-          <input name="price_nzd" type="number" step="0.01" placeholder="e.g. 25.00" />
-
-          <label>Note (optional)</label>
-          <textarea name="note" placeholder="e.g. Can deliver tonight"></textarea>
-
-          <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
-        </form>
-        <div class="result" id="driverOfferResult"></div>
-      </section>
-
-      <!-- Current Job Status -->
-      <section class="card requires-driver">
-        <h2>Current Job Status</h2>
-        <div id="driverStatusSummary"></div>
-      </section>
-
-      <!-- View Job Details -->
-      <section class="card requires-driver">
-        <h2>View Job Details</h2>
-        <p class="muted">Load a job to see its full details and history.</p>
-
-        <form id="driverViewForm">
-          <label>Request ID</label>
-          <input name="request_id" id="driverViewRequestId" required />
-          <button class="btn" type="submit">Load Job</button>
-        </form>
-
-        <div class="result" id="driverViewResult"></div>
-
-        <!-- Details section (hidden until job loaded) -->
-        <div id="driverJobDetails" class="hidden" style="margin-top:16px;">
-          <div id="driverJobSummary"></div>
-          <h3>Activity History</h3>
-          <div id="driverHistoryList"></div>
+        
+        <!-- Inline Offer Form (shows when clicking Offer button) -->
+        <div id="driverInlineOfferSection" class="hidden" style="margin-top:16px;">
+          <div class="card" style="background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);">
+            <h3 style="margin-top:0;">Quick Offer for Request #<span id="inlineOfferRequestId"></span></h3>
+            <div class="muted" id="inlineOfferJobInfo" style="margin-bottom:12px;"></div>
+            
+            <form id="driverInlineOfferForm" onsubmit="return false">
+              <input type="hidden" id="inlineOfferRequestIdInput" />
+              
+              <label>Your Price (NZD)</label>
+              <input id="inlineOfferPrice" type="number" step="0.01" placeholder="e.g. 25.00" required />
+              
+              <label>Note (optional)</label>
+              <textarea id="inlineOfferNote" placeholder="e.g. Can deliver tonight" rows="2"></textarea>
+              
+              <div class="btn-row" style="margin-top:12px;">
+                <button class="btn" type="submit" id="inlineOfferSubmitBtn">Submit Offer</button>
+                <button class="btn ghost" type="button" id="inlineOfferCancelBtn">Cancel</button>
+              </div>
+            </form>
+            <div class="result" id="inlineOfferResult"></div>
+          </div>
         </div>
       </section>
 
-      <!-- Update Status -->
+      <!-- Update Status - SECOND PRIORITY (for active deliveries) -->
       <section class="card requires-driver">
         <h2>Update Status</h2>
         <p class="muted">Mark as picked up when you collect the item. Mark as delivered when drop-off is complete (photo required).</p>
@@ -243,6 +202,81 @@
         </form>
 
         <div class="result" id="driverStatusResult"></div>
+      </section>
+
+      <!-- My Assigned Jobs (Quick Access) -->
+      <section class="card requires-driver">
+        <h2>My Assigned Jobs</h2>
+        <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
+
+        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
+          <select id="driverRecentSelect" class="select"></select>
+          <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
+          <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
+          <span style="flex:1;"></span>
+          <button class="btn" type="button" id="driverQuickUpdateBtn">Update Status</button>
+        </div>
+
+        <div class="muted" style="margin-top:8px;">
+          Select a job to view details or quickly update its status.
+        </div>
+      </section>
+
+      <!-- Current Job Status - COLLAPSIBLE -->
+      <section class="card requires-driver">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Current Job Status</summary>
+          <div id="driverStatusSummary" style="margin-top:12px;"></div>
+        </details>
+      </section>
+
+      <!-- View Job Details - COLLAPSIBLE -->
+      <section class="card requires-driver">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">View Job Details</summary>
+          <div style="margin-top:12px;">
+            <p class="muted">Load a job to see its full details and history.</p>
+
+            <form id="driverViewForm">
+              <label>Request ID</label>
+              <input name="request_id" id="driverViewRequestId" required />
+              <button class="btn" type="submit">Load Job</button>
+            </form>
+
+            <div class="result" id="driverViewResult"></div>
+
+            <!-- Details section (hidden until job loaded) -->
+            <div id="driverJobDetails" class="hidden" style="margin-top:16px;">
+              <div id="driverJobSummary"></div>
+              <h3>Activity History</h3>
+              <div id="driverHistoryList"></div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- Make Offer (Traditional Form - backup) - COLLAPSIBLE -->
+      <section class="card requires-driver">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Make Offer (Manual)</summary>
+          <div style="margin-top:12px;">
+            <p class="muted">Use this form if you prefer manual entry, or use the quick "Make Offer" buttons above.</p>
+
+            <form id="driverOfferForm">
+              <label>Request ID</label>
+              <input name="request_id" id="driverOfferRequestId" required />
+
+              <label>Price (NZD)</label>
+              <input name="price_nzd" type="number" step="0.01" placeholder="e.g. 25.00" />
+
+              <label>Note (optional)</label>
+              <textarea name="note" placeholder="e.g. Can deliver tonight"></textarea>
+
+              <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
+            </form>
+            <div class="result" id="driverOfferResult"></div>
+          </div>
+        </details>
       </section>
 
       <!-- Report an Issue -->
