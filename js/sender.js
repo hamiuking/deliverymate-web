@@ -360,19 +360,104 @@ function renderRequestSummary(r) {
   const tl = timeline(r);
   const next = nextActionText(r);
 
+  const status = String(r?.status || "").toLowerCase();
+  const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+  const requestId = r?.id || "";
+
+  // Determine which inline action to show
+  let actionButton = "";
+
+  // State: Accepted, need payment
+  if (status === "accepted" && escrowStatus === "none") {
+    actionButton = `
+      <button class="btn" id="inlineFundBtn" data-request-id="${safeText(requestId)}" style="margin-top:12px; width:100%; background:#0284c7; border-color:#0284c7;">
+        💳 Fund Escrow (Pay with Stripe)
+      </button>
+    `;
+  }
+
+  // State: Delivered, pending release
+  if (status === "delivered" && escrowStatus === "pending_release") {
+    actionButton = `
+      <button class="btn" id="inlineReleaseBtn" data-request-id="${safeText(requestId)}" style="margin-top:12px; width:100%; background:#16a34a; border-color:#16a34a;">
+        ✓ Confirm Delivery & Release Payment
+      </button>
+    `;
+  }
+
   box.innerHTML = `
     <div class="card compact">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
         <div>
-          <div style="font-weight:700;">Request #${safeText(r?.id || "")}</div>
+          <div style="font-weight:700;">Request #${safeText(requestId)}</div>
           <div class="muted">${safeText(r?.pickup_suburb || "")}${r?.dropoff_suburb ? ` → ${safeText(r.dropoff_suburb)}` : ""}</div>
         </div>
         <div>${pill}</div>
       </div>
       <div style="margin-top:10px;">${tl}</div>
       <div style="margin-top:10px;" class="muted"><strong>Next:</strong> ${safeText(next || "")}</div>
+      ${actionButton}
     </div>
   `;
+
+  // Wire up inline buttons
+  const fundBtn = document.getElementById("inlineFundBtn");
+  if (fundBtn && !fundBtn.__bound) {
+    fundBtn.__bound = true;
+    fundBtn.addEventListener("click", () => {
+      const reqId = fundBtn.dataset.requestId;
+      const fundForm = document.getElementById("fundEscrowForm");
+      if (fundForm && reqId) {
+        if (fundForm.request_id) fundForm.request_id.value = reqId;
+        
+        // Pre-fill amount from accepted offer
+        const price = loadAcceptedPriceForRequest(reqId);
+        if (fundForm.amount_nzd && price) {
+          fundForm.amount_nzd.value = price;
+          fundForm.amount_nzd.readOnly = true;
+        }
+        
+        // Auto-submit to go directly to Stripe
+        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => {
+          fundForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }, 300);
+      }
+    });
+  }
+
+  const releaseBtn = document.getElementById("inlineReleaseBtn");
+  if (releaseBtn && !releaseBtn.__bound) {
+    releaseBtn.__bound = true;
+    releaseBtn.addEventListener("click", async () => {
+      const reqId = releaseBtn.dataset.requestId;
+      
+      // Confirm before releasing
+      if (!confirm("Confirm delivery and release payment to driver?")) return;
+      
+      releaseBtn.disabled = true;
+      releaseBtn.textContent = "Releasing...";
+      
+      const res = await api(`/requests/${reqId}/escrow/release`, {
+        method: "POST",
+        role: "sender",
+        body: {},
+      });
+      
+      if (res.ok) {
+        // Refresh the view to show updated status
+        const viewForm = document.getElementById("viewRequestForm");
+        if (viewForm && viewForm.request_id) {
+          viewForm.request_id.value = reqId;
+          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
+      } else {
+        alert(res.error || "Failed to release payment");
+        releaseBtn.disabled = false;
+        releaseBtn.textContent = "✓ Confirm Delivery & Release Payment";
+      }
+    });
+  }
 }
 
 /* ---------------------------------------------------------
