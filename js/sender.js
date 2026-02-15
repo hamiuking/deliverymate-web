@@ -686,10 +686,11 @@ function setupFundEscrow() {
     const requestId = form.request_id.value;
     const amountNzd = form.amount_nzd.value;
 
-    const res = await api("/payments/checkout", {
+    // ✅ Correct endpoint: /requests/:id/escrow/fund
+    const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
       method: "POST",
       role: "sender",
-      body: { request_id: requestId, amount_nzd: amountNzd },
+      body: { amount_nzd: amountNzd },
     });
 
     if (btn) btn.disabled = false;
@@ -698,7 +699,7 @@ function setupFundEscrow() {
     if (res.ok && res.checkout_url) {
       if (result) setResult(result, alertSuccess("Redirecting to Stripe…"));
       
-      // Save token before redirect
+      // Save token before redirect (if provided)
       if (res.sender_token) {
         saveSenderTokenForRequest(requestId, res.sender_token);
       }
