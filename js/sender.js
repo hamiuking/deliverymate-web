@@ -792,9 +792,8 @@ function setupSenderAuth() {
 sessionStorage.setItem("dm_user_token", res.user_token);
 localStorage.setItem("dm_user_token", res.user_token);
 
-// IMPORTANT: do NOT set dm_sender_token from user_token.
-// Clear it so we don't send a wrong X-Sender-Token header.
-setSessionToken("");
+// DO NOT clear dm_sender_token here.
+// It breaks Stripe return flow.
 
 
     saveUser({ phone });
