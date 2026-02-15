@@ -1416,7 +1416,11 @@ export function initSenderPage() {
   renderRecentRequests();
   
   // ✅ NEW: Show active requests at top, auto-refresh every 30s
-  renderSenderActiveRequests();
+  // Small delay so token is fully ready before first API call
+  setTimeout(() => {
+    renderSenderActiveRequests();
+  }, 500);
+  
   setInterval(() => {
     try { renderSenderActiveRequests(); } catch (_) {}
   }, 30000);
