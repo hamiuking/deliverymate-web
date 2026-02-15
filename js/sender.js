@@ -449,51 +449,80 @@ function setupCreateRequest() {
   const form = document.getElementById("createRequestForm");
   if (!form) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const out = document.getElementById("createRequestResult");
-    const fd = getFormData(form);
+ form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    // IMPORTANT: match 0215sender.html input names
-    const u = getSavedUser();
-const sender_phone = String(u?.phone || "").trim();
+  const out = document.getElementById("createRequestResult");
+  const fd = getFormData(form);
 
-const body = {
-  sender_phone, // ✅ required by backend (pilot)
-  pickup_suburb: String(fd.pickup_suburb || "").trim(),
-  dropoff_suburb: String(fd.dropoff_suburb || "").trim(),
-  item_desc: String(fd.item_desc || "").trim(),
-  weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
-  suggested_price_nzd:
-    fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
-  sender_note: String(fd.sender_note || "").trim()
-};
+  // Backend requires sender_ack_version (pilot acknowledgements)
+  const ackOk =
+    !!document.getElementById("sAck1")?.checked &&
+    !!document.getElementById("sAck2")?.checked &&
+    !!document.getElementById("sAck3")?.checked &&
+    !!document.getElementById("sAck4")?.checked;
 
-if (!sender_phone) {
-  if (out) setResult(out, alertError("Your login session is missing a phone number. Please log out and log in again."));
-  return;
-}
+  if (!ackOk) {
+    if (out) setResult(out, alertError("Please tick all acknowledgements to continue."));
+    return;
+  }
 
-    if (!body.pickup_suburb || !body.dropoff_suburb || !body.item_desc) {
-      if (out) setResult(out, alertError("Pickup suburb, drop-off suburb, and item description are required."));
-      return;
+  // Backend requires sender_phone (pilot)
+  const u = getSavedUser();
+  const sender_phone = String(u?.phone || "").trim();
+  if (!sender_phone) {
+    if (out) setResult(out, alertError("Your login session is missing a phone number. Please log out and log in again."));
+    return;
+  }
+
+  const pickup_suburb = String(fd.pickup_suburb || "").trim();
+  const dropoff_suburb = String(fd.dropoff_suburb || "").trim();
+  const item_desc = String(fd.item_desc || "").trim();
+  const sender_note = String(fd.sender_note || "").trim();
+
+  if (!pickup_suburb || !dropoff_suburb || !item_desc) {
+    if (out) setResult(out, alertError("Pickup suburb, drop-off suburb, and item description are required."));
+    return;
+  }
+
+  // Backend expects item_description (max 300 chars)
+  let item_description = item_desc;
+  if (sender_note) item_description = `${item_desc} | Note: ${sender_note}`;
+  item_description = item_description.slice(0, 300);
+
+  const body = {
+    sender_phone,
+    pickup_suburb,
+    dropoff_suburb,
+    item_description, // ✅ backend field name
+    weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
+    suggested_price_nzd:
+      fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
+    sender_ack_version: "v1" // ✅ required by backend
+  };
+
+  const res = await api("/requests", { method: "POST", role: "sender", body });
+
+  if (out) {
+    setResult(
+      out,
+      res.ok
+        ? alertSuccess(`Request created (ID ${res.request_id})`)
+        : alertError(res.error || "Failed")
+    );
+  }
+
+  if (res.ok && res.request_id) {
+    addRecentRequest(res.request_id);
+    renderRecentRequests();
+
+    const viewForm = document.getElementById("viewRequestForm");
+    if (viewForm && viewForm.request_id) {
+      viewForm.request_id.value = res.request_id;
+      viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     }
-
-    const res = await api("/requests", { method: "POST", role: "sender", body });
-
-    if (out) setResult(out, res.ok ? alertSuccess(`Request created (ID ${res.request_id})`) : alertError(res.error || "Failed"));
-
-    if (res.ok && res.request_id) {
-      addRecentRequest(res.request_id);
-      renderRecentRequests();
-
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm && viewForm.request_id) {
-        viewForm.request_id.value = res.request_id;
-        viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      }
-    }
-  });
+  }
+});
 }
 
 /* ---------------------------------------------------------
