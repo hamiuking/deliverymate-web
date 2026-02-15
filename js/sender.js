@@ -897,8 +897,8 @@ export function initSenderPage() {
   } catch (_) {}
 
   // Immediately update UI based on restored token
-   const tok = getSessionToken();
-   const u = getSavedUser();
+  const tok = getSessionToken();
+  const u = getSavedUser();
 
   if (tok) {
     setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
@@ -907,16 +907,19 @@ export function initSenderPage() {
     setAuthStatus("Not logged in");
     setDashboardVisible(false);
   }
-   // Now load the rest of the page
-  setupSenderAuth();
-  setupCreateAcksGate();   // ✅ enables Create button when acked
-  setupCreateRequest();    // ✅ payload aligned to current HTML
+
+  // Load everything EXCEPT setupSenderAuth()
+  setupCreateAcksGate();
+  setupCreateRequest();
   setupViewRequest();
   setupFundEscrow();
   setupConfirmRelease();
   setupSenderOffersActions();
   setupQuickButtons();
   handlePaidRedirectRefresh();
+
+  // 🔥 Call setupSenderAuth() LAST so it does NOT overwrite restored login state
+  setupSenderAuth();
 
   renderRecentRequests();
 }
