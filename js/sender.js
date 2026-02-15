@@ -1043,6 +1043,7 @@ function setupSenderAuth() {
 
     const fd = getFormData(form);
     const phone = String(fd.phone || "").trim();
+    const email = String(fd.email || "").trim() || undefined;
 
     const out =
       document.getElementById("senderLoginResult") ||
@@ -1056,7 +1057,7 @@ function setupSenderAuth() {
     const res = await api("/users/login", {
       method: "POST",
       role: "sender",
-      body: { phone }
+      body: { phone, ...(email && { email }) }
     });
 
     if (!res.ok) {
