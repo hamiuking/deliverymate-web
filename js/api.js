@@ -70,25 +70,31 @@ export async function api(
     opts.body = JSON.stringify(body);
   }
 
-  // Attach tokens
-  let userTok = getUserToken();
-  const senderTok = getSenderToken();
-  const driverTok = getDriverToken();
-  const adminTok = getAdminToken();
+// Attach tokens
+let userTok = getUserToken();
+const hadRealUserTok = !!userTok;   // ✅ remember if a real user token existed
+const senderTok = getSenderToken();
+const driverTok = getDriverToken();
+const adminTok = getAdminToken();
 
-  // Backward-compatible fallback:
-  // If user token is missing but a role token exists, send it as X-User-Token too.
-  // This prevents 401s when some pages store only dm_sender_token / dm_driver_token / dm_admin_token.
-  if (!userTok) {
-    if (senderTok) userTok = senderTok;
-    else if (driverTok) userTok = driverTok;
-    else if (adminTok) userTok = adminTok;
-  }
+// Backward-compatible fallback:
+// If user token is missing but a role token exists, send it as X-User-Token too.
+// This prevents 401s when some pages store only dm_sender_token / dm_driver_token / dm_admin_token.
+if (!userTok) {
+  if (senderTok) userTok = senderTok;
+  else if (driverTok) userTok = driverTok;
+  else if (adminTok) userTok = adminTok;
+}
 
-  if (userTok) opts.headers["X-User-Token"] = userTok;
-  if (senderTok) opts.headers["X-Sender-Token"] = senderTok;
-  if (driverTok) opts.headers["X-Driver-Token"] = driverTok;
-  if (adminTok) opts.headers["X-Admin-Token"] = adminTok;
+if (userTok) opts.headers["X-User-Token"] = userTok;
+
+// Critical: only send X-Sender-Token when there was NO real user token.
+// This prevents stale/wrong sender_token from overriding a valid user_token.
+if (senderTok && !hadRealUserTok) opts.headers["X-Sender-Token"] = senderTok;
+
+if (driverTok) opts.headers["X-Driver-Token"] = driverTok;
+if (adminTok) opts.headers["X-Admin-Token"] = adminTok;
+
 
   let res;
   try {
