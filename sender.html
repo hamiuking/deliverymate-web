@@ -89,26 +89,27 @@
         <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
       </div>
 
-      <!-- My Requests (Quick Access) -->
-      <section class="card requires-sender" id="senderMyRequestsCard">
-        <h2>My Requests</h2>
-        <div class="muted" id="senderRecentCount" style="margin-top:6px;"></div>
+      <!-- My Active Requests - TOP PRIORITY -->
+      <section class="card requires-sender">
+        <h2>My Active Requests</h2>
+        <div class="muted" id="senderActiveRequestsCount" style="margin-top:6px;">Loading...</div>
+        <div id="senderActiveRequestsList" style="margin-top:10px;"></div>
+      </section>
 
-        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
-          <select id="senderRecentSelect" class="select"></select>
-          <button class="btn secondary" type="button" id="senderQuickViewBtn">View</button>
-          <button class="btn ghost" type="button" id="senderQuickCopyBtn">Copy ID</button>
-          <span style="flex:1;"></span>
-          <button class="btn secondary" type="button" id="senderQuickPayBtn">Pay</button>
-          <button class="btn" type="button" id="senderQuickReleaseBtn">Release</button>
-        </div>
-
-        <div class="muted" style="margin-top:8px;">
-          Select a request to view details, or use quick actions to jump to payment/release sections.
-        </div>
-
-        <!-- Next Action Banner (dynamic guidance) -->
-        <div id="senderNextActionBanner" style="margin-top:10px;"></div>
+      <!-- My Requests (Quick Access) - COLLAPSIBLE -->
+      <section class="card requires-sender">
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">All My Requests</summary>
+          <div style="margin-top:12px;">
+            <div class="muted" id="senderRecentCount" style="margin-bottom:10px;"></div>
+            <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center;">
+              <select id="senderRecentSelect" class="select"></select>
+              <button class="btn secondary" type="button" id="senderQuickViewBtn">View</button>
+              <button class="btn ghost" type="button" id="senderQuickCopyBtn">Copy ID</button>
+            </div>
+            <div id="senderNextActionBanner" style="margin-top:10px;"></div>
+          </div>
+        </details>
       </section>
 
       <!-- Create Request -->
