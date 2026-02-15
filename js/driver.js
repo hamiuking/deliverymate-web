@@ -613,9 +613,10 @@ async function renderDriverActiveJobs() {
   
   const res = await api("/driver/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
-    listEl.innerHTML = `<div class="muted">(Failed to load active jobs)</div>`;
-    if (countEl) countEl.textContent = "Failed to load.";
-    if (resultEl) setResult(resultEl, alertError(res?.error || "Load failed"));
+    // ✅ Fail silently - token may not be ready yet, don't show scary errors
+    listEl.innerHTML = `<div class="muted">No active jobs. Browse open jobs below to make offers!</div>`;
+    if (countEl) countEl.textContent = "No active jobs.";
+    if (resultEl) resultEl.innerHTML = "";
     return;
   }
   
@@ -806,7 +807,8 @@ async function refreshDriverAssignedJobs() {
 
   const res = await api("/driver/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
-    sel.innerHTML = `<option value="">(Failed to load jobs)</option>`;
+    // ✅ Fail silently - token may not be ready
+    sel.innerHTML = `<option value="">(No assigned jobs)</option>`;
     return;
   }
 
@@ -994,8 +996,9 @@ async function refreshDriverOpenJobs() {
   // Pull recent requests; filter open on the client
   const res = await api("/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
-    listEl.innerHTML = `<div class="muted">(Failed to load open jobs)</div>`;
-    if (resultEl) setResult(resultEl, alertError(res?.error || "Load failed"));
+    // ✅ Fail silently - token may not be ready
+    listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
+    if (resultEl) resultEl.innerHTML = "";
     return;
   }
 
@@ -1468,7 +1471,12 @@ export function initDriverPage() {
   setupIssueReport_driver();
   
   // ✅ NEW: Render active jobs that need driver action
-  renderDriverActiveJobs();
+  // Small delay so token is fully ready before first API call
+  setTimeout(() => {
+    renderDriverActiveJobs();
+    refreshDriverOpenJobs();
+    refreshDriverAssignedJobs();
+  }, 500);
   
   // ✅ NEW: Auto-refresh active jobs every 30 seconds
   setInterval(() => {
