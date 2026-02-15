@@ -553,10 +553,15 @@ function setupFundEscrow() {
       return;
     }
 
-    try {
-      const tok = loadSenderTokenForRequest(requestId);
-      if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
-    } catch (_) {}
+try {
+  const tok = loadSenderTokenForRequest(requestId);
+  if (tok) {
+    sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
+  } else {
+    sessionStorage.removeItem(SENDER_TOKEN_KEY); // <-- critical
+  }
+} catch (_) {}
+
 
     const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
       method: "POST",
@@ -594,10 +599,15 @@ function setupConfirmRelease() {
       return;
     }
 
-    try {
-      const tok = loadSenderTokenForRequest(requestId);
-      if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
-    } catch (_) {}
+try {
+  const tok = loadSenderTokenForRequest(requestId);
+  if (tok) {
+    sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
+  } else {
+    sessionStorage.removeItem(SENDER_TOKEN_KEY); // <-- critical
+  }
+} catch (_) {}
+
 
     const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, {
       method: "POST",
@@ -633,10 +643,14 @@ function setupSenderOffersActions() {
     const old = btn.textContent;
     btn.textContent = "Accepting…";
 
-    try {
-      const tok = loadSenderTokenForRequest(requestId);
-      if (tok) sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
-    } catch (_) {}
+ try {
+  const tok = loadSenderTokenForRequest(requestId);
+  if (tok) {
+    sessionStorage.setItem(SENDER_TOKEN_KEY, tok);
+  } else {
+    sessionStorage.removeItem(SENDER_TOKEN_KEY); // <-- critical
+  }
+} catch (_) {}
 
     const res = await api(
       `/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,
