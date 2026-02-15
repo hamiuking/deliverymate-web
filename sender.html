@@ -7,11 +7,9 @@
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
-
 </head>
 
 <body data-page="sender">
-  <!-- Match driver/home/about header exactly -->
   <header class="topbar">
     <nav class="nav">
       <a href="/index.html">Home</a>
@@ -23,12 +21,12 @@
   </header>
 
   <main class="container">
-    <h1>Sender</h1>
+    <h1>Sender Dashboard</h1>
 
     <!-- Auth area (locked): left Register, right Log in -->
     <div id="senderAuthArea">
       <div class="grid">
-       <section class="card locked-only" id="senderRegisterSection">
+        <section class="card locked-only" id="senderRegisterSection">
           <h2>Register</h2>
           <p class="muted">Invite-only pilot. Register this device to create requests.</p>
 
@@ -48,53 +46,52 @@
             <button class="btn" type="submit">Register</button>
           </form>
 
-          <details class="debug">
-            <summary>Details (for troubleshooting)</summary>
-            <pre id="senderRegOut">{}</pre>
-          </details>
           <div class="result" id="senderRegResult"></div>
         </section>
 
-      <section class="card locked-only" id="senderLoginSection">
+        <section class="card locked-only" id="senderLoginSection">
           <h2>Log in</h2>
           <form id="senderLoginForm">
             <label>Phone</label>
             <input name="phone" placeholder="e.g. 021..." required />
             <div id="senderInviteWrap" class="hidden">
-            <label>Invite code <span class="muted">(only needed the first time on this device)</span></label>
-            <input name="invite_code" id="senderInviteCodeInput" placeholder="Enter invite code" />
-        </div>
+              <label>Invite code <span class="muted">(only needed the first time on this device)</span></label>
+              <input name="invite_code" id="senderInviteCodeInput" placeholder="Enter invite code" />
+            </div>
 
-<div class="muted">  First time here? Register with your invite code. </div>
+            <div class="muted">First time here? Register with your invite code.</div>
 
             <div class="btn-row mt-2">
               <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
             </div>
           </form>
-        <div class="result mt-2" id="senderLoginResult"></div>
-        <div class="muted mt-2" id="senderAuthHint"></div>
+          <div class="result mt-2" id="senderLoginResult"></div>
+          <div class="muted mt-2" id="senderAuthHint"></div>
         </section>
       </div>
 
       <section class="card">
-        <h2>Pilot guide (Sender)</h2>
+        <h2>How it works (Sender)</h2>
         <ol>
-          <li>Create a request and receive offers from approved drivers.</li>
-          <li>Accept an offer and fund escrow (Stripe test mode).</li>
-          <li>After delivery: confirm to release immediately, or auto-release after 24 hours.</li>
+          <li><strong>Create a request</strong> — Describe what you need delivered.</li>
+          <li><strong>Review offers</strong> — Approved drivers submit their price.</li>
+          <li><strong>Accept & pay</strong> — Choose a driver and fund escrow (Stripe test mode).</li>
+          <li><strong>Track delivery</strong> — Your driver updates you at pickup and delivery.</li>
+          <li><strong>Confirm delivery</strong> — Release payment immediately, or it auto-releases after 24 hours.</li>
         </ol>
       </section>
     </div>
 
     <!-- Dashboard (unlocked) -->
-  <div id="senderDashboard" class="hidden">
+    <div id="senderDashboard" class="hidden">
       <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
-  <div class="muted" id="senderAuthStatusDash"></div>
-  <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
-</div>
+        <div class="muted" id="senderAuthStatusDash"></div>
+        <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
+      </div>
 
+      <!-- My Requests (Quick Access) -->
       <section class="card requires-sender" id="senderMyRequestsCard">
-        <h2>My requests</h2>
+        <h2>My Requests</h2>
         <div class="muted" id="senderRecentCount" style="margin-top:6px;"></div>
 
         <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
@@ -107,27 +104,21 @@
         </div>
 
         <div class="muted" style="margin-top:8px;">
-          Select a request to auto-fill forms below. “Pay” and “Release” will scroll you to the right section.
+          Select a request to view details, or use quick actions to jump to payment/release sections.
         </div>
 
+        <!-- Next Action Banner (dynamic guidance) -->
         <div id="senderNextActionBanner" style="margin-top:10px;"></div>
-
-        <details class="debug" style="margin-top:10px;">
-          <summary>Troubleshooting</summary>
-          <div class="muted" style="margin-top:6px;">Convenience only: request list is stored on this device. Server data is authoritative.</div>
-          <div class="btn-row" style="margin-top:10px;">
-            <button class="btn ghost" type="button" id="senderRecentClearBtn">Clear local list</button>
-          </div>
-        </details>
       </section>
 
+      <!-- Create Request -->
       <section class="card requires-sender">
         <h2>Create Delivery Request</h2>
 
         <div class="banner">
           <strong>Before posting a request</strong>
           <div class="muted" style="margin-top:6px;">
-            To ensure maximum consensus, please confirm all items below.
+            Please confirm all items below.
           </div>
 
           <div style="margin-top:10px;">
@@ -172,83 +163,109 @@
           <label>Sender note (optional)</label>
           <textarea name="sender_note"></textarea>
 
-          <button class="btn mt-2" id="createRequestBtn" type="submit" disabled>Create</button>
+          <button class="btn mt-2" id="createRequestBtn" type="submit" disabled>Create Request</button>
         </form>
 
         <div class="result" id="createRequestResult"></div>
         <div id="senderCreateInfo"></div>
-
-      <details class="debug">
-          <summary>Details (for troubleshooting)</summary>
-          <pre id="senderOutput">{}</pre>
-        </details>
       </section>
 
-    <section class="card requires-sender">
-      <h2>View My Request</h2>
-      <form id="viewRequestForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input name="request_id" required />
-        <button class="btn" type="submit">Load</button>
-      </form>
+      <!-- View Request Details -->
+      <section class="card requires-sender">
+        <h2>View Request Details</h2>
+        <p class="muted">Load a request to see its current status, offers, and history.</p>
+        
+        <form id="viewRequestForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input name="request_id" required />
+          <button class="btn" type="submit">Load Request</button>
+        </form>
 
-<section class="card compact requires-sender" id="senderStatusCard">
-  <h3 style="margin-top:0;">Current Status</h3>
-  <div id="senderReqSummary"></div>
-</section>
+        <!-- Current Status Card -->
+        <section class="card compact requires-sender" id="senderStatusCard">
+          <h3 style="margin-top:0;">Current Status</h3>
+          <div id="senderReqSummary"></div>
+        </section>
 
-      <h3>Offers</h3>
-      <div id="senderOffersList"></div>
+        <!-- Offers -->
+        <h3>Offers from Drivers</h3>
+        <div id="senderOffersList"></div>
 
-      <h3>History</h3>
-      <div id="senderHistoryList"></div>
+        <!-- History -->
+        <h3>Activity History</h3>
+        <div id="senderHistoryList"></div>
 
-    <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <h4>Request</h4>
-        <pre id="viewRequestOut">{}</pre>
-        <h4>Offers</h4>
-        <pre id="viewOffersOut">[]</pre>
-        <h4>History</h4>
-        <pre id="viewHistoryOut">[]</pre>
-      </details>
+        <div class="result" id="viewRequestResult"></div>
+        <div class="result" id="viewOffersResult"></div>
+      </section>
 
-      <div class="result" id="viewRequestResult"></div>
-      <div class="result" id="viewOffersResult"></div>
-    </section>
+      <!-- Fund Escrow -->
+      <section class="card requires-sender">
+        <h2>Fund Escrow (Payment)</h2>
+        <p class="muted">Stripe Checkout (test mode). Funds are held until delivery is confirmed.</p>
+        
+        <form id="fundEscrowForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input id="fundRequestId" name="request_id" required />
+          
+          <label>Amount (NZD)</label>
+          <input name="amount_nzd" type="number" step="0.01" required />
+          
+          <button class="btn" type="submit">Pay with Stripe</button>
+        </form>
 
-    <section class="card requires-sender">
-      <h2>Fund Escrow (Stripe test mode)</h2>
-      <form id="fundEscrowForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input id="fundRequestId" name="request_id" required />
-        <label>Amount (NZD)</label>
-        <input name="amount_nzd" type="number" step="0.01" required />
-        <button class="btn" type="submit">Pay</button>
-      </form>
+        <div class="result" id="fundEscrowResult"></div>
+      </section>
 
-     <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="fundEscrowOut">{}</pre>
-      </details>
-      <div class="result" id="fundEscrowResult"></div>
-    </section>
+      <!-- Confirm Delivery / Release Escrow -->
+      <section class="card requires-sender">
+        <h2>Confirm Delivery</h2>
+        <p class="muted">Release payment to your driver after successful delivery. If you don't confirm, payment auto-releases after 24 hours.</p>
+        
+        <form id="releaseEscrowForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input id="releaseRequestId" name="request_id" required />
+          <button class="btn" type="submit">Confirm Delivery & Release Payment</button>
+        </form>
 
-    <section class="card requires-sender">
-      <h2>Confirm Delivery / Release Escrow</h2>
-      <form id="releaseEscrowForm" onsubmit="return false">
-        <label>Request ID</label>
-        <input id="releaseRequestId" name="request_id" required />
-        <button class="btn" type="submit">Confirm & Release</button>
-      </form>
+        <div class="result" id="releaseEscrowResult"></div>
+      </section>
 
-    <details class="debug">
-        <summary>Details (for troubleshooting)</summary>
-        <pre id="releaseEscrowOut">{}</pre>
-      </details>
-      <div class="result" id="releaseEscrowResult"></div>
-    </section>
+      <!-- Advanced Troubleshooting (all debug sections consolidated) -->
+      <section class="card requires-sender">
+        <details class="debug">
+          <summary>Advanced troubleshooting</summary>
+          
+          <div class="muted" style="margin-top:10px;">
+            Technical details for debugging. Stored locally on this device only.
+          </div>
+
+          <h4 style="margin-top:16px;">Request creation response</h4>
+          <pre id="senderOutput">{}</pre>
+
+          <h4 style="margin-top:16px;">Request details</h4>
+          <pre id="viewRequestOut">{}</pre>
+
+          <h4 style="margin-top:16px;">Offers</h4>
+          <pre id="viewOffersOut">[]</pre>
+
+          <h4 style="margin-top:16px;">History</h4>
+          <pre id="viewHistoryOut">[]</pre>
+
+          <h4 style="margin-top:16px;">Payment response</h4>
+          <pre id="fundEscrowOut">{}</pre>
+
+          <h4 style="margin-top:16px;">Release response</h4>
+          <pre id="releaseEscrowOut">{}</pre>
+
+          <div style="margin-top:16px;">
+            <button class="btn ghost" type="button" id="senderRecentClearBtn">Clear saved requests list</button>
+          </div>
+        </details>
+      </section>
+    </div>
   </main>
-<script type="module" src="/js/app.js"></script>
+
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>
