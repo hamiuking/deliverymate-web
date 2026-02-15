@@ -790,6 +790,7 @@ function setupSenderAuth() {
 
     // Ensure api.js can always auth via X-User-Token
 sessionStorage.setItem("dm_user_token", res.user_token);
+localStorage.setItem("dm_user_token", res.user_token);
 
 // IMPORTANT: do NOT set dm_sender_token from user_token.
 // Clear it so we don't send a wrong X-Sender-Token header.
@@ -809,6 +810,7 @@ setSessionToken("");
     logoutBtn.__bound = true;
     logoutBtn.addEventListener("click", () => {
       sessionStorage.removeItem("dm_user_token");
+      localStorage.removeItem("dm_user_token");
       setSessionToken("");
       setAuthStatus("Not logged in");
       setDashboardVisible(false);
@@ -878,6 +880,12 @@ function setupQuickButtons() {
 --------------------------------------------------------- */
 
 export function initSenderPage() {
+   try {
+  const s = sessionStorage.getItem("dm_user_token");
+  const l = localStorage.getItem("dm_user_token");
+  if (!s && l) sessionStorage.setItem("dm_user_token", l);
+} catch (_) {}
+
   setupSenderAuth();
   setupCreateAcksGate();   // ✅ enables Create button when acked
   setupCreateRequest();    // ✅ payload aligned to current HTML
