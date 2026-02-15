@@ -417,10 +417,59 @@ function setupCreateRequest() {
 
     const fd = getFormData(form);
 
+    // ✅ Verify acknowledgements are checked
+    const ackOk =
+      !!document.getElementById("sAck1")?.checked &&
+      !!document.getElementById("sAck2")?.checked &&
+      !!document.getElementById("sAck3")?.checked &&
+      !!document.getElementById("sAck4")?.checked;
+
+    if (!ackOk) {
+      if (btn) btn.disabled = false;
+      if (result) setResult(result, alertError("Please tick all acknowledgements to continue."));
+      return;
+    }
+
+    // ✅ Auto-include sender_phone from logged-in user
+    const u = getSavedUser();
+    const sender_phone = String(u?.phone || "").trim();
+    if (!sender_phone) {
+      if (btn) btn.disabled = false;
+      if (result) setResult(result, alertError("Your login session is missing a phone number. Please log out and log in again."));
+      return;
+    }
+
+    const pickup_suburb = String(fd.pickup_suburb || "").trim();
+    const dropoff_suburb = String(fd.dropoff_suburb || "").trim();
+    const item_desc = String(fd.item_desc || "").trim();
+    const sender_note = String(fd.sender_note || "").trim();
+
+    if (!pickup_suburb || !dropoff_suburb || !item_desc) {
+      if (btn) btn.disabled = false;
+      if (result) setResult(result, alertError("Pickup suburb, drop-off suburb, and item description are required."));
+      return;
+    }
+
+    // ✅ Backend expects item_description (max 300 chars) and combines note
+    let item_description = item_desc;
+    if (sender_note) item_description = `${item_desc} | Note: ${sender_note}`;
+    item_description = item_description.slice(0, 300);
+
+    // ✅ Build proper payload matching backend expectations
+    const body = {
+      sender_phone,
+      pickup_suburb,
+      dropoff_suburb,
+      item_description, // Backend expects this field name
+      weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
+      suggested_price_nzd: fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
+      sender_ack_version: "v1" // Required by backend
+    };
+
     const res = await api("/requests", {
       method: "POST",
       role: "sender",
-      body: fd,
+      body,
     });
 
     if (btn) btn.disabled = false;
