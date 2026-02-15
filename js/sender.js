@@ -589,8 +589,8 @@ function setupViewRequest() {
       updateNextActionBanner(null);
     }
 
-    renderOffers(offers);
-    renderHistory(hist);
+    renderOffers(offers, req.request); // Pass request data
+    renderHistory(hist, req.request); // Pass request data
 
     if (offersResult) {
       setResult(offersResult, offers.ok ? "" : alertError(offers.error || "Failed to load offers"));
@@ -598,7 +598,7 @@ function setupViewRequest() {
   });
 }
 
-function renderOffers(offers) {
+function renderOffers(offers, requestData) {
   const list = document.getElementById("senderOffersList");
   if (!list) return;
   list.innerHTML = "";
@@ -612,6 +612,25 @@ function renderOffers(offers) {
     list.insertAdjacentHTML("beforeend", `<div class="muted">No offers yet.</div>`);
     return;
   }
+
+  // Check if offer has been accepted (status = 'accepted' or later)
+  const status = String(requestData?.status || "").toLowerCase();
+  const isAccepted = ["accepted", "picked_up", "delivered", "cancelled"].includes(status);
+
+  // Wrap in collapsible details, auto-collapsed if accepted
+  const detailsOpen = !isAccepted; // Open if NOT accepted, closed if accepted
+  
+  const detailsWrapper = document.createElement("details");
+  if (detailsOpen) detailsWrapper.setAttribute("open", "");
+  detailsWrapper.style.marginTop = "10px";
+  
+  const summary = document.createElement("summary");
+  summary.style.cursor = "pointer";
+  summary.style.fontWeight = "600";
+  summary.style.marginBottom = "10px";
+  summary.textContent = `${offers.offers.length} offer${offers.offers.length === 1 ? '' : 's'} received ${isAccepted ? '(accepted - click to view)' : ''}`;
+  
+  detailsWrapper.appendChild(summary);
 
   for (const o of offers.offers) {
     const price = offerPriceFromOfferObj(o);
@@ -639,11 +658,13 @@ function renderOffers(offers) {
         >Accept</button>
       </div>
     `;
-    list.appendChild(card);
+    detailsWrapper.appendChild(card);
   }
+  
+  list.appendChild(detailsWrapper);
 }
 
-function renderHistory(hist) {
+function renderHistory(hist, requestData) {
   const list = document.getElementById("senderHistoryList");
   if (!list) return;
   list.innerHTML = "";
@@ -659,6 +680,25 @@ function renderHistory(hist) {
     return;
   }
 
+  // Check if offer has been accepted
+  const status = String(requestData?.status || "").toLowerCase();
+  const isAccepted = ["accepted", "picked_up", "delivered", "cancelled"].includes(status);
+
+  // Wrap in collapsible details, auto-collapsed if accepted
+  const detailsOpen = !isAccepted;
+  
+  const detailsWrapper = document.createElement("details");
+  if (detailsOpen) detailsWrapper.setAttribute("open", "");
+  detailsWrapper.style.marginTop = "10px";
+  
+  const summary = document.createElement("summary");
+  summary.style.cursor = "pointer";
+  summary.style.fontWeight = "600";
+  summary.style.marginBottom = "10px";
+  summary.textContent = `${events.length} activity event${events.length === 1 ? '' : 's'} ${isAccepted ? '(click to view)' : ''}`;
+  
+  detailsWrapper.appendChild(summary);
+
   const card = document.createElement("div");
   card.className = "card compact";
   card.innerHTML = `
@@ -670,7 +710,8 @@ function renderHistory(hist) {
       }).join("")}
     </ul>
   `;
-  list.appendChild(card);
+  detailsWrapper.appendChild(card);
+  list.appendChild(detailsWrapper);
 }
 
 /* ---------------------------------------------------------
