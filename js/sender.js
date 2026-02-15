@@ -880,12 +880,22 @@ function setupQuickButtons() {
 --------------------------------------------------------- */
 
 export function initSenderPage() {
-   // Restore dm_user_token into sessionStorage if missing (Stripe return fix)
-   try {
-  const s = sessionStorage.getItem("dm_user_token");
-  const l = localStorage.getItem("dm_user_token");
-  if (!s && l) sessionStorage.setItem("dm_user_token", l);
-} catch (_) {}
+
+  // Restore dm_user_token (login token)
+  try {
+    const s = sessionStorage.getItem("dm_user_token");
+    const l = localStorage.getItem("dm_user_token");
+    if (!s && l) sessionStorage.setItem("dm_user_token", l);
+  } catch (_) {}
+
+  // Restore dm_sender_token (per-request token)
+  try {
+    const reqId = new URL(window.location.href).searchParams.get("request_id");
+    if (reqId) {
+      const saved = loadSenderTokenForRequest(reqId);
+      if (saved) sessionStorage.setItem("dm_sender_token", saved);
+    }
+  } catch (_) {}
 
   // Immediately update UI based on restored token
    const tok = getSessionToken();
