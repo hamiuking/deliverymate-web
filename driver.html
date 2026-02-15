@@ -206,10 +206,14 @@
           <button class="btn" type="submit">Load Job</button>
         </form>
 
-        <div id="driverJobSummary"></div>
-        <h3>Activity History</h3>
-        <div id="driverHistoryList"></div>
         <div class="result" id="driverViewResult"></div>
+
+        <!-- Details section (hidden until job loaded) -->
+        <div id="driverJobDetails" class="hidden" style="margin-top:16px;">
+          <div id="driverJobSummary"></div>
+          <h3>Activity History</h3>
+          <div id="driverHistoryList"></div>
+        </div>
       </section>
 
       <!-- Update Status -->
@@ -244,7 +248,7 @@
       <!-- Report an Issue -->
       <section class="card requires-driver">
         <h2>Report an Issue</h2>
-        <p class="muted">Generate a message to send to admin@deliverymate.nz.</p>
+        <p class="muted">Generate a message to send to <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b9d8ddd4d0d7f9dddcd5d0cfdccbc0d4d8cddc97d7c3">[email&#160;protected]</a>.</p>
 
         <form id="driverIssueForm">
           <label>Request ID (optional)</label>
@@ -287,11 +291,4 @@
           <pre id="driverOpenJobsDebug">[]</pre>
 
           <div style="margin-top:16px;">
-            <button class="btn ghost" type="button" id="driverRecentClearBtn">Clear saved jobs list</button>
-          </div>
-        </details>
-      </section>
-    </div>
-  </main>
-</body>
-</html>
+            <button class="btn ghost" type="button" id="driverRecentClearBt
