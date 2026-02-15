@@ -136,10 +136,19 @@
         </div>
       </section>
 
-      <!-- Open Jobs (Browse & Offer) - TOP PRIORITY -->
+      <!-- My Active Jobs - TOP PRIORITY (jobs that need action) -->
+      <section class="card requires-driver">
+        <h2>My Active Jobs</h2>
+        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading...</div>
+        
+        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
+        <div class="result" id="driverActiveJobsResult"></div>
+      </section>
+
+      <!-- Open Jobs (Browse & Offer) -->
       <section class="card requires-driver">
         <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h2 style="margin:0;">Open Jobs</h2>
+          <h2 style="margin:0;">Open Jobs (Available for Offers)</h2>
           <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
         </div>
         <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
@@ -175,51 +184,51 @@
         </div>
       </section>
 
-      <!-- Update Status - SECOND PRIORITY (for active deliveries) -->
+      <!-- Quick Actions - COLLAPSIBLE (for manual updates) -->
       <section class="card requires-driver">
-        <h2>Update Status</h2>
-        <p class="muted">Mark as picked up when you collect the item. Mark as delivered when drop-off is complete (photo required).</p>
+        <details>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Quick Actions (Manual Entry)</summary>
+          <div style="margin-top:12px;">
+            
+            <!-- Update Status -->
+            <h3>Update Status</h3>
+            <p class="muted">Use this if you prefer manual entry, or use the buttons in "My Active Jobs" above.</p>
 
-        <form id="driverStatusForm">
-          <label>Request ID</label>
-          <input name="request_id" id="driverStatusRequestId" required />
+            <form id="driverStatusForm">
+              <label>Request ID</label>
+              <input name="request_id" id="driverStatusRequestId" required />
 
-          <label>Status</label>
-          <select name="status" id="driverStatusSelect">
-            <option value="picked_up">Picked up (item collected)</option>
-            <option value="delivered">Delivered (drop-off complete)</option>
-          </select>
+              <label>Status</label>
+              <select name="status" id="driverStatusSelect">
+                <option value="picked_up">Picked up (item collected)</option>
+                <option value="delivered">Delivered (drop-off complete)</option>
+              </select>
 
-          <input type="hidden" name="driver_name" id="driverStatusDriverName" />
+              <input type="hidden" name="driver_name" id="driverStatusDriverName" />
 
-          <div id="deliveredPhotoBlock" class="mt-2">
-            <label>Delivery photo (required for delivered)</label>
-            <input type="file" id="delivered_photo_file" accept="image/*" />
-            <div class="muted" style="margin-top:4px;">Take a photo showing the item at drop-off location.</div>
+              <div id="deliveredPhotoBlock" class="mt-2">
+                <label>Delivery photo (required for delivered)</label>
+                <input type="file" id="delivered_photo_file" accept="image/*" />
+                <div class="muted" style="margin-top:4px;">Take a photo showing the item at drop-off location.</div>
+              </div>
+
+              <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update Status</button>
+            </form>
+
+            <div class="result" id="driverStatusResult"></div>
+
+            <!-- Saved Jobs Dropdown -->
+            <h3 style="margin-top:24px;">My Saved Jobs</h3>
+            <p class="muted">Quick access to jobs you've interacted with.</p>
+            
+            <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
+              <select id="driverRecentSelect" class="select"></select>
+              <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
+              <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
+            </div>
+            <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
           </div>
-
-          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update Status</button>
-        </form>
-
-        <div class="result" id="driverStatusResult"></div>
-      </section>
-
-      <!-- My Assigned Jobs (Quick Access) -->
-      <section class="card requires-driver">
-        <h2>My Assigned Jobs</h2>
-        <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
-
-        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
-          <select id="driverRecentSelect" class="select"></select>
-          <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
-          <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
-          <span style="flex:1;"></span>
-          <button class="btn" type="button" id="driverQuickUpdateBtn">Update Status</button>
-        </div>
-
-        <div class="muted" style="margin-top:8px;">
-          Select a job to view details or quickly update its status.
-        </div>
+        </details>
       </section>
 
       <!-- Current Job Status - COLLAPSIBLE -->
