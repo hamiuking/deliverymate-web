@@ -875,20 +875,23 @@ function setupQuickButtons() {
 }
 
 /* ---------------------------------------------------------
-   Init
+   Init (clean + stable)
 --------------------------------------------------------- */
 
 export function initSenderPage() {
 
-  // Restore dm_user_token (login token)
+  //
+  // 1. Restore tokens BEFORE anything else
+  //
   try {
+    // Restore login token
     const s = sessionStorage.getItem("dm_user_token");
     const l = localStorage.getItem("dm_user_token");
     if (!s && l) sessionStorage.setItem("dm_user_token", l);
   } catch (_) {}
 
-  // Restore dm_sender_token (per-request token)
   try {
+    // Restore per-request sender token (Stripe return)
     const reqId = new URL(window.location.href).searchParams.get("request_id");
     if (reqId) {
       const saved = loadSenderTokenForRequest(reqId);
@@ -896,7 +899,9 @@ export function initSenderPage() {
     }
   } catch (_) {}
 
-  // Immediately update UI based on restored token
+  //
+  // 2. Update UI immediately based on restored token
+  //
   const tok = getSessionToken();
   const u = getSavedUser();
 
@@ -908,7 +913,9 @@ export function initSenderPage() {
     setDashboardVisible(false);
   }
 
-  // Load everything EXCEPT setupSenderAuth()
+  //
+  // 3. Load all functional modules (NOT auth yet)
+  //
   setupCreateAcksGate();
   setupCreateRequest();
   setupViewRequest();
@@ -916,10 +923,17 @@ export function initSenderPage() {
   setupConfirmRelease();
   setupSenderOffersActions();
   setupQuickButtons();
+
+  // Stripe return auto-refresh
   handlePaidRedirectRefresh();
 
-  // 🔥 Call setupSenderAuth() LAST so it does NOT overwrite restored login state
+  //
+  // 4. Auth LAST — so it cannot override restored login state
+  //
   setupSenderAuth();
 
+  //
+  // 5. Render recent requests
+  //
   renderRecentRequests();
 }
