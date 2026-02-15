@@ -1156,8 +1156,8 @@ async function renderSenderActiveRequests() {
 
   const res = await api("/sender/requests", { method: "GET", role: "sender" });
   if (!res || !res.ok) {
-    listEl.innerHTML = `<div class="muted">(Failed to load requests)</div>`;
-    if (countEl) countEl.textContent = "Failed to load.";
+    listEl.innerHTML = `<div class="muted">No active requests yet. Create a delivery request below to get started!</div>`;
+    if (countEl) countEl.textContent = "No active requests.";
     return;
   }
 
