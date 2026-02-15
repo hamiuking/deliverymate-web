@@ -788,6 +788,7 @@ function renderOpenJobPreview(r) {
 async function refreshDriverOpenJobs() {
   const listEl = document.getElementById("driverOpenJobsList");
   const resultEl = document.getElementById("driverOpenJobsResult");
+  const countEl = document.getElementById("driverOpenCount"); // ✅ Add this
   if (!listEl) return;
 
   listEl.innerHTML = `<div class="muted">Loading…</div>`;
