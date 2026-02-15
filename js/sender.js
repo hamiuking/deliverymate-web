@@ -1144,6 +1144,195 @@ function setupQuickButtons() {
 }
 
 /* ---------------------------------------------------------
+   Active Requests - Show requests needing action at top of dashboard
+--------------------------------------------------------- */
+
+async function renderSenderActiveRequests() {
+  const listEl = document.getElementById("senderActiveRequestsList");
+  const countEl = document.getElementById("senderActiveRequestsCount");
+  if (!listEl) return;
+
+  listEl.innerHTML = `<div class="muted">Loading...</div>`;
+
+  const res = await api("/sender/requests", { method: "GET", role: "sender" });
+  if (!res || !res.ok) {
+    listEl.innerHTML = `<div class="muted">(Failed to load requests)</div>`;
+    if (countEl) countEl.textContent = "Failed to load.";
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+
+  // Filter to only requests that need action
+  const active = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+    return !["cancelled", "released", "completed"].includes(status) &&
+           !(status === "delivered" && escrowStatus === "released");
+  });
+
+  if (active.length === 0) {
+    listEl.innerHTML = `<div class="muted">No active requests. Create a new delivery request below!</div>`;
+    if (countEl) countEl.textContent = "No active requests.";
+    return;
+  }
+
+  // Count needs-action vs waiting
+  const needsAction = active.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+    return (status === "open" && (r.offers_count > 0 || r.has_offers)) ||
+           (status === "accepted" && escrowStatus === "none") ||
+           (status === "delivered" && escrowStatus === "pending_release");
+  });
+
+  if (countEl) {
+    if (needsAction.length > 0) {
+      countEl.textContent = `${needsAction.length} request${needsAction.length === 1 ? '' : 's'} need${needsAction.length === 1 ? 's' : ''} your attention!`;
+    } else {
+      countEl.textContent = `${active.length} active request${active.length === 1 ? '' : 's'} in progress.`;
+    }
+  }
+
+  listEl.innerHTML = "";
+
+  for (const r of active) {
+    const id = String(r.id || "");
+    const status = String(r.status || "").toLowerCase();
+    const escrowStatus = String(r.escrow_status || "none").toLowerCase();
+    const pickup = safeText(r.pickup_suburb || "");
+    const dropoff = safeText(r.dropoff_suburb || "");
+    const offersCount = r.offers_count || r.offers?.length || 0;
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.margin = "8px 0";
+    card.style.padding = "12px";
+
+    // Determine state message, action button, and card colour
+    let statusMessage = "";
+    let actionButton = "";
+    let cardStyle = "";
+
+    // State: Open, no offers yet
+    if (status === "open" && offersCount === 0) {
+      statusMessage = `⏳ <strong>Waiting for driver offers</strong>`;
+      cardStyle = "background: rgba(148,163,184,.08); border-color: rgba(148,163,184,.3);";
+    }
+
+    // State: Open, has offers - needs action!
+    else if (status === "open" && offersCount > 0) {
+      statusMessage = `🙋 <strong>${offersCount} offer${offersCount === 1 ? '' : 's'} received!</strong> — Review and accept`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.4);";
+      actionButton = `<button class="btn activeReqViewBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%;">Review Offers</button>`;
+    }
+
+    // State: Accepted, needs payment - needs action!
+    else if (status === "accepted" && escrowStatus === "none") {
+      statusMessage = `💳 <strong>Offer accepted!</strong> — Payment required to proceed`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.4);";
+      actionButton = `<button class="btn activeReqFundBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%; background:#0284c7; border-color:#0284c7;">💳 Pay with Stripe</button>`;
+    }
+
+    // State: Funded, waiting for pickup
+    else if (status === "accepted" && escrowStatus === "funded") {
+      statusMessage = `✓ <strong>Payment confirmed</strong> — Waiting for driver pickup`;
+      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
+    }
+
+    // State: Picked up
+    else if (status === "picked_up") {
+      statusMessage = `🚗 <strong>Item picked up!</strong> — On the way to drop-off`;
+      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
+    }
+
+    // State: Delivered, confirm release - needs action!
+    else if (status === "delivered" && escrowStatus === "pending_release") {
+      statusMessage = `📦 <strong>Item delivered!</strong> — Confirm to release payment`;
+      cardStyle = "background: rgba(34,197,94,.05); border-color: rgba(34,197,94,.4);";
+      actionButton = `<button class="btn activeReqReleaseBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">✓ Confirm Delivery & Release Payment</button>`;
+    }
+
+    card.style.cssText += cardStyle;
+    card.innerHTML = `
+      <div>
+        <div style="font-weight:700;">Request #${safeText(id)}</div>
+        <div style="margin-top:4px;">${pickup} → ${dropoff}</div>
+        <div style="margin-top:8px; font-size:14px;">${statusMessage}</div>
+        ${actionButton}
+      </div>
+    `;
+
+    listEl.appendChild(card);
+  }
+
+  // Wire up inline buttons
+  listEl.onclick = async (e) => {
+    const viewBtn = e.target?.closest?.(".activeReqViewBtn");
+    const fundBtn = e.target?.closest?.(".activeReqFundBtn");
+    const releaseBtn = e.target?.closest?.(".activeReqReleaseBtn");
+
+    // Review Offers → load the request in View section
+    if (viewBtn) {
+      const id = viewBtn.dataset.id;
+      const viewForm = document.getElementById("viewRequestForm");
+      if (viewForm) {
+        viewForm.request_id.value = id;
+        viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }
+    }
+
+    // Pay → auto-fill and submit fund form
+    if (fundBtn) {
+      const id = fundBtn.dataset.id;
+      const fundForm = document.getElementById("fundEscrowForm");
+      if (fundForm) {
+        if (fundForm.request_id) fundForm.request_id.value = id;
+        const price = loadAcceptedPriceForRequest(id);
+        if (fundForm.amount_nzd && price) {
+          fundForm.amount_nzd.value = price;
+          fundForm.amount_nzd.readOnly = true;
+        }
+        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => {
+          fundForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }, 300);
+      }
+    }
+
+    // Confirm release → inline, no scrolling
+    if (releaseBtn) {
+      const id = releaseBtn.dataset.id;
+      if (!confirm("Confirm delivery and release payment to driver?")) return;
+
+      releaseBtn.disabled = true;
+      releaseBtn.textContent = "Releasing...";
+
+      const res = await api(`/requests/${id}/escrow/release`, {
+        method: "POST",
+        role: "sender",
+        body: {},
+      });
+
+      if (res.ok) {
+        // Refresh active requests to show updated state
+        renderSenderActiveRequests();
+        // Also refresh the view if loaded
+        const viewForm = document.getElementById("viewRequestForm");
+        if (viewForm?.request_id?.value === id) {
+          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
+      } else {
+        alert(res.error || "Failed to release payment");
+        releaseBtn.disabled = false;
+        releaseBtn.textContent = "✓ Confirm Delivery & Release Payment";
+      }
+    }
+  };
+}
+
+/* ---------------------------------------------------------
    Init - FIXED: Check dm_user_token
 --------------------------------------------------------- */
 
@@ -1202,7 +1391,13 @@ export function initSenderPage() {
   setupSenderAuth();
 
   //
-  // 5. Render recent requests
+  // 5. Render recent requests + active requests
   //
   renderRecentRequests();
+  
+  // ✅ NEW: Show active requests at top, auto-refresh every 30s
+  renderSenderActiveRequests();
+  setInterval(() => {
+    try { renderSenderActiveRequests(); } catch (_) {}
+  }, 30000);
 }
