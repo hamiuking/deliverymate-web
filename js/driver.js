@@ -813,12 +813,22 @@ async function refreshDriverOpenJobs() {
 
   if (open.length === 0) {
     listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
+    if (countEl) countEl.textContent = "No open jobs available.";
     return;
   }
 
-  // Render compact rows with Offer/View actions
+  // Update count display
+  if (countEl) {
+    if (open.length > 5) {
+      countEl.textContent = `Showing 5 of ${open.length} open jobs. More coming soon with location-based filtering.`;
+    } else {
+      countEl.textContent = `${open.length} open job${open.length === 1 ? '' : 's'} available.`;
+    }
+  }
+
+  // Render compact rows with Offer/View actions (limit to 5)
   listEl.innerHTML = "";
-  for (const r of open.slice(0, 30)) { // cap for UX
+  for (const r of open.slice(0, 5)) { // Show only 5 most recent
     const id = String(r.id || "");
     const row = document.createElement("div");
     row.className = "card";
