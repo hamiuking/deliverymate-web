@@ -495,6 +495,7 @@ function setupDriverLogin() {
     e.preventDefault();
     const fd = new FormData(form);
     const phone = String(fd.get("phone") || "").trim();
+    const email = String(fd.get("email") || "").trim() || undefined;
 
     if (!phone) {
       if (hint) hint.textContent = "Phone is required";
@@ -504,7 +505,7 @@ function setupDriverLogin() {
     if (hint) hint.textContent = "Logging in…";
 
     // Backend login no longer requires invite_code (invite codes are onboarding only)
-    const res = await api("/users/login", { method: "POST", body: { phone } });
+    const res = await api("/users/login", { method: "POST", body: { phone, ...(email && { email }) } });
 
     if (!res.ok) {
       if (hint) hint.textContent = res.error || "Login failed";
