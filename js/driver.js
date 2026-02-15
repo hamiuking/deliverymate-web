@@ -957,6 +957,16 @@ function setupViewJob() {
     done(!!req.ok);
     if (result) setResult(result, req.ok ? alertSuccess("Loaded") : alertError(req.error || "Failed"));
     
+    // NEW: Show/hide details section
+    const detailsSection = document.getElementById("driverJobDetails");
+    if (detailsSection) {
+      if (req && req.ok && req.request) {
+        detailsSection.classList.remove("hidden");
+      } else {
+        detailsSection.classList.add("hidden");
+      }
+    }
+    
     // NEW: Update next action banner
     if (req && req.ok && req.request) {
       try {
