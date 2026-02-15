@@ -417,6 +417,12 @@ function setupCreateRequest() {
 
     const fd = getFormData(form);
 
+    // ✅ Auto-include sender_phone from logged-in user
+    const u = getSavedUser();
+    if (u && u.phone) {
+      fd.sender_phone = u.phone;
+    }
+
     const res = await api("/requests", {
       method: "POST",
       role: "sender",
