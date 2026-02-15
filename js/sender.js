@@ -624,11 +624,11 @@ try {
 } catch (_) {}
 
 
-    const res = await api(`/requests/${encodeURIComponent(requestId)}/release`, {
-      method: "POST",
-      role: "sender",
-      body: {}
-    });
+const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/release`, {
+  method: "POST",
+  role: "sender",
+  body: {}
+});
 
     if (out) setResult(out, res.ok ? alertSuccess("Funds released") : alertError(res.error || "Failed"));
   });
