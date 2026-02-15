@@ -181,22 +181,25 @@
           <button class="btn" type="submit">Load Request</button>
         </form>
 
-        <!-- Current Status Card -->
-        <section class="card compact requires-sender" id="senderStatusCard">
-          <h3 style="margin-top:0;">Current Status</h3>
-          <div id="senderReqSummary"></div>
-        </section>
-
-        <!-- Offers -->
-        <h3>Offers from Drivers</h3>
-        <div id="senderOffersList"></div>
-
-        <!-- History -->
-        <h3>Activity History</h3>
-        <div id="senderHistoryList"></div>
-
         <div class="result" id="viewRequestResult"></div>
         <div class="result" id="viewOffersResult"></div>
+
+        <!-- Details section (hidden until request loaded) -->
+        <div id="senderRequestDetails" class="hidden" style="margin-top:16px;">
+          <!-- Current Status Card -->
+          <section class="card compact requires-sender" id="senderStatusCard">
+            <h3 style="margin-top:0;">Current Status</h3>
+            <div id="senderReqSummary"></div>
+          </section>
+
+          <!-- Offers -->
+          <h3>Offers from Drivers</h3>
+          <div id="senderOffersList"></div>
+
+          <!-- History -->
+          <h3>Activity History</h3>
+          <div id="senderHistoryList"></div>
+        </div>
       </section>
 
       <!-- Fund Escrow -->
