@@ -860,12 +860,18 @@ async function refreshDriverOpenJobs() {
     if (!id) return;
 
     if (act === "offer") {
-      const offerForm = document.getElementById("driverOfferForm");
-      if (offerForm?.request_id) {
-        offerForm.request_id.value = id;
-        offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        // focus price if present
-        if (offerForm.price_nzd) offerForm.price_nzd.focus();
+      // NEW: Show inline offer form instead of scrolling
+      const job = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
+      if (job) {
+        showInlineOfferForm(job);
+      } else {
+        // Fallback: scroll to form
+        const offerForm = document.getElementById("driverOfferForm");
+        if (offerForm?.request_id) {
+          offerForm.request_id.value = id;
+          offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (offerForm.price_nzd) offerForm.price_nzd.focus();
+        }
       }
     }
 
@@ -906,8 +912,130 @@ function setupDriverOpenJobs() {
   const btn = document.getElementById("driverOpenJobsRefreshBtn");
   if (btn) btn.addEventListener("click", refreshDriverOpenJobs);
 
+  // Setup inline offer form
+  setupInlineOfferForm();
+
   // Load once on init (safe even if card hidden)
   refreshDriverOpenJobs();
+}
+
+/* -----------------------------
+   Inline Offer Form (Quick Offer from Open Jobs)
+----------------------------- */
+function showInlineOfferForm(job) {
+  const section = document.getElementById("driverInlineOfferSection");
+  const reqIdSpan = document.getElementById("inlineOfferRequestId");
+  const reqIdInput = document.getElementById("inlineOfferRequestIdInput");
+  const jobInfo = document.getElementById("inlineOfferJobInfo");
+  const priceInput = document.getElementById("inlineOfferPrice");
+  
+  if (!section) return;
+  
+  // Populate form
+  if (reqIdSpan) reqIdSpan.textContent = job.id;
+  if (reqIdInput) reqIdInput.value = job.id;
+  if (jobInfo) {
+    const pickup = escapeHtml(job.pickup_suburb || "");
+    const dropoff = escapeHtml(job.dropoff_suburb || "");
+    const item = escapeHtml(job.item_description || "");
+    jobInfo.innerHTML = `<strong>${pickup} → ${dropoff}</strong><br>${item}`;
+  }
+  
+  // Show section and focus price
+  section.classList.remove("hidden");
+  if (priceInput) {
+    setTimeout(() => priceInput.focus(), 100);
+  }
+  
+  // Scroll to it
+  section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function hideInlineOfferForm() {
+  const section = document.getElementById("driverInlineOfferSection");
+  if (section) section.classList.add("hidden");
+  
+  // Clear form
+  const form = document.getElementById("driverInlineOfferForm");
+  if (form) form.reset();
+  
+  const result = document.getElementById("inlineOfferResult");
+  if (result) result.innerHTML = "";
+}
+
+function setupInlineOfferForm() {
+  const form = document.getElementById("driverInlineOfferForm");
+  const cancelBtn = document.getElementById("inlineOfferCancelBtn");
+  const result = document.getElementById("inlineOfferResult");
+  
+  if (!form) return;
+  
+  // Cancel button
+  if (cancelBtn && !cancelBtn.__bound) {
+    cancelBtn.__bound = true;
+    cancelBtn.addEventListener("click", hideInlineOfferForm);
+  }
+  
+  // Submit
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const offerBtn = document.getElementById("driverOfferBtn");
+    if (offerBtn && offerBtn.disabled) {
+      if (result) setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
+      return;
+    }
+    
+    const submitBtn = document.getElementById("inlineOfferSubmitBtn");
+    const done = setWorking(submitBtn, "Submitting...");
+    if (result) setResult(result, "");
+    
+    const requestId = document.getElementById("inlineOfferRequestIdInput")?.value;
+    const price = document.getElementById("inlineOfferPrice")?.value;
+    const note = document.getElementById("inlineOfferNote")?.value || "";
+    
+    const body = {
+      price_nzd: price,
+      note: note,
+      ...getDriverAckMeta()
+    };
+    
+    // Add optional convenience fields
+    const u = getSavedDriverUser();
+    if (u?.phone) body.driver_phone = u.phone;
+    if (u?.full_name) body.driver_name = u.full_name;
+    
+    const res = await api(`/requests/${requestId}/offers`, {
+      method: "POST",
+      body: body,
+      role: "driver",
+    });
+    
+    done(!!res.ok);
+    
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Offer submitted!"));
+      
+      // Refresh assigned jobs
+      try {
+        refreshDriverAssignedJobs();
+        
+        // Show banner
+        updateDriverNextActionBanner({
+          id: requestId,
+          status: "open",
+          driver_name: getSavedDriverUser()?.full_name || "",
+        });
+      } catch (_) {}
+      
+      // Hide form after 1.5 seconds
+      setTimeout(() => {
+        hideInlineOfferForm();
+      }, 1500);
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to submit offer"));
+    }
+  });
 }
 
 /* -----------------------------
