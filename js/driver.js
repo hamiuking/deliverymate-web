@@ -599,6 +599,203 @@ function setupMakeOffer() {
 }
 
 /* -----------------------------
+   Active Jobs (jobs that need driver action)
+----------------------------- */
+async function renderDriverActiveJobs() {
+  const listEl = document.getElementById("driverActiveJobsList");
+  const countEl = document.getElementById("driverActiveJobsCount");
+  const resultEl = document.getElementById("driverActiveJobsResult");
+  
+  if (!listEl) return;
+  
+  listEl.innerHTML = `<div class="muted">Loading...</div>`;
+  if (countEl) countEl.textContent = "Loading...";
+  
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    listEl.innerHTML = `<div class="muted">(Failed to load active jobs)</div>`;
+    if (countEl) countEl.textContent = "Failed to load.";
+    if (resultEl) setResult(resultEl, alertError(res?.error || "Load failed"));
+    return;
+  }
+  
+  const all = Array.isArray(res.requests) ? res.requests : [];
+  
+  // Filter to jobs that need action
+  const needsAction = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+    
+    // Show if: 
+    // - Offer accepted, escrow funded, ready for pickup
+    // - Picked up, ready for delivery
+    return (status === "accepted" && escrowStatus === "funded") || 
+           (status === "picked_up");
+  });
+  
+  // Also show offers waiting for acceptance
+  const offersPending = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+    return (status === "open") || (status === "accepted" && escrowStatus === "none");
+  });
+  
+  const allActive = [...needsAction, ...offersPending];
+  
+  if (allActive.length === 0) {
+    listEl.innerHTML = `<div class="muted">No active jobs. Browse "Open Jobs" below to make offers!</div>`;
+    if (countEl) countEl.textContent = "No active jobs.";
+    return;
+  }
+  
+  if (countEl) {
+    const actionCount = needsAction.length;
+    const pendingCount = offersPending.length;
+    
+    if (actionCount > 0 && pendingCount > 0) {
+      countEl.textContent = `${actionCount} job${actionCount === 1 ? '' : 's'} ready for action, ${pendingCount} offer${pendingCount === 1 ? '' : 's'} pending.`;
+    } else if (actionCount > 0) {
+      countEl.textContent = `${actionCount} job${actionCount === 1 ? '' : 's'} ready for action!`;
+    } else {
+      countEl.textContent = `${pendingCount} offer${pendingCount === 1 ? '' : 's'} waiting for sender acceptance.`;
+    }
+  }
+  
+  listEl.innerHTML = "";
+  
+  for (const r of allActive) {
+    const id = String(r.id || "");
+    const status = String(r.status || "").toLowerCase();
+    const escrowStatus = String(r.escrow_status || "none").toLowerCase();
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const item = escapeHtml((r.item_description || "").slice(0, 60));
+    
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.margin = "8px 0";
+    card.style.padding = "12px";
+    
+    // Determine status message and action button
+    let statusMessage = "";
+    let actionButton = "";
+    let cardStyle = "";
+    
+    // State: Offer pending
+    if (status === "open") {
+      statusMessage = `⏳ <strong>Offer pending</strong> — Waiting for sender to accept`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
+    }
+    
+    // State: Accepted but not funded
+    else if (status === "accepted" && escrowStatus === "none") {
+      statusMessage = `✓ <strong>Offer accepted!</strong> — Waiting for sender to fund escrow`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
+    }
+    
+    // State: Ready for pickup
+    else if (status === "accepted" && escrowStatus === "funded") {
+      statusMessage = `💰 <strong>Payment received!</strong> — Ready for pickup`;
+      cardStyle = "background: rgba(34,197,94,.05); border-color: rgba(34,197,94,.3);";
+      actionButton = `<button class="btn activeJobPickupBtn" data-id="${escapeHtml(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">Mark as Picked Up</button>`;
+    }
+    
+    // State: Picked up, in transit
+    else if (status === "picked_up") {
+      statusMessage = `🚗 <strong>In transit</strong> — Ready for delivery`;
+      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
+      actionButton = `<button class="btn activeJobDeliverBtn" data-id="${escapeHtml(id)}" style="margin-top:10px; width:100%; background:#0284c7; border-color:#0284c7;">Mark as Delivered</button>`;
+    }
+    
+    card.style.cssText += cardStyle;
+    
+    card.innerHTML = `
+      <div>
+        <div style="font-weight:700;">Request #${escapeHtml(id)}</div>
+        <div style="margin-top:4px;"><strong>${pickup} → ${dropoff}</strong></div>
+        <div class="muted" style="margin-top:4px;">${item}</div>
+        <div style="margin-top:8px; font-size:14px;">${statusMessage}</div>
+        ${actionButton}
+      </div>
+    `;
+    
+    listEl.appendChild(card);
+  }
+  
+  // Wire up action buttons
+  listEl.onclick = (e) => {
+    const pickupBtn = e.target?.closest?.(".activeJobPickupBtn");
+    const deliverBtn = e.target?.closest?.(".activeJobDeliverBtn");
+    
+    if (pickupBtn) {
+      const id = pickupBtn.dataset.id;
+      handleQuickStatusUpdate(id, "picked_up");
+    }
+    
+    if (deliverBtn) {
+      const id = deliverBtn.dataset.id;
+      handleQuickStatusUpdate(id, "delivered");
+    }
+  };
+}
+
+async function handleQuickStatusUpdate(requestId, newStatus) {
+  // Check acknowledgements
+  const statusBtn = document.getElementById("driverStatusBtn");
+  if (statusBtn && statusBtn.disabled) {
+    alert("Please confirm driver acknowledgements before updating status.");
+    return;
+  }
+  
+  // For delivered, need photo
+  if (newStatus === "delivered") {
+    // Scroll to status form for photo upload
+    const statusForm = document.getElementById("driverStatusForm");
+    if (statusForm) {
+      statusForm.request_id.value = requestId;
+      document.getElementById("driverStatusSelect").value = "delivered";
+      
+      // Expand the Quick Actions section if collapsed
+      const quickActions = statusForm.closest("details");
+      if (quickActions && !quickActions.open) {
+        quickActions.open = true;
+      }
+      
+      statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      
+      // Focus on photo input
+      setTimeout(() => {
+        const photoInput = document.getElementById("delivered_photo_file");
+        if (photoInput) photoInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 500);
+    }
+    return;
+  }
+  
+  // For picked_up, can submit directly
+  if (!confirm(`Mark Request #${requestId} as picked up?`)) return;
+  
+  const body = { 
+    status: newStatus,
+    ...getDriverAckMeta()
+  };
+  
+  const res = await api(`/requests/${requestId}/status`, { 
+    method: "PATCH", 
+    body, 
+    role: "driver" 
+  });
+  
+  if (res.ok) {
+    // Refresh active jobs list
+    renderDriverActiveJobs();
+    refreshDriverAssignedJobs();
+  } else {
+    alert(res.error || "Failed to update status");
+  }
+}
+
+/* -----------------------------
    Assigned jobs -> populate existing "Recent jobs" card
 ----------------------------- */
 async function refreshDriverAssignedJobs() {
@@ -1016,9 +1213,10 @@ function setupInlineOfferForm() {
     if (res.ok) {
       if (result) setResult(result, alertSuccess("Offer submitted!"));
       
-      // Refresh assigned jobs
+      // Refresh assigned jobs and active jobs
       try {
         refreshDriverAssignedJobs();
+        renderDriverActiveJobs(); // Show in active jobs section
         
         // Show banner
         updateDriverNextActionBanner({
@@ -1268,6 +1466,16 @@ export function initDriverPage() {
   setupDriverOpenJobs();           // ✅ open jobs list
   setupUpdateStatus();
   setupIssueReport_driver();
+  
+  // ✅ NEW: Render active jobs that need driver action
+  renderDriverActiveJobs();
+  
+  // ✅ NEW: Auto-refresh active jobs every 30 seconds
+  setInterval(() => {
+    try {
+      renderDriverActiveJobs();
+    } catch (_) {}
+  }, 30000);
   
   // NEW: Start real-time polling for status updates
   try {
