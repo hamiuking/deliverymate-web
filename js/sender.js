@@ -742,8 +742,12 @@ function setupSenderAuth() {
     }
 
     // Ensure api.js can always auth via X-User-Token
-    sessionStorage.setItem("dm_user_token", res.user_token);
-    setSessionToken(res.user_token);
+sessionStorage.setItem("dm_user_token", res.user_token);
+
+// IMPORTANT: do NOT set dm_sender_token from user_token.
+// Clear it so we don't send a wrong X-Sender-Token header.
+setSessionToken("");
+
 
     saveUser({ phone });
     setAuthStatus(`Logged in as ${phone}`);
