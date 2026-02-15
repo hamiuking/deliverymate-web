@@ -570,10 +570,18 @@ function setupCreateRequest() {
         addRecentRequest(requestId);
         renderRecentRequests();
 
-        // ✅ Auto-fill View form
+        // ✅ Auto-fill View form (but don't auto-submit - avoid invalid token error)
         const viewForm = document.getElementById("viewRequestForm");
         if (viewForm && viewForm.request_id) {
           viewForm.request_id.value = requestId;
+          // Clear any stale error messages from previous loads
+          const viewResult = document.getElementById("viewRequestResult");
+          const offersResult = document.getElementById("viewOffersResult");
+          if (viewResult) viewResult.innerHTML = "";
+          if (offersResult) offersResult.innerHTML = "";
+          // Hide details section until user explicitly loads
+          const detailsSection = document.getElementById("senderRequestDetails");
+          if (detailsSection) detailsSection.classList.add("hidden");
         }
 
         // ✅ Show success with next steps
@@ -662,23 +670,35 @@ function setupViewRequest() {
       const detailsSection = document.getElementById("senderRequestDetails");
       if (detailsSection) detailsSection.classList.remove("hidden");
 
-      if (result) setResult(result, alertSuccess("Loaded"));
+      if (result) result.innerHTML = ""; // Clear any previous errors
     } else {
       // ✅ Hide details section on error
       const detailsSection = document.getElementById("senderRequestDetails");
       if (detailsSection) detailsSection.classList.add("hidden");
       
-      if (result) setResult(result, alertError(req.error || "Failed to load request"));
+      // ✅ Only show error if user manually clicked "Load Request" (isTrusted = real user click)
+      if (result) {
+        if (e.isTrusted) {
+          setResult(result, alertError(req.error || "Failed to load request"));
+        } else {
+          result.innerHTML = ""; // Silent fail on auto-triggers
+        }
+      }
       
       // Clear banner on error
       updateNextActionBanner(null);
     }
 
-    renderOffers(offers, req.request); // Pass request data
-    renderHistory(hist, req.request); // Pass request data
+    renderOffers(offers, req.request);
+    renderHistory(hist, req.request);
 
     if (offersResult) {
-      setResult(offersResult, offers.ok ? "" : alertError(offers.error || "Failed to load offers"));
+      // ✅ Only show offers error on manual submit
+      if (e.isTrusted) {
+        setResult(offersResult, offers.ok ? "" : alertError(offers.error || "Failed to load offers"));
+      } else {
+        offersResult.innerHTML = "";
+      }
     }
   });
 }
