@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/mobile.css" />
   <script type="module" src="/js/app.js"></script>
 </head>
 
@@ -22,7 +23,7 @@
   </header>
 
   <main class="container">
-    <h1>Driver</h1>
+    <h1>Driver Dashboard</h1>
 
     <!-- AUTH AREA ONLY (visible when locked) -->
     <div id="driverAuthArea">
@@ -65,7 +66,7 @@
               <div class="muted" id="dlBackStatus" style="margin-top:4px;"></div>
             </div>
 
-            <button class="btn mt-2" type="submit" disabled>Apply</button>
+            <button class="btn mt-2" type="submit" disabled>Apply as Driver</button>
           </form>
 
           <div class="result" id="driverRegResult"></div>
@@ -76,7 +77,7 @@
           <form id="driverLoginForm">
             <label>Phone</label>
             <input name="phone" placeholder="e.g. 021..." required />
-           <div class="muted"> First time here? Register with your invite code. </div>
+            <div class="muted">First time here? Register with your invite code.</div>
 
             <div class="btn-row mt-2">
               <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
@@ -87,13 +88,14 @@
         </section>
       </div>
 
-      <section class="card" id="driverPilotGuide">
-        <h2>Pilot guide (Driver)</h2>
+      <section class="card">
+        <h2>How it works (Driver)</h2>
         <ol>
-          <li><strong>Apply</strong> (admin approval required).</li>
-          <li><strong>Submit offers</strong> on requests.</li>
-          <li><strong>If selected</strong>, update status: picked up → delivered (delivery photo required).</li>
-          <li><strong>Payout</strong> begins after escrow release (manual tracking in pilot).</li>
+          <li><strong>Apply</strong> — Admin approval required (usually within 24 hours).</li>
+          <li><strong>Browse open jobs</strong> — Submit offers with your price.</li>
+          <li><strong>If selected</strong> — Pickup item and update status.</li>
+          <li><strong>Deliver & photo</strong> — Upload proof of delivery.</li>
+          <li><strong>Get paid</strong> — Payment releases after delivery confirmation.</li>
         </ol>
       </section>
     </div>
@@ -101,15 +103,17 @@
     <!-- DASHBOARD (hidden unless unlocked) -->
     <div id="driverDashboard" class="hidden">
       <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
-  <div class="muted" id="driverAuthStatusDash"></div>
-  <button class="btn ghost" type="button" id="driverLogoutBtn">Log out</button>
-</div>
+        <div class="muted" id="driverAuthStatusDash"></div>
+        <button class="btn ghost" type="button" id="driverLogoutBtn">Log out</button>
+      </div>
 
-<div class="muted mt-2" id="driverAuthHint"></div>
+      <!-- Next Action Banner (smart guidance) -->
+      <div id="driverNextActionBanner" style="margin-bottom:16px;"></div>
 
+      <!-- Driver Acknowledgements -->
       <section class="card requires-driver">
-        <h2>Driver acknowledgements</h2>
-        <p class="muted">Before submitting an offer or updating status, confirm the following:</p>
+        <h2>Driver Acknowledgements</h2>
+        <p class="muted">Before submitting offers or updating status, confirm the following:</p>
 
         <label style="font-weight:600;">
           <input type="checkbox" id="dAck1" />
@@ -132,114 +136,160 @@
         </div>
       </section>
 
+      <!-- My Assigned Jobs (Quick Access) -->
+      <section class="card requires-driver">
+        <h2>My Assigned Jobs</h2>
+        <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
+
+        <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center; margin-top:10px;">
+          <select id="driverRecentSelect" class="select"></select>
+          <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
+          <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
+          <span style="flex:1;"></span>
+          <button class="btn" type="button" id="driverQuickUpdateBtn">Update Status</button>
+        </div>
+
+        <div class="muted" style="margin-top:8px;">
+          Select a job to view details or quickly update its status.
+        </div>
+      </section>
+
+      <!-- Open Jobs (Browse & Offer) -->
+      <section class="card requires-driver">
+        <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <h2 style="margin:0;">Open Jobs</h2>
+          <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
+        </div>
+        <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
+        <div class="muted" style="margin-top:6px;">
+          Click <b>Make Offer</b> to auto-fill the form below. Click <b>View</b> to see full details.
+        </div>
+
+        <div id="driverOpenJobsList" style="margin-top:10px;"></div>
+        <div class="result" id="driverOpenJobsResult"></div>
+      </section>
+
+      <!-- Make Offer -->
       <section class="card requires-driver">
         <h2>Make Offer</h2>
+        <p class="muted">Submit your price for an open delivery request.</p>
+
         <form id="driverOfferForm">
           <label>Request ID</label>
-          <input name="request_id" required />
+          <input name="request_id" id="driverOfferRequestId" required />
 
           <label>Price (NZD)</label>
-          <input name="price_nzd" type="number" step="0.01" />
+          <input name="price_nzd" type="number" step="0.01" placeholder="e.g. 25.00" />
 
-          <label>Note</label>
-          <textarea name="note"></textarea>
+          <label>Note (optional)</label>
+          <textarea name="note" placeholder="e.g. Can deliver tonight"></textarea>
 
           <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
         </form>
         <div class="result" id="driverOfferResult"></div>
       </section>
 
+      <!-- Current Job Status -->
       <section class="card requires-driver">
-       <h2>My assigned jobs</h2>
-        <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
-        <div class="btn-row">
-          <select id="driverRecentSelect"></select>
-          <button class="btn secondary" id="driverRecentUseBtn" type="button">Use</button>
-          <button class="btn ghost" id="driverRecentClearBtn" type="button">Clear</button>
-        </div>
-        <div class="muted" style="margin-top:6px;">Selecting a request will auto-fill Request ID fields below.</div>
+        <h2>Current Job Status</h2>
+        <div id="driverStatusSummary"></div>
       </section>
-<section class="card requires-driver">
-  <div class="row" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-    <h2 style="margin:0;">Open jobs</h2>
-    <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
-  </div>
-  <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
-  <div class="muted" style="margin-top:6px;">
-    Tap <b>Offer</b> to auto-fill the Request ID in “Make Offer”. Tap <b>View</b> to load details.
-  </div>
 
-  <div id="driverOpenJobsList" style="margin-top:10px;"></div>
-  <div class="result" id="driverOpenJobsResult"></div>
-</section>
-
+      <!-- View Job Details -->
       <section class="card requires-driver">
-  <h2>Current job status</h2>
-  <div id="driverStatusSummary"></div>
-</section>
+        <h2>View Job Details</h2>
+        <p class="muted">Load a job to see its full details and history.</p>
 
-      <section class="card requires-driver">
-        <h2>View My Job</h2>
         <form id="driverViewForm">
           <label>Request ID</label>
-          <input name="request_id" required />
+          <input name="request_id" id="driverViewRequestId" required />
           <button class="btn" type="submit">Load Job</button>
         </form>
 
         <div id="driverJobSummary"></div>
-        <h3>History</h3>
+        <h3>Activity History</h3>
         <div id="driverHistoryList"></div>
         <div class="result" id="driverViewResult"></div>
       </section>
 
+      <!-- Update Status -->
       <section class="card requires-driver">
         <h2>Update Status</h2>
-        <p class="muted">Delivered requires a delivery photo (max 6MB).</p>
+        <p class="muted">Mark as picked up when you collect the item. Mark as delivered when drop-off is complete (photo required).</p>
 
         <form id="driverStatusForm">
           <label>Request ID</label>
-          <input name="request_id" required />
+          <input name="request_id" id="driverStatusRequestId" required />
 
           <label>Status</label>
           <select name="status" id="driverStatusSelect">
-            <option value="picked_up">picked_up</option>
-            <option value="delivered">delivered</option>
+            <option value="picked_up">Picked up (item collected)</option>
+            <option value="delivered">Delivered (drop-off complete)</option>
           </select>
 
           <input type="hidden" name="driver_name" id="driverStatusDriverName" />
 
           <div id="deliveredPhotoBlock" class="mt-2">
-            <label>Delivered photo (required for delivered)</label>
+            <label>Delivery photo (required for delivered)</label>
             <input type="file" id="delivered_photo_file" accept="image/*" />
+            <div class="muted" style="margin-top:4px;">Take a photo showing the item at drop-off location.</div>
           </div>
 
-          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update</button>
+          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update Status</button>
         </form>
 
         <div class="result" id="driverStatusResult"></div>
       </section>
 
+      <!-- Report an Issue -->
       <section class="card requires-driver">
-        <h2>Report an issue (pilot)</h2>
-        <p class="muted">This generates a message you can copy and send to admin@deliverymate.nz.</p>
+        <h2>Report an Issue</h2>
+        <p class="muted">Generate a message to send to admin@deliverymate.nz.</p>
 
         <form id="driverIssueForm">
-          <label>Request ID</label>
+          <label>Request ID (optional)</label>
           <input name="request_id" placeholder="e.g. 123" />
 
           <label>What happened?</label>
-          <textarea name="note" placeholder="One or two sentences"></textarea>
+          <textarea name="note" placeholder="Describe the issue briefly"></textarea>
 
-          <button class="btn" type="submit">Generate message</button>
+          <button class="btn" type="submit">Generate Message</button>
         </form>
 
         <div class="mt-2">
-          <div class="muted">Message</div>
-          <pre id="driverIssueOut"></pre>
+          <div class="muted">Message preview</div>
+          <pre id="driverIssueOut" style="min-height:80px;"></pre>
           <div class="btn-row mt-2">
-            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy message</button>
+            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy Message</button>
           </div>
         </div>
+      </section>
+
+      <!-- Advanced Troubleshooting (consolidated debug) -->
+      <section class="card requires-driver">
+        <details class="debug">
+          <summary>Advanced troubleshooting</summary>
+
+          <div class="muted" style="margin-top:10px;">
+            Technical details for debugging. Data shown here is for troubleshooting only.
+          </div>
+
+          <h4 style="margin-top:16px;">Offer submission response</h4>
+          <pre id="driverOfferDebug">{}</pre>
+
+          <h4 style="margin-top:16px;">Job details</h4>
+          <pre id="driverViewDebug">{}</pre>
+
+          <h4 style="margin-top:16px;">Status update response</h4>
+          <pre id="driverStatusDebug">{}</pre>
+
+          <h4 style="margin-top:16px;">Open jobs raw data</h4>
+          <pre id="driverOpenJobsDebug">[]</pre>
+
+          <div style="margin-top:16px;">
+            <button class="btn ghost" type="button" id="driverRecentClearBtn">Clear saved jobs list</button>
+          </div>
+        </details>
       </section>
     </div>
   </main>
