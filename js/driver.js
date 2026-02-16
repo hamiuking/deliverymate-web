@@ -664,8 +664,18 @@ async function renderDriverActiveJobs() {
   }
   
   listEl.innerHTML = "";
-  
-  for (const r of allActive) {
+
+  // Count active jobs (accepted/picked_up only — not pending offers)
+  const activeJobCount = allActive.filter(r => {
+    const s = String(r?.status || "").toLowerCase();
+    return s === "accepted" || s === "picked_up";
+  }).length;
+
+  const MAX_DISPLAY = 5;
+  const displayed = allActive.slice(0, MAX_DISPLAY);
+  const remaining = allActive.length - displayed.length;
+
+  for (const r of displayed) {
     const id = String(r.id || "");
     const status = String(r.status || "").toLowerCase();
     const escrowStatus = String(r.escrow_status || "none").toLowerCase();
@@ -723,8 +733,27 @@ async function renderDriverActiveJobs() {
     
     listEl.appendChild(card);
   }
-  
-  // Wire up action buttons
+
+  // Show "X more" if capped
+  if (remaining > 0) {
+    const moreEl = document.createElement("div");
+    moreEl.className = "muted";
+    moreEl.style.cssText = "text-align:center; padding:8px; font-size:13px;";
+    moreEl.textContent = `+ ${remaining} more job${remaining === 1 ? '' : 's'} — scroll down to "My Assigned Jobs" to view all`;
+    listEl.appendChild(moreEl);
+  }
+
+  // Warn when approaching the 10-active-job limit
+  if (activeJobCount >= 8) {
+    const warnEl = document.createElement("div");
+    warnEl.style.cssText = "margin-top:8px; padding:10px 12px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:6px; font-size:13px; color:#92400e;";
+    if (activeJobCount >= 10) {
+      warnEl.innerHTML = `⚠️ <strong>Job limit reached (${activeJobCount}/10).</strong> You cannot submit new offers until you complete an active delivery.`;
+    } else {
+      warnEl.innerHTML = `⚠️ You have ${activeJobCount}/10 active jobs. Complete deliveries to stay under the limit.`;
+    }
+    listEl.appendChild(warnEl);
+  }
   listEl.onclick = (e) => {
     const pickupBtn = e.target?.closest?.(".activeJobPickupBtn");
     const deliverBtn = e.target?.closest?.(".activeJobDeliverBtn");
