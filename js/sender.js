@@ -545,7 +545,7 @@ function setupCreateRequest() {
 
     if (!pickup_suburb || !dropoff_suburb || !item_desc) {
       if (btn) btn.disabled = false;
-      if (result) setResult(result, alertError("Pickup suburb, drop-off suburb, and item description are required."));
+      if (result) setResult(result, alertError("From address, to address, and item description are required."));
       return;
     }
 
@@ -1142,7 +1142,7 @@ function setupSenderAuth() {
 
     if (out) setResult(out, alertSuccess("Logged in"));
     renderRecentRequests();
-    // Refresh profile snapshot if section is open
+    // Fetch profile silently to pre-fill pickup suburb and refresh snapshot if open
     try { loadSenderProfileSnapshot(); } catch (_) {}
   });
 
@@ -1517,16 +1517,60 @@ async function loadSenderProfileSnapshot() {
   // Pre-fill form fields
   const nameInput = document.getElementById("senderProfileName");
   const emailInput = document.getElementById("senderProfileEmail");
+  const addressInput = document.getElementById("senderProfileAddress");
   if (nameInput && u.full_name) nameInput.value = u.full_name;
   if (emailInput && u.email) emailInput.value = u.email;
+  if (addressInput && u.default_address) addressInput.value = u.default_address;
+
+  // Pre-fill pickup suburb if address is saved and field is currently empty
+  prefillPickupSuburb(u.default_address);
 
   snapshot.innerHTML = `
     <div style="display:grid; gap:6px; font-size:14px; padding:12px; background:rgba(0,0,0,.03); border-radius:8px; border:1px solid rgba(0,0,0,.06);">
       <div><strong>Name:</strong> ${escapeHtml(u.full_name || "—")}</div>
       <div><strong>Phone:</strong> ${escapeHtml(u.phone || "—")}</div>
       <div><strong>Email:</strong> ${escapeHtml(u.email || "—")}</div>
+      <div><strong>Default address:</strong> ${escapeHtml(u.default_address || "—")}</div>
     </div>
   `;
+}
+
+/* -------------------------------------------------------------
+   Extract suburb from a full address and pre-fill the pickup
+   suburb field if it is currently empty.
+   Strategy: take the last comma-separated segment that looks
+   like a suburb (not a postcode, not "New Zealand").
+   e.g. "123 Queen St, Ponsonby, Auckland" → "Ponsonby"
+        "45 Main Rd, Tauranga" → "Tauranga"
+        "Ponsonby" → "Ponsonby"
+------------------------------------------------------------- */
+function extractSuburb(address) {
+  if (!address) return "";
+  const parts = address.split(",").map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) return "";
+  // Walk from the end, skip postcodes (all digits) and country names
+  const skip = new Set(["new zealand", "nz"]);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    if (/^\d+$/.test(p)) continue;          // postcode
+    if (skip.has(p.toLowerCase())) continue; // country
+    if (i === 0 && parts.length > 1) continue; // likely street number+name
+    return p;
+  }
+  // Fallback: return last non-empty part
+  return parts[parts.length - 1];
+}
+
+function prefillPickupSuburb(defaultAddress) {
+  const field = document.getElementById("createPickupSuburb");
+  const hint = document.getElementById("pickupSuburbHint");
+  if (!field) return;
+  // Only pre-fill if field is currently empty — never overwrite what the sender typed
+  if (field.value && field.value.trim()) return;
+  const suburb = extractSuburb(defaultAddress);
+  if (!suburb) return;
+  field.value = suburb;
+  if (hint) hint.style.display = "block";
 }
 
 function setupSenderProfile() {
@@ -1552,27 +1596,36 @@ function setupSenderProfile() {
     const fd = new FormData(form);
     const full_name = String(fd.get("full_name") || "").trim();
     const email = String(fd.get("email") || "").trim();
+    const default_address = String(fd.get("default_address") || "").trim();
 
-    if (!full_name && !email) {
+    if (!full_name && !email && !default_address) {
       done(false);
-      if (result) setResult(result, alertError("Please enter a name or email to update."));
+      if (result) setResult(result, alertError("Please enter at least one field to update."));
       return;
     }
+
+    const body = {};
+    if (full_name) body.full_name = full_name;
+    if (email) body.email = email;
+    // Send default_address even if empty string — allows clearing it
+    // But only if the field was changed (non-empty or was previously set)
+    if (default_address || fd.get("default_address") !== null) body.default_address = default_address || null;
 
     const res = await api("/users/me", {
       method: "PATCH",
       role: "sender",
-      body: { full_name, email },
+      body,
     });
 
     done(!!res.ok);
     if (res.ok) {
       if (result) setResult(result, alertSuccess("Contact details saved."));
-      // Update the locally stored user so auth status reflects new name
       const u = getSavedUser() || {};
       if (full_name) u.full_name = full_name;
       if (email) u.email = email;
       saveUser(u);
+      // Re-run pre-fill in case address changed
+      if (default_address) prefillPickupSuburb(default_address);
       loadSenderProfileSnapshot();
     } else {
       if (result) setResult(result, alertError(res.error || "Failed to save."));
@@ -1644,10 +1697,11 @@ export function initSenderPage() {
   //
   renderRecentRequests();
   
-  // ✅ NEW: Show active requests at top, auto-refresh every 30s
+  // Pre-fill From address from saved address + load profile snapshot
   // Small delay so token is fully ready before first API call
   setTimeout(() => {
     renderSenderActiveRequests();
+    try { loadSenderProfileSnapshot(); } catch (_) {}
   }, 500);
   
   setInterval(() => {
