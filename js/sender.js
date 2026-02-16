@@ -1266,9 +1266,13 @@ async function renderSenderActiveRequests() {
     }
   }
 
+  const MAX_DISPLAY = 5;
+  const displayed = active.slice(0, MAX_DISPLAY);
+  const remaining = active.length - displayed.length;
+
   listEl.innerHTML = "";
 
-  for (const r of active) {
+  for (const r of displayed) {
     const id = String(r.id || "");
     const status = String(r.status || "").toLowerCase();
     const escrowStatus = String(r.escrow_status || "none").toLowerCase();
@@ -1354,7 +1358,26 @@ async function renderSenderActiveRequests() {
     listEl.appendChild(card);
   }
 
-  // Wire up inline buttons
+  // Show "X more" if capped
+  if (remaining > 0) {
+    const moreEl = document.createElement("div");
+    moreEl.className = "muted";
+    moreEl.style.cssText = "text-align:center; padding:8px; font-size:13px;";
+    moreEl.textContent = `+ ${remaining} more request${remaining === 1 ? '' : 's'} — scroll down to "All My Requests" to view`;
+    listEl.appendChild(moreEl);
+  }
+
+  // Warn when approaching the 10-request limit
+  if (active.length >= 8) {
+    const warnEl = document.createElement("div");
+    warnEl.style.cssText = "margin-top:8px; padding:10px 12px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:6px; font-size:13px; color:#92400e;";
+    if (active.length >= 10) {
+      warnEl.innerHTML = `⚠️ <strong>Request limit reached (${active.length}/10).</strong> You must complete or cancel a request before creating new ones.`;
+    } else {
+      warnEl.innerHTML = `⚠️ You have ${active.length}/10 active requests. Complete or cancel requests to stay under the limit.`;
+    }
+    listEl.appendChild(warnEl);
+  }
   listEl.onclick = async (e) => {
     const viewBtn = e.target?.closest?.(".activeReqViewBtn");
     const fundBtn = e.target?.closest?.(".activeReqFundBtn");
