@@ -1504,11 +1504,21 @@ async function renderSenderActiveRequests() {
 
 async function loadSenderProfileSnapshot() {
   const snapshot = document.getElementById("senderProfileSnapshot");
-  if (!snapshot) return;
+  if (!snapshot) return; // element not in DOM yet — skip silently
+
+  // Show spinner while loading
+  snapshot.innerHTML = `<span class="muted">Loading profile…</span>`;
+
+  // Guard: don't call if no user token available
+  const tok = getUserToken();
+  if (!tok) {
+    snapshot.innerHTML = `<span class="muted">Sign in to view your profile.</span>`;
+    return;
+  }
 
   const res = await api("/users/me", { method: "GET", role: "sender" });
   if (!res || !res.ok || !res.user) {
-    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile.</span>`;
+    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile${res && res.error ? `: ${escapeHtml(res.error)}` : '.'}  Try closing and reopening this section.</span>`;
     return;
   }
 
