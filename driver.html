@@ -290,6 +290,55 @@
         </details>
       </section>
 
+      <!-- 💰 Payout -->
+      <section class="card requires-driver">
+        <h2>💰 My Payouts</h2>
+        <p class="muted">Jobs where escrow has been released are ready for payout. Save your bank details once and request payout for each completed delivery.</p>
+
+        <!-- Bank Details -->
+        <details id="driverBankDetailsSection" open>
+          <summary style="font-weight:600; cursor:pointer; padding:8px 0;">🏦 My Bank Details</summary>
+          <div style="margin-top:12px;">
+            <div id="driverBankStatusMsg" class="muted" style="margin-bottom:10px;"></div>
+            <form id="driverPayoutMethodForm">
+              <label>Full Name <span class="muted">(name on bank account)</span></label>
+              <input name="account_name" placeholder="e.g. John Smith" required />
+
+              <label>Preferred Payout Method</label>
+              <select name="method">
+                <option value="bank">Bank Transfer</option>
+                <option value="cash">Cash</option>
+                <option value="other">Other</option>
+              </select>
+
+              <label>Bank Account Number <span class="muted">(e.g. 01-1234-1234567-00)</span></label>
+              <input name="bank_account" placeholder="e.g. 01-1234-1234567-00" />
+
+              <label>Bank Name <span class="muted">(optional)</span></label>
+              <input name="bank_name" placeholder="e.g. ANZ, Westpac, ASB..." />
+
+              <button class="btn" type="submit" id="driverSaveBankBtn">Save Payout Details</button>
+            </form>
+            <div class="result mt-2" id="driverPayoutMethodResult"></div>
+          </div>
+        </details>
+
+        <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+
+        <!-- Jobs Ready for Payout -->
+        <div style="font-weight:600; margin-bottom:8px;">Jobs Ready for Payout</div>
+        <div id="driverPayoutJobsCount" class="muted" style="margin-bottom:10px;"></div>
+        <div id="driverPayoutJobsList"><div class="muted">Loading...</div></div>
+
+        <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+
+        <!-- Payout History -->
+        <details id="driverPayoutHistorySection">
+          <summary style="font-weight:600; cursor:pointer; padding:8px 0;">📋 Payout History</summary>
+          <div id="driverPayoutHistoryList" style="margin-top:10px;"><div class="muted">Loading...</div></div>
+        </details>
+      </section>
+
       <!-- Report an Issue -->
       <section class="card requires-driver">
         <h2>Report an Issue</h2>
