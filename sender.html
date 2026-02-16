@@ -23,7 +23,9 @@
   <main class="container">
     <h1>Sender Dashboard</h1>
 
-    <!-- Auth area (locked): left Register, right Log in -->
+    <!-- =============================================
+         AUTH AREA (visible when not logged in)
+    ============================================= -->
     <div id="senderAuthArea">
       <div class="grid">
         <section class="card locked-only" id="senderRegisterSection">
@@ -56,10 +58,6 @@
             <input name="phone" placeholder="e.g. 021..." required />
             <label>Email <span class="muted">(add or update to receive notifications)</span></label>
             <input name="email" type="email" placeholder="e.g. you@example.com" />
-            <div id="senderInviteWrap" class="hidden">
-              <label>Invite code <span class="muted">(only needed the first time on this device)</span></label>
-              <input name="invite_code" id="senderInviteCodeInput" placeholder="Enter invite code" />
-            </div>
 
             <div class="muted">First time here? Register with your invite code.</div>
 
@@ -77,34 +75,40 @@
         <ol>
           <li><strong>Create a request</strong> — Describe what you need delivered.</li>
           <li><strong>Review offers</strong> — Approved drivers submit their price.</li>
-          <li><strong>Accept & pay</strong> — Choose a driver and fund escrow (Stripe test mode).</li>
+          <li><strong>Accept &amp; pay</strong> — Choose a driver and fund escrow (Stripe).</li>
           <li><strong>Track delivery</strong> — Your driver updates you at pickup and delivery.</li>
           <li><strong>Confirm delivery</strong> — Release payment immediately, or it auto-releases after 24 hours.</li>
         </ol>
       </section>
     </div>
 
-    <!-- Dashboard (unlocked) -->
+    <!-- =============================================
+         DASHBOARD (hidden until logged in)
+    ============================================= -->
     <div id="senderDashboard" class="hidden">
+
+      <!-- Top bar: auth status + logout -->
       <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
         <div class="muted" id="senderAuthStatusDash"></div>
         <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
       </div>
 
-      <!-- My Active Requests - TOP PRIORITY -->
+      <!-- ── MY ACTIVE REQUESTS ─────────────────────────────
+           Top of page — requests that need action right now.
+      ──────────────────────────────────────────────────────── -->
       <section class="card requires-sender">
         <h2>My Active Requests</h2>
-        <div class="muted" id="senderActiveRequestsCount" style="margin-top:6px;">Loading...</div>
+        <div class="muted" id="senderActiveRequestsCount" style="margin-top:6px;">Loading…</div>
         <div id="senderActiveRequestsList" style="margin-top:10px;"></div>
       </section>
 
-      <!-- My Requests (Quick Access) - COLLAPSIBLE -->
+      <!-- ── ALL MY REQUESTS (quick access dropdown) ───────── -->
       <section class="card requires-sender">
         <details>
           <summary style="cursor:pointer; font-weight:600; font-size:18px;">All My Requests</summary>
           <div style="margin-top:12px;">
             <div class="muted" id="senderRecentCount" style="margin-bottom:10px;"></div>
-            <div class="row" style="gap:10px;flex-wrap:wrap; align-items:center;">
+            <div class="row" style="gap:10px; flex-wrap:wrap; align-items:center;">
               <select id="senderRecentSelect" class="select"></select>
               <button class="btn secondary" type="button" id="senderQuickViewBtn">View</button>
               <button class="btn ghost" type="button" id="senderQuickCopyBtn">Copy ID</button>
@@ -114,35 +118,37 @@
         </details>
       </section>
 
-      <!-- Create Request -->
+      <!-- ── CREATE DELIVERY REQUEST ────────────────────────── -->
       <section class="card requires-sender">
         <h2>Create Delivery Request</h2>
 
         <div class="banner">
           <strong>Before posting a request</strong>
-          <div class="muted" style="margin-top:6px;">
-            Please confirm all items below.
-          </div>
+          <div class="muted" style="margin-top:6px;">Please confirm all items below.</div>
 
           <div style="margin-top:10px;">
             <label style="font-weight:600;">
-              <input type="checkbox" id="sAck1" /> I understand no prohibited or illegal items.
+              <input type="checkbox" id="sAck1" />
+              I understand no prohibited or illegal items may be delivered.
             </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck2" /> I understand delivery services are provided by an independent driver, not the Platform.
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck2" />
+              Delivery is provided by an independent driver, not the Platform.
             </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck3" /> I understand the Platform does not insure parcels and does not guarantee delivery outcomes.
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck3" />
+              The Platform does not insure parcels and does not guarantee delivery outcomes.
             </label>
 
-            <label style="font-weight:600;">
-              <input type="checkbox" id="sAck4" /> I accept the risk of loss or damage and understand any delivery claim must be made against the driver, not the Platform.
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck4" />
+              I accept the risk of loss or damage — any claim must be made against the driver, not the Platform.
             </label>
 
             <div class="muted" style="margin-top:8px;">
-              Recommendation: do not arrange delivery of high-value, fragile, or irreplaceable items through the Platform.
+              Recommendation: do not arrange delivery of high-value, fragile, or irreplaceable items.
             </div>
           </div>
         </div>
@@ -157,13 +163,13 @@
           <label>Item description</label>
           <input name="item_desc" required />
 
-          <label>Weight (kg)</label>
+          <label>Weight (kg) <span class="muted">(optional)</span></label>
           <input name="weight_kg" type="number" step="0.1" />
 
-          <label>Suggested price (NZD)</label>
+          <label>Suggested price (NZD) <span class="muted">(optional)</span></label>
           <input name="suggested_price_nzd" type="number" step="0.01" />
 
-          <label>Sender note (optional)</label>
+          <label>Sender note <span class="muted">(optional)</span></label>
           <textarea name="sender_note"></textarea>
 
           <button class="btn mt-2" id="createRequestBtn" type="submit" disabled>Create Request</button>
@@ -173,11 +179,11 @@
         <div id="senderCreateInfo"></div>
       </section>
 
-      <!-- View Request Details -->
+      <!-- ── VIEW REQUEST DETAILS ───────────────────────────── -->
       <section class="card requires-sender">
         <h2>View Request Details</h2>
         <p class="muted">Load a request to see its current status, offers, and history.</p>
-        
+
         <form id="viewRequestForm" onsubmit="return false">
           <label>Request ID</label>
           <input name="request_id" required />
@@ -187,61 +193,86 @@
         <div class="result" id="viewRequestResult"></div>
         <div class="result" id="viewOffersResult"></div>
 
-        <!-- Details section (hidden until request loaded) -->
+        <!-- Details (hidden until request loaded) -->
         <div id="senderRequestDetails" class="hidden" style="margin-top:16px;">
-          <!-- Current Status Card -->
           <section class="card compact requires-sender" id="senderStatusCard">
             <h3 style="margin-top:0;">Current Status</h3>
             <div id="senderReqSummary"></div>
           </section>
 
-          <!-- Offers -->
           <h3>Offers from Drivers</h3>
           <div id="senderOffersList"></div>
 
-          <!-- History -->
           <h3>Activity History</h3>
           <div id="senderHistoryList"></div>
         </div>
       </section>
 
-      <!-- Fund Escrow -->
+      <!-- ── FUND ESCROW (Payment) ──────────────────────────── -->
       <section class="card requires-sender">
         <h2>Fund Escrow (Payment)</h2>
-        <p class="muted">Stripe Checkout (test mode). Funds are held until delivery is confirmed.</p>
-        
+        <p class="muted">Stripe Checkout. Funds are held securely until delivery is confirmed.</p>
+
         <form id="fundEscrowForm" onsubmit="return false">
           <label>Request ID</label>
           <input id="fundRequestId" name="request_id" required />
-          
+
           <label>Amount (NZD)</label>
           <input name="amount_nzd" type="number" step="0.01" required />
-          
+
           <button class="btn" type="submit">Pay with Stripe</button>
         </form>
 
         <div class="result" id="fundEscrowResult"></div>
       </section>
 
-      <!-- Confirm Delivery / Release Escrow -->
+      <!-- ── CONFIRM DELIVERY / RELEASE ESCROW ─────────────── -->
       <section class="card requires-sender">
         <h2>Confirm Delivery</h2>
         <p class="muted">Release payment to your driver after successful delivery. If you don't confirm, payment auto-releases after 24 hours.</p>
-        
+
         <form id="releaseEscrowForm" onsubmit="return false">
           <label>Request ID</label>
           <input id="releaseRequestId" name="request_id" required />
-          <button class="btn" type="submit">Confirm Delivery & Release Payment</button>
+          <button class="btn" type="submit">Confirm Delivery &amp; Release Payment</button>
         </form>
 
         <div class="result" id="releaseEscrowResult"></div>
       </section>
 
-      <!-- Advanced Troubleshooting (all debug sections consolidated) -->
+      <!-- ── MY PROFILE ─────────────────────────────────────
+           Collapsible at the bottom. Update name and email.
+      ──────────────────────────────────────────────────────── -->
+      <section class="card requires-sender" id="senderProfileSection">
+        <details id="senderProfileDetails">
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">My Profile</summary>
+          <div style="margin-top:16px;">
+
+            <!-- Current profile snapshot (loaded on open) -->
+            <div id="senderProfileSnapshot" class="muted" style="margin-bottom:16px;">Loading profile…</div>
+
+            <h3 style="margin-top:0;">Contact Details</h3>
+            <p class="muted">Update your name or email address. Your phone number is your account identity and cannot be changed here.</p>
+
+            <form id="senderBasicProfileForm">
+              <label>Full name</label>
+              <input name="full_name" id="senderProfileName" placeholder="Your full name" />
+
+              <label>Email <span class="muted">(for delivery notifications)</span></label>
+              <input name="email" id="senderProfileEmail" type="email" placeholder="you@example.com" />
+
+              <button class="btn" type="submit">Save Contact Details</button>
+            </form>
+            <div class="result" id="senderBasicProfileResult"></div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ── ADVANCED TROUBLESHOOTING ──────────────────────── -->
       <section class="card requires-sender">
         <details class="debug">
           <summary>Advanced troubleshooting</summary>
-          
+
           <div class="muted" style="margin-top:10px;">
             Technical details for debugging. Stored locally on this device only.
           </div>
@@ -269,7 +300,8 @@
           </div>
         </details>
       </section>
-    </div>
+
+    </div><!-- /senderDashboard -->
   </main>
 
   <script type="module" src="/js/app.js"></script>
