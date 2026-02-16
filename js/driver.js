@@ -256,11 +256,36 @@ function enforceDriverGate() {
       : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
   }
 
+  const authStatusDash = document.getElementById("driverAuthStatusDash");
+  if (authStatusDash && !locked && u) {
+    authStatusDash.textContent = u.phone ? `Logged in as ${u.phone}` : "Logged in";
+  }
+
   const logoutBtn = document.getElementById("driverLogoutBtn");
   if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
 
   const hint = document.getElementById("driverAuthHint");
   if (hint) hint.textContent = locked ? "" : (u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+
+  // Show/hide re-approval banner based on saved driver_status
+  updateReapprovalBanner();
+}
+
+function updateReapprovalBanner() {
+  const banner = document.getElementById("driverReapprovalBanner");
+  if (!banner) return;
+  const u = getSavedDriverUser();
+  const ds = String(u?.driver_status || "").trim().toLowerCase();
+  const isPending = ds === "pending_review";
+  banner.classList.toggle("hidden", !isPending);
+
+  // Disable offer buttons when pending_review
+  const offerBtn = document.getElementById("driverOfferBtn");
+  const inlineSubmit = document.getElementById("inlineOfferSubmitBtn");
+  if (isPending) {
+    if (offerBtn) { offerBtn.disabled = true; offerBtn.title = "Awaiting admin approval"; }
+    if (inlineSubmit) { inlineSubmit.disabled = true; }
+  }
 }
 
 /* -----------------------------
@@ -1482,6 +1507,235 @@ function setupIssueReport_driver() {
 }
 
 /* -----------------------------
+   Refresh driver_status from server after login
+   so the re-approval banner reflects the real backend state,
+   not just the locally cached value.
+----------------------------- */
+async function refreshDriverStatusFromServer() {
+  try {
+    const res = await api("/users/me", { method: "GET", role: "driver" });
+    if (res && res.ok && res.user) {
+      const u = getSavedDriverUser() || {};
+      u.driver_status = res.user.driver_status;
+      u.full_name = res.user.full_name || u.full_name;
+      u.email = res.user.email || u.email;
+      markDriverRegistered(u);
+      updateReapprovalBanner();
+    }
+  } catch (_) {}
+}
+
+/* -----------------------------
+   Profile section
+   - Loads current profile from GET /users/me on open
+   - driverBasicProfileForm  → PATCH /users/me (name + email, no re-approval)
+   - driverVehicleProfileForm → PATCH /drivers/profile (vehicle/WOF/photos, triggers re-approval)
+----------------------------- */
+async function loadDriverProfileSnapshot() {
+  const snapshot = document.getElementById("driverProfileSnapshot");
+  if (!snapshot) return;
+
+  const res = await api("/users/me", { method: "GET", role: "driver" });
+  if (!res || !res.ok || !res.user) {
+    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile.</span>`;
+    return;
+  }
+
+  const u = res.user;
+
+  // Pre-fill basic form
+  const nameInput = document.getElementById("driverProfileName");
+  const emailInput = document.getElementById("driverProfileEmail");
+  if (nameInput && u.full_name) nameInput.value = u.full_name;
+  if (emailInput && u.email) emailInput.value = u.email;
+
+  // Pre-fill vehicle form
+  const plateInput = document.getElementById("driverProfilePlate");
+  const wofInput = document.getElementById("driverProfileWof");
+  if (plateInput && u.vehicle_plate) plateInput.value = u.vehicle_plate;
+  if (wofInput && u.wof_expiry) wofInput.value = u.wof_expiry.split("T")[0];
+
+  // Status badge
+  const dsRaw = String(u.driver_status || "none").toLowerCase();
+  const statusBadge = {
+    approved:       `<span style="color:#16a34a; font-weight:700;">✅ Approved</span>`,
+    pending_review: `<span style="color:#92400e; font-weight:700;">⏳ Pending Review</span>`,
+    disabled:       `<span style="color:#dc2626; font-weight:700;">🚫 Disabled</span>`,
+    none:           `<span class="muted">Not registered as driver</span>`,
+  }[dsRaw] || `<span class="muted">${escapeHtml(u.driver_status)}</span>`;
+
+  const wofDisplay = u.wof_expiry ? new Date(u.wof_expiry).toLocaleDateString("en-NZ", { day:"numeric", month:"short", year:"numeric" }) : "—";
+  const payoutDisplay = u.payout_account_last4
+    ? `Bank account ending ···${escapeHtml(u.payout_account_last4)}`
+    : `<span class="muted">No bank details saved</span>`;
+
+  snapshot.innerHTML = `
+    <div style="display:grid; gap:6px; font-size:14px; padding:12px; background:rgba(0,0,0,.03); border-radius:8px; border:1px solid rgba(0,0,0,.06);">
+      <div><strong>Name:</strong> ${escapeHtml(u.full_name || "—")}</div>
+      <div><strong>Phone:</strong> ${escapeHtml(u.phone || "—")}</div>
+      <div><strong>Email:</strong> ${escapeHtml(u.email || "—")}</div>
+      <div><strong>Driver status:</strong> ${statusBadge}</div>
+      <div><strong>Vehicle plate:</strong> ${escapeHtml(u.vehicle_plate || "—")}</div>
+      <div><strong>WOF expiry:</strong> ${escapeHtml(wofDisplay)}</div>
+      <div><strong>Payout:</strong> ${payoutDisplay}</div>
+    </div>
+  `;
+}
+
+function setupDriverProfile() {
+  // Load profile when the collapsible section is opened
+  const details = document.getElementById("driverProfileDetails");
+  if (details) {
+    details.addEventListener("toggle", () => {
+      if (details.open) loadDriverProfileSnapshot();
+    });
+  }
+
+  // ── Basic details form (name + email — no re-approval)
+  const basicForm = document.getElementById("driverBasicProfileForm");
+  const basicResult = document.getElementById("driverBasicProfileResult");
+  if (basicForm) {
+    basicForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = basicForm.querySelector("button[type=submit]");
+      const done = setWorking(btn, "Saving…");
+      if (basicResult) setResult(basicResult, "");
+
+      const fd = new FormData(basicForm);
+      const full_name = String(fd.get("full_name") || "").trim();
+      const email = String(fd.get("email") || "").trim();
+
+      if (!full_name && !email) {
+        done(false);
+        if (basicResult) setResult(basicResult, alertError("Please enter a name or email to update."));
+        return;
+      }
+
+      const res = await api("/users/me", {
+        method: "PATCH",
+        role: "driver",
+        body: { full_name, email },
+      });
+
+      done(!!res.ok);
+      if (res.ok) {
+        if (basicResult) setResult(basicResult, alertSuccess("Contact details saved."));
+        // Update locally stored user
+        const u = getSavedDriverUser() || {};
+        if (full_name) u.full_name = full_name;
+        if (email) u.email = email;
+        markDriverRegistered(u);
+        loadDriverProfileSnapshot();
+      } else {
+        if (basicResult) setResult(basicResult, alertError(res.error || "Failed to save."));
+      }
+    });
+  }
+
+  // ── Vehicle & licence form (triggers re-approval)
+  const vehicleForm = document.getElementById("driverVehicleProfileForm");
+  const vehicleResult = document.getElementById("driverVehicleProfileResult");
+
+  const frontFileInput = document.getElementById("driverProfileFrontFile");
+  const backFileInput = document.getElementById("driverProfileBackFile");
+  const frontStatus = document.getElementById("driverProfileFrontStatus");
+  const backStatus = document.getElementById("driverProfileBackStatus");
+
+  let selectedFrontFile = null;
+  let selectedBackFile = null;
+
+  if (frontFileInput) {
+    frontFileInput.addEventListener("change", () => {
+      selectedFrontFile = frontFileInput.files?.[0] || null;
+      if (frontStatus) frontStatus.textContent = selectedFrontFile ? `Ready ✓ (${fmtMB(selectedFrontFile.size)})` : "";
+    });
+  }
+  if (backFileInput) {
+    backFileInput.addEventListener("change", () => {
+      selectedBackFile = backFileInput.files?.[0] || null;
+      if (backStatus) backStatus.textContent = selectedBackFile ? `Ready ✓ (${fmtMB(selectedBackFile.size)})` : "";
+    });
+  }
+
+  if (vehicleForm) {
+    vehicleForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("driverVehicleProfileBtn");
+      const done = setWorking(btn, "Saving…");
+      if (vehicleResult) setResult(vehicleResult, "");
+
+      const fd = new FormData(vehicleForm);
+      const vehicle_plate = String(fd.get("vehicle_plate") || "").trim();
+      const wof_expiry = String(fd.get("wof_expiry") || "").trim();
+
+      const body = {};
+      if (vehicle_plate) body.vehicle_plate = vehicle_plate;
+      if (wof_expiry) body.wof_expiry = wof_expiry;
+
+      // Encode licence photos if selected
+      if (selectedFrontFile) {
+        try {
+          body.driver_license_front_base64 = await fileToDataUrl(selectedFrontFile);
+        } catch (err) {
+          done(false);
+          if (vehicleResult) setResult(vehicleResult, alertError(err?.message || "Failed to process front photo."));
+          return;
+        }
+      }
+      if (selectedBackFile) {
+        try {
+          body.driver_license_back_base64 = await fileToDataUrl(selectedBackFile);
+        } catch (err) {
+          done(false);
+          if (vehicleResult) setResult(vehicleResult, alertError(err?.message || "Failed to process back photo."));
+          return;
+        }
+      }
+
+      if (!Object.keys(body).length) {
+        done(false);
+        if (vehicleResult) setResult(vehicleResult, alertError("Please enter at least one field to update."));
+        return;
+      }
+
+      const res = await api("/drivers/profile", {
+        method: "PATCH",
+        role: "driver",
+        body,
+      });
+
+      done(!!res.ok);
+      if (res.ok) {
+        const msg = res.requires_reapproval
+          ? alertSuccess("Updated. Your account is now <strong>pending admin review</strong> and you cannot accept jobs until re-approved.")
+          : alertSuccess("Profile updated.");
+        if (vehicleResult) setResult(vehicleResult, msg);
+
+        // Update locally stored driver_status if re-approval was triggered
+        if (res.requires_reapproval) {
+          const u = getSavedDriverUser() || {};
+          u.driver_status = "pending_review";
+          markDriverRegistered(u);
+          updateReapprovalBanner();
+        }
+
+        // Clear file selections
+        selectedFrontFile = null;
+        selectedBackFile = null;
+        if (frontFileInput) frontFileInput.value = "";
+        if (backFileInput) backFileInput.value = "";
+        if (frontStatus) frontStatus.textContent = "";
+        if (backStatus) backStatus.textContent = "";
+
+        loadDriverProfileSnapshot();
+      } else {
+        if (vehicleResult) setResult(vehicleResult, alertError(res.error || "Failed to update."));
+      }
+    });
+  }
+}
+
+/* -----------------------------
    Init
 ----------------------------- */
 export function initDriverPage() {
@@ -1495,38 +1749,36 @@ export function initDriverPage() {
   setupDriverAckGate();
   setupMakeOffer();
   setupViewJob();
-  setupDriverRecentJobsAssigned(); // ✅ ensure dropdown loads
-  setupDriverOpenJobs();           // ✅ open jobs list
+  setupDriverRecentJobsAssigned();
+  setupDriverOpenJobs();
   setupUpdateStatus();
   setupIssueReport_driver();
-  
-  // ✅ NEW: Render active jobs that need driver action
-  // Small delay so token is fully ready before first API call
+  setupDriverProfile();         // ← NEW: profile section
+
+  // Small delay so token is fully ready before first API calls
   setTimeout(() => {
     renderDriverActiveJobs();
     refreshDriverOpenJobs();
     refreshDriverAssignedJobs();
+    // Refresh driver_status from server so re-approval banner is accurate
+    refreshDriverStatusFromServer();
   }, 500);
-  
-  // ✅ NEW: Auto-refresh active jobs every 30 seconds
+
+  // Auto-refresh active jobs every 30 seconds
   setInterval(() => {
-    try {
-      renderDriverActiveJobs();
-    } catch (_) {}
+    try { renderDriverActiveJobs(); } catch (_) {}
   }, 30000);
-  
-  // NEW: Start real-time polling for status updates
+
+  // Real-time polling for status updates
   try {
-    const poller = startPolling({
-      apiRole: 'driver',
+    startPolling({
+      apiRole: "driver",
       getRequestId: () => {
-        const form = document.getElementById('driverViewForm');
+        const form = document.getElementById("driverViewForm");
         return form?.request_id?.value || null;
       },
       onUpdate: (request) => {
-        // Silently update UI without showing "success" message
         try {
-          // Update status summary card
           const statusSummary = document.getElementById("driverStatusSummary");
           if (statusSummary && request) {
             statusSummary.innerHTML = `
@@ -1543,20 +1795,18 @@ export function initDriverPage() {
               </div>
             `;
           }
-          
-          // Update next action banner
           updateDriverNextActionBanner(request);
         } catch (err) {
-          console.error('Polling update error:', err);
+          console.error("Polling update error:", err);
         }
       },
-      interval: 30000 // Poll every 30 seconds
+      interval: 30000,
     });
   } catch (err) {
-    console.error('Failed to start polling:', err);
+    console.error("Failed to start polling:", err);
   }
 
-  // ✅ Payout section
+  // Payout section
   setupDriverPayoutMethod();
   setTimeout(() => {
     renderDriverPayoutJobs();
