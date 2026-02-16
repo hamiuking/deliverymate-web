@@ -7,7 +7,66 @@
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
-  <script type="module" src="/js/app.js"></script>
+  <style>
+    /* ── Admin-specific styles ── */
+    .admin-gate   { max-width: 420px; margin: 60px auto; }
+    .tab-bar      { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab-btn      { padding: 8px 18px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px;
+                    background: transparent; cursor: pointer; font-size: 14px; font-weight: 600;
+                    transition: background .15s, border-color .15s; }
+    .tab-btn.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+    .tab-btn:hover:not(.active) { background: rgba(2,132,199,.07); border-color: #0284c7; }
+
+    .driver-card  { border: 1px solid rgba(0,0,0,.1); border-radius: 10px; padding: 16px;
+                    margin: 10px 0; background: #fff; }
+    .driver-card.pending { border-left: 4px solid #f59e0b; }
+    .driver-card.approved { border-left: 4px solid #22c55e; }
+    .driver-card.disabled { border-left: 4px solid #ef4444; opacity: .75; }
+
+    .badge        { display: inline-block; padding: 2px 8px; border-radius: 999px;
+                    font-size: 12px; font-weight: 700; }
+    .badge-pending  { background: rgba(245,158,11,.15); color: #92400e; }
+    .badge-approved { background: rgba(34,197,94,.15);  color: #166534; }
+    .badge-disabled { background: rgba(239,68,68,.15);  color: #991b1b; }
+
+    .stat-grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 10px; margin: 12px 0; }
+    .stat-box     { padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.02); }
+    .stat-label   { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+    .stat-value   { font-size: 22px; font-weight: 800; }
+
+    .action-item  { padding: 10px 14px; border-radius: 8px; margin: 6px 0;
+                    background: rgba(239,68,68,.05); border: 1px solid rgba(239,68,68,.2); }
+    .action-item.warn { background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3); }
+
+    .req-table    { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    .req-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid rgba(0,0,0,.08);
+                    font-size: 11px; text-transform: uppercase; color: #64748b; }
+    .req-table td { padding: 7px 8px; border-bottom: 1px solid rgba(0,0,0,.05); vertical-align: middle; }
+    .req-table tr:last-child td { border-bottom: none; }
+    .req-table tr:hover td { background: rgba(2,132,199,.03); }
+
+    .section-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+    .divider       { border: none; border-top: 1px solid rgba(0,0,0,.08); margin: 20px 0; }
+    .pill          { display: inline-block; padding: 1px 7px; border-radius: 999px;
+                     font-size: 11px; font-weight: 600; }
+    .pill-open     { background: rgba(59,130,246,.12); color: #1e40af; }
+    .pill-accepted { background: rgba(245,158,11,.12); color: #78350f; }
+    .pill-pickedup { background: rgba(99,102,241,.12); color: #312e81; }
+    .pill-delivered{ background: rgba(34,197,94,.12);  color: #14532d; }
+    .pill-cancelled{ background: rgba(239,68,68,.12);  color: #7f1d1d; }
+    .pill-funded   { background: rgba(34,197,94,.12);  color: #14532d; }
+    .pill-released { background: rgba(16,185,129,.12); color: #064e3b; }
+    .pill-none     { background: rgba(0,0,0,.05);      color: #475569; }
+
+    .empty-state  { color: #94a3b8; font-size: 14px; padding: 16px 0; }
+    .spinner      { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.15);
+                    border-top-color: #0284c7; border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    pre.admin-pre { background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.08);
+                    border-radius: 6px; padding: 12px; font-size: 12px;
+                    white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+  </style>
 </head>
 
 <body data-page="admin">
@@ -24,88 +83,1065 @@
   <main class="container">
     <h1>Admin Dashboard</h1>
 
-    <section class="card">
-      <h2>Admin Token</h2>
-      <input id="adminTokenInput" placeholder="X-Admin-Token" />
-      <button class="btn" id="saveAdminTokenBtn">Save</button>
-    </section>
+    <!-- ── AUTH GATE ──────────────────────────────────────── -->
+    <div id="adminGate" class="admin-gate">
+      <div class="card">
+        <h2 style="margin-top:0;">Admin Sign In</h2>
+        <p class="muted">Enter your admin token to access the dashboard.</p>
+        <label>Admin Token</label>
+        <input type="password" id="adminTokenInput" placeholder="Paste admin token…" autocomplete="off" />
+        <button class="btn mt-2" id="adminSignInBtn" style="width:100%;">Sign In</button>
+        <div class="result mt-2" id="adminSignInResult"></div>
+      </div>
+    </div>
 
-    <section class="card">
-      <h2>Pending Drivers</h2>
-      <button class="btn" id="loadPendingDriversBtn">Load Pending</button>
-      <pre id="pendingDriversOut">{}</pre>
-    </section>
+    <!-- ── MAIN DASHBOARD ──────────────────────────────────
+         Hidden until admin token is validated.
+    ──────────────────────────────────────────────────────── -->
+    <div id="adminDashboard" class="hidden">
 
-    <section class="card">
-      <h2>Ledger Lookup</h2>
-      <input id="ledgerRequestId" placeholder="Request ID" />
-      <button class="btn" id="loadLedgerBtn">Load Ledger</button>
-      <pre id="ledgerOut">{}</pre>
-    </section>
+      <!-- Top bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div class="muted" id="adminWelcome"></div>
+        <button class="btn ghost" id="adminSignOutBtn">Sign out</button>
+      </div>
 
-    <section class="card">
-      <h2>Dashboard Stats</h2>
-      <button class="btn" id="adminRefreshDashboardBtn">Refresh</button>
-      <button class="btn" id="adminRunTickBtn">Run tick now</button>
-      <div class="muted" id="adminDashboardStatus"></div>
-      <div class="muted" id="adminRunTickOut"></div>
-
-      <div class="grid">
-        <div class="card compact">
-          <div class="muted">Pending drivers</div>
-          <div id="adminCountPendingDrivers">—</div>
+      <!-- ══════════════════════════════════════════════════
+           SECTION 1: DRIVER QUEUE
+           Primary feature — review and approve/disable drivers.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+          <div class="section-title">Driver Queue</div>
+          <button class="btn ghost" id="driversRefreshBtn">↺ Refresh</button>
         </div>
 
-        <div class="card compact">
-          <div class="muted">Approved drivers</div>
-          <div id="adminCountApprovedDrivers">—</div>
+        <!-- Status tabs -->
+        <div class="tab-bar" id="driverTabBar">
+          <button class="tab-btn active" data-status="pending_review">⏳ Pending Review</button>
+          <button class="tab-btn" data-status="approved">✅ Approved</button>
+          <button class="tab-btn" data-status="disabled">🚫 Disabled</button>
         </div>
 
-        <div class="card compact">
-          <div class="muted">Disabled drivers</div>
-          <div id="adminCountDisabledDrivers">—</div>
+        <div id="driverQueueCount" class="muted" style="margin-bottom:10px;"></div>
+        <div id="driverQueueList"></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════
+           SECTION 2: SENDER MANAGEMENT
+           Search by phone, suspend or reinstate.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="margin-bottom:16px;">
+          <div class="section-title">Sender Management</div>
+          <div class="muted" style="margin-top:4px;">Search a sender by phone number to view their status or suspend their account.</div>
         </div>
 
-        <div class="card compact">
-          <div class="muted">Overdue pending release</div>
-          <div id="adminCountOverdueRelease">—</div>
+        <!-- Search -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <div style="flex:1; min-width:200px;">
+            <label>Phone number</label>
+            <input id="senderSearchPhone" type="tel" placeholder="e.g. 0211234567" />
+          </div>
+          <button class="btn secondary" id="senderSearchBtn">Search</button>
         </div>
+        <div class="result mt-2" id="senderSearchResult"></div>
 
-        <div class="card compact">
-          <div class="muted">Failed payouts</div>
-          <div id="adminCountFailedPayouts">—</div>
+        <!-- Sender card (hidden until found) -->
+        <div id="senderCard" class="hidden" style="margin-top:16px;">
+          <div class="driver-card" id="senderCardInner"></div>
         </div>
+      </section>
 
-        <div class="card compact">
-          <div class="muted">Old pending payouts (2h+) — test-mode</div>
-          <div id="adminCountOldPendingPayouts">—</div>
+      <!-- ══════════════════════════════════════════════════
+           SECTION 3: DRIVER PAYOUTS
+           Pending payout run — view, copy, mark paid.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <div>
+            <div class="section-title">Driver Payouts</div>
+            <div class="muted" style="margin-top:4px;" id="payoutSummaryLine">Loading pending payouts…</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn ghost" id="payoutsRefreshBtn">↺ Refresh</button>
+            <button class="btn secondary" id="payoutsCopyBtn">📋 Copy Payout List</button>
+          </div>
+        </div>
+        <div id="payoutsList"></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════
+           SECTION 4: PLATFORM SUMMARY
+           Counts and recent requests at a glance.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <div class="section-title">Platform Summary</div>
+          <button class="btn ghost" id="summaryRefreshBtn">↺ Refresh</button>
+        </div>
+        <div id="summaryContent"><div class="muted">Loading…</div></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════
+           SECTION 5: ACTION ITEMS
+           Things that need admin attention now.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <div class="section-title">Action Items</div>
+          <button class="btn ghost" id="actionItemsRefreshBtn">↺ Refresh</button>
+        </div>
+        <div id="actionItemsContent"><div class="muted">Loading…</div></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════
+           SECTION 6: REQUEST TOOLS
+           Ledger viewer + mark payout paid.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" style="margin-bottom:20px;">
+        <details>
+          <summary style="cursor:pointer; font-weight:700; font-size:18px;">Request Tools</summary>
+          <div style="margin-top:16px;">
+
+            <!-- Ledger viewer -->
+            <div class="section-title" style="font-size:15px; margin-bottom:4px;">View Ledger</div>
+            <p class="muted">View all money events for a specific request.</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <div style="flex:1; min-width:160px;">
+                <label>Request ID</label>
+                <input id="ledgerRequestId" type="number" placeholder="e.g. 42" />
+              </div>
+              <button class="btn secondary" id="ledgerViewBtn">View Ledger</button>
+            </div>
+            <div class="result mt-2" id="ledgerResult"></div>
+            <pre class="admin-pre mt-2" id="ledgerOut" style="display:none;"></pre>
+
+            <hr class="divider" />
+
+            <!-- Mark payout paid -->
+            <div class="section-title" style="font-size:15px; margin-bottom:4px;">Mark Payout as Paid</div>
+            <p class="muted">Use after manually transferring to a driver's bank account.</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <div style="flex:1; min-width:160px;">
+                <label>Request ID</label>
+                <input id="payoutRequestId" type="number" placeholder="e.g. 42" />
+              </div>
+              <div style="flex:2; min-width:200px;">
+                <label>Payment reference <span class="muted">(optional)</span></label>
+                <input id="payoutReference" placeholder="e.g. ANZ-20240217" />
+              </div>
+              <button class="btn" id="payoutMarkPaidBtn" style="background:#16a34a; border-color:#16a34a;">Mark as Paid</button>
+            </div>
+            <div class="result mt-2" id="payoutMarkResult"></div>
+
+            <hr class="divider" />
+
+            <!-- Cron tick -->
+            <div class="section-title" style="font-size:15px; margin-bottom:4px;">Manual Cron Tick</div>
+            <p class="muted">Trigger the auto-release cron manually. Processes any overdue pending-release requests.</p>
+            <button class="btn secondary" id="cronTickBtn">Run Cron Tick</button>
+            <div class="result mt-2" id="cronResult"></div>
+            <pre class="admin-pre mt-2" id="cronOut" style="display:none;"></pre>
+          </div>
+        </details>
+      </section>
+
+    </div><!-- /adminDashboard -->
+  </main>
+
+  <script>
+  /* ==========================================================
+     Admin Dashboard — All logic inline, no external deps.
+     Uses X-Admin-Token header for all API calls.
+  ========================================================== */
+
+  const SESSION_KEY = 'dm_admin_token';
+  let adminToken = '';
+  let currentDriverStatus = 'pending_review';
+
+  // ── Helpers ──────────────────────────────────────────────
+
+  function esc(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setResult(el, html) {
+    if (el) el.innerHTML = html;
+  }
+
+  function alertOk(msg) {
+    return `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:6px; padding:10px 14px;">${msg}</div>`;
+  }
+
+  function alertErr(msg) {
+    return `<div style="color:#991b1b; background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.25); border-radius:6px; padding:10px 14px;">${msg}</div>`;
+  }
+
+  function setLoading(el, on) {
+    if (!el) return;
+    if (on) {
+      el.dataset.origText = el.textContent;
+      el.disabled = true;
+      el.innerHTML = `<span class="spinner"></span> ${el.dataset.origText || '…'}`;
+    } else {
+      el.disabled = false;
+      el.textContent = el.dataset.origText || el.textContent;
+    }
+  }
+
+  async function apiFetch(path, { method = 'GET', body } = {}) {
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Token': adminToken,
+      },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    try {
+      const res = await fetch(path, opts);
+      const json = await res.json();
+      return { ok: res.ok, status: res.status, ...json };
+    } catch (e) {
+      return { ok: false, error: e && e.message ? e.message : 'Network error' };
+    }
+  }
+
+  function statusPill(status) {
+    const map = {
+      open:       ['pill-open',      'Open'],
+      accepted:   ['pill-accepted',  'Accepted'],
+      picked_up:  ['pill-pickedup',  'Picked up'],
+      delivered:  ['pill-delivered', 'Delivered'],
+      cancelled:  ['pill-cancelled', 'Cancelled'],
+    };
+    const [cls, label] = map[status] || ['pill-none', status || '—'];
+    return `<span class="pill ${cls}">${esc(label)}</span>`;
+  }
+
+  function escrowPill(status) {
+    const map = {
+      none:            ['pill-none',      'None'],
+      funded:          ['pill-funded',    'Funded'],
+      pending_release: ['pill-accepted',  'Pending release'],
+      released:        ['pill-released',  'Released'],
+    };
+    const [cls, label] = map[status] || ['pill-none', status || '—'];
+    return `<span class="pill ${cls}">${esc(label)}</span>`;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-NZ', { day:'numeric', month:'short', year:'numeric' });
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-NZ', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  // ── Auth ─────────────────────────────────────────────────
+
+  function showDashboard() {
+    document.getElementById('adminGate').classList.add('hidden');
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    document.getElementById('adminWelcome').textContent = 'Signed in as admin';
+    loadAll();
+  }
+
+  function hideDashboard() {
+    document.getElementById('adminGate').classList.remove('hidden');
+    document.getElementById('adminDashboard').classList.add('hidden');
+    adminToken = '';
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
+  }
+
+  async function trySignIn(token) {
+    // Validate token by calling a lightweight admin endpoint
+    const res = await apiFetch('/admin/drivers?status=pending_review', { method: 'GET' });
+    if (res.ok) {
+      adminToken = token;
+      try { sessionStorage.setItem(SESSION_KEY, token); } catch (_) {}
+      return true;
+    }
+    return false;
+  }
+
+  document.getElementById('adminSignInBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('adminSignInBtn');
+    const input = document.getElementById('adminTokenInput');
+    const result = document.getElementById('adminSignInResult');
+    const token = (input.value || '').trim();
+    if (!token) { setResult(result, alertErr('Please enter your admin token.')); return; }
+
+    setLoading(btn, true);
+    setResult(result, '');
+    adminToken = token; // set temporarily for trySignIn
+
+    const ok = await trySignIn(token);
+    setLoading(btn, false);
+    if (ok) {
+      input.value = '';
+      showDashboard();
+    } else {
+      adminToken = '';
+      setResult(result, alertErr('Invalid admin token or server error. Please try again.'));
+    }
+  });
+
+  document.getElementById('adminTokenInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('adminSignInBtn').click();
+  });
+
+  document.getElementById('adminSignOutBtn').addEventListener('click', hideDashboard);
+
+  // Restore session if token saved
+  (function() {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) { adminToken = saved; showDashboard(); }
+    } catch (_) {}
+  })();
+
+  // ── Driver Queue ─────────────────────────────────────────
+
+  async function loadDriverQueue(status) {
+    const list = document.getElementById('driverQueueList');
+    const count = document.getElementById('driverQueueCount');
+    list.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
+    if (count) count.textContent = '';
+
+    const res = await apiFetch(`/admin/drivers?status=${encodeURIComponent(status)}`);
+    if (!res.ok) {
+      list.innerHTML = alertErr(res.error || 'Failed to load drivers');
+      return;
+    }
+
+    const drivers = Array.isArray(res.drivers) ? res.drivers : [];
+
+    if (count) {
+      count.textContent = drivers.length
+        ? `${drivers.length} driver${drivers.length === 1 ? '' : 's'}`
+        : 'No drivers in this category.';
+    }
+
+    if (drivers.length === 0) {
+      list.innerHTML = `<div class="empty-state">No drivers with status "${esc(status)}".</div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    for (const d of drivers) {
+      list.appendChild(renderDriverCard(d, status));
+    }
+  }
+
+  function renderDriverCard(d, status) {
+    const card = document.createElement('div');
+    const statusClass = status === 'pending_review' ? 'pending' : status === 'approved' ? 'approved' : 'disabled';
+    card.className = `driver-card ${statusClass}`;
+
+    const badgeClass = status === 'pending_review' ? 'badge-pending' : status === 'approved' ? 'badge-approved' : 'badge-disabled';
+    const badgeLabel = status === 'pending_review' ? '⏳ Pending Review' : status === 'approved' ? '✅ Approved' : '🚫 Disabled';
+
+    const wofFormatted = d.wof_expiry ? fmtDate(d.wof_expiry) : '—';
+    const appliedFormatted = d.driver_applied_at ? fmtDateTime(d.driver_applied_at) : '—';
+    const approvedFormatted = d.driver_approved_at ? fmtDateTime(d.driver_approved_at) : '—';
+    const hasBank = d.payout_account_last4 ? `···${esc(d.payout_account_last4)}` : 'Not saved';
+    const uid = esc(String(d.id));
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+            <div style="font-weight:700; font-size:16px;">${esc(d.full_name || '—')}</div>
+            <span class="badge ${badgeClass}">${badgeLabel}</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:4px 16px; font-size:13px;">
+            <div><span class="muted">Phone:</span> ${esc(d.phone || '—')}</div>
+            <div><span class="muted">Email:</span> ${esc(d.email || '—')}</div>
+            <div><span class="muted">Vehicle plate:</span> ${esc(d.vehicle_plate || '—')}</div>
+            <div><span class="muted">WOF expiry:</span> ${esc(wofFormatted)}</div>
+            <div><span class="muted">Applied:</span> ${esc(appliedFormatted)}</div>
+            <div><span class="muted">Approved:</span> ${esc(approvedFormatted)}</div>
+            <div><span class="muted">Bank account:</span> ${hasBank}</div>
+            <div><span class="muted">User ID:</span> #${uid}</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
+          ${status !== 'approved'
+            ? `<button class="btn driverApproveBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
+                 style="background:#16a34a; border-color:#16a34a;">✅ Approve</button>`
+            : ''}
+          ${status !== 'disabled'
+            ? `<button class="btn ghost driverDisableBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
+                 style="border-color:#dc2626; color:#dc2626;">🚫 Disable</button>`
+            : ''}
+          ${status === 'disabled'
+            ? `<button class="btn driverApproveBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
+                 style="background:#16a34a; border-color:#16a34a;">✅ Re-approve</button>`
+            : ''}
         </div>
       </div>
 
-      <h3>Action Items</h3>
-      <div id="adminActionItemsOut" class="muted">—</div>
-
-      <details class="mt-2">
-        <summary>Recent requests (last 20)</summary>
-        <div id="adminRecentRequestsOut" class="mt-2"></div>
-      </details>
-    </section>
-  
-  <section class="card">
-    <h2>Mark payout as paid (pilot)</h2>
-    <p class="muted">Use this after you have paid the driver manually. This only updates the platform ledger; it does not send money.</p>
-    <form id="markPaidForm" onsubmit="return false">
-      <label>Request ID</label>
-      <input name="request_id" placeholder="e.g. 123" required />
-      <label>Reference (optional)</label>
-      <input name="reference" placeholder="Bank transfer reference" />
-      <div class="btn-row">
-        <button class="btn" type="submit">Mark paid</button>
+      <!-- Disable reason panel (hidden until Disable clicked) -->
+      <div id="driverDisableReason-${uid}" class="hidden"
+           style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(0,0,0,.08);">
+        <label>Reason for disabling <span class="muted">(optional — logged in audit trail)</span></label>
+        <input class="driverDisableReasonInput" data-id="${uid}"
+               placeholder="e.g. Fraudulent activity reported" />
+        <div class="btn-row" style="margin-top:10px; gap:8px;">
+          <button class="btn driverDisableConfirmBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
+            style="background:#dc2626; border-color:#dc2626;">Confirm Disable</button>
+          <button class="btn ghost driverDisableCancelBtn" data-id="${uid}">Cancel</button>
+        </div>
       </div>
-    </form>
-    <pre class="code" id="markPaidOut"></pre>
-  </section>
 
-</main>
+      <div class="result mt-2" id="driverCardResult-${uid}"></div>
+    `;
+    return card;
+  }
+
+  // Event delegation for approve / disable / reason-flow buttons
+  document.getElementById('driverQueueList').addEventListener('click', async (e) => {
+    const approveBtn  = e.target.closest('.driverApproveBtn');
+    const disableBtn  = e.target.closest('.driverDisableBtn');
+    const confirmBtn  = e.target.closest('.driverDisableConfirmBtn');
+    const cancelBtn   = e.target.closest('.driverDisableCancelBtn');
+
+    // ── Show reason panel when Disable clicked
+    if (disableBtn) {
+      const id = disableBtn.dataset.id;
+      const reasonPanel = document.getElementById(`driverDisableReason-${id}`);
+      if (reasonPanel) reasonPanel.classList.remove('hidden');
+      disableBtn.disabled = true;
+      return;
+    }
+
+    // ── Cancel — hide reason panel and re-enable Disable button
+    if (cancelBtn) {
+      const id = cancelBtn.dataset.id;
+      const reasonPanel = document.getElementById(`driverDisableReason-${id}`);
+      if (reasonPanel) reasonPanel.classList.add('hidden');
+      // Re-enable the disable button
+      const disableBtnEl = e.target.closest('.driver-card')?.querySelector('.driverDisableBtn');
+      if (disableBtnEl) disableBtnEl.disabled = false;
+      return;
+    }
+
+    // ── Confirm disable (with reason)
+    if (confirmBtn) {
+      const id = confirmBtn.dataset.id;
+      const name = confirmBtn.dataset.name || `Driver #${id}`;
+      const reasonInput = document.querySelector(`.driverDisableReasonInput[data-id="${CSS.escape(id)}"]`);
+      const reason = (reasonInput?.value || '').trim() || null;
+      const resultEl = document.getElementById(`driverCardResult-${id}`);
+
+      if (!confirm(`Disable "${name}" (ID #${id})? They will no longer be able to submit offers.`)) return;
+
+      setLoading(confirmBtn, true);
+      if (resultEl) setResult(resultEl, '');
+
+      const res = await apiFetch(`/admin/drivers/${id}/disable`, {
+        method: 'POST',
+        body: { reason },
+      });
+      setLoading(confirmBtn, false);
+
+      if (res.ok) {
+        if (resultEl) setResult(resultEl, alertOk(`Disabled successfully.${reason ? ` Reason logged: "${reason}"` : ''}`));
+        setTimeout(() => loadDriverQueue(currentDriverStatus), 1200);
+      } else {
+        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to disable driver'));
+      }
+      return;
+    }
+
+    // ── Approve / Re-approve
+    if (approveBtn) {
+      const id = approveBtn.dataset.id;
+      const name = approveBtn.dataset.name || `Driver #${id}`;
+      const resultEl = document.getElementById(`driverCardResult-${id}`);
+
+      if (!confirm(`Approve "${name}" (ID #${id})? They will be able to submit offers immediately.`)) return;
+
+      setLoading(approveBtn, true);
+      if (resultEl) setResult(resultEl, '');
+
+      const res = await apiFetch(`/admin/drivers/${id}/approve`, { method: 'POST' });
+      setLoading(approveBtn, false);
+
+      if (res.ok) {
+        if (resultEl) setResult(resultEl, alertOk('Approved successfully.'));
+        setTimeout(() => loadDriverQueue(currentDriverStatus), 1200);
+      } else {
+        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to approve driver'));
+      }
+    }
+  });
+
+  // Tab switching
+  document.getElementById('driverTabBar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDriverStatus = btn.dataset.status;
+    loadDriverQueue(currentDriverStatus);
+  });
+
+  document.getElementById('driversRefreshBtn').addEventListener('click', () => {
+    loadDriverQueue(currentDriverStatus);
+  });
+
+  // ── Platform Summary ─────────────────────────────────────
+
+  async function loadSummary() {
+    const el = document.getElementById('summaryContent');
+    el.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
+
+    const res = await apiFetch('/admin/trial/summary');
+    if (!res.ok) {
+      el.innerHTML = alertErr(res.error || 'Failed to load summary');
+      return;
+    }
+
+    // Request status counts
+    const reqCounts = Array.isArray(res.by_request_status) ? res.by_request_status : [];
+    const escCounts = Array.isArray(res.by_escrow_status) ? res.by_escrow_status : [];
+    const payCounts = Array.isArray(res.by_payout_status) ? res.by_payout_status : [];
+    const recent    = Array.isArray(res.recent_requests)   ? res.recent_requests  : [];
+
+    const buildStatGrid = (items, labelKey, valueKey) => {
+      if (!items.length) return `<div class="empty-state">No data.</div>`;
+      return `<div class="stat-grid">${items.map(r => `
+        <div class="stat-box">
+          <div class="stat-label">${esc(r[labelKey] || '—')}</div>
+          <div class="stat-value">${esc(String(r[valueKey] ?? 0))}</div>
+        </div>`).join('')}
+      </div>`;
+    };
+
+    const buildRecentTable = (rows) => {
+      if (!rows.length) return `<div class="empty-state">No recent requests.</div>`;
+      return `
+        <div style="overflow-x:auto;">
+          <table class="req-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Status</th>
+                <th>Escrow</th>
+                <th>Payout</th>
+                <th>Amount</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td style="font-weight:600;">${esc(String(r.id))}</td>
+                  <td>${statusPill(r.status)}</td>
+                  <td>${escrowPill(r.escrow_status)}</td>
+                  <td><span class="pill pill-none">${esc(r.payout_status || 'none')}</span></td>
+                  <td>${r.escrow_amount_nzd ? `NZD $${Number(r.escrow_amount_nzd).toFixed(2)}` : '—'}</td>
+                  <td class="muted">${esc(fmtDateTime(r.created_at))}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    };
+
+    el.innerHTML = `
+      <div style="margin-bottom:6px; color:#64748b; font-size:12px;">Server time: ${esc(res.now || '—')}</div>
+
+      <div style="font-weight:700; margin-bottom:6px;">Requests by Status</div>
+      ${buildStatGrid(reqCounts, 'status', 'count')}
+
+      <div style="font-weight:700; margin:16px 0 6px;">Escrow by Status</div>
+      ${buildStatGrid(escCounts, 'escrow_status', 'count')}
+
+      <div style="font-weight:700; margin:16px 0 6px;">Payouts by Status</div>
+      ${buildStatGrid(payCounts, 'payout_status', 'count')}
+
+      <div style="font-weight:700; margin:16px 0 6px;">Recent Requests (last 20)</div>
+      ${buildRecentTable(recent)}
+    `;
+  }
+
+  document.getElementById('summaryRefreshBtn').addEventListener('click', loadSummary);
+
+  // ── Action Items ─────────────────────────────────────────
+
+  async function loadActionItems() {
+    const el = document.getElementById('actionItemsContent');
+    el.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
+
+    const res = await apiFetch('/admin/trial/action-items');
+    if (!res.ok) {
+      el.innerHTML = alertErr(res.error || 'Failed to load action items');
+      return;
+    }
+
+    const overdueRelease  = Array.isArray(res.overdue_release)     ? res.overdue_release     : [];
+    const pendingOld      = Array.isArray(res.payouts_pending_old)  ? res.payouts_pending_old  : [];
+    const failedPayouts   = Array.isArray(res.payouts_failed)       ? res.payouts_failed       : [];
+    const total = overdueRelease.length + pendingOld.length + failedPayouts.length;
+
+    if (total === 0) {
+      el.innerHTML = `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:8px; padding:14px;">✅ No action items. Everything looks good.</div>`;
+      return;
+    }
+
+    const sections = [];
+
+    if (overdueRelease.length) {
+      sections.push(`
+        <div style="font-weight:700; color:#dc2626; margin-bottom:8px;">🚨 Overdue Escrow Release (${overdueRelease.length})</div>
+        <p class="muted" style="margin-bottom:8px;">These requests were delivered but the 24h window has passed and escrow has not auto-released. Run Cron Tick below or check manually.</p>
+        ${overdueRelease.map(r => `
+          <div class="action-item">
+            <strong>Request #${esc(String(r.id))}</strong>
+            <span class="muted" style="margin-left:8px;">Deadline: ${esc(fmtDateTime(r.escrow_dispute_deadline_at))}</span>
+          </div>`).join('')}
+      `);
+    }
+
+    if (pendingOld.length) {
+      sections.push(`
+        <div style="font-weight:700; color:#92400e; margin-bottom:8px; margin-top:${overdueRelease.length ? '16px' : '0'};">⏳ Payouts Pending &gt;2 Hours (${pendingOld.length})</div>
+        <p class="muted" style="margin-bottom:8px;">These payouts have been pending for over 2 hours. Check that bank transfers have been made and mark as paid below.</p>
+        ${pendingOld.map(r => `
+          <div class="action-item warn">
+            <strong>Request #${esc(String(r.id))}</strong>
+            <span class="muted" style="margin-left:8px;">
+              ${r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : '—'}
+              · Pending since: ${esc(fmtDateTime(r.payout_created_at))}
+            </span>
+          </div>`).join('')}
+      `);
+    }
+
+    if (failedPayouts.length) {
+      sections.push(`
+        <div style="font-weight:700; color:#dc2626; margin-bottom:8px; margin-top:${overdueRelease.length || pendingOld.length ? '16px' : '0'};">❌ Failed Payouts (${failedPayouts.length})</div>
+        <p class="muted" style="margin-bottom:8px;">These payouts failed. Investigate and retry or mark paid manually.</p>
+        ${failedPayouts.map(r => `
+          <div class="action-item">
+            <strong>Request #${esc(String(r.id))}</strong>
+            <span class="muted" style="margin-left:8px;">
+              ${r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : '—'}
+              · Reason: ${esc(r.payout_fail_reason || '—')}
+            </span>
+          </div>`).join('')}
+      `);
+    }
+
+    el.innerHTML = sections.join('');
+  }
+
+  document.getElementById('actionItemsRefreshBtn').addEventListener('click', loadActionItems);
+
+  // ── Request Tools ─────────────────────────────────────────
+
+  document.getElementById('ledgerViewBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('ledgerViewBtn');
+    const requestId = (document.getElementById('ledgerRequestId').value || '').trim();
+    const resultEl = document.getElementById('ledgerResult');
+    const outEl = document.getElementById('ledgerOut');
+
+    if (!requestId) { setResult(resultEl, alertErr('Please enter a Request ID.')); return; }
+
+    setLoading(btn, true);
+    setResult(resultEl, '');
+    if (outEl) outEl.style.display = 'none';
+
+    const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/ledger`);
+    setLoading(btn, false);
+
+    if (res.ok) {
+      setResult(resultEl, alertOk(`Loaded ${Array.isArray(res.ledger) ? res.ledger.length : 0} ledger entries.`));
+      if (outEl) {
+        outEl.textContent = JSON.stringify(res.ledger, null, 2);
+        outEl.style.display = 'block';
+      }
+    } else {
+      setResult(resultEl, alertErr(res.error || 'Failed to load ledger'));
+    }
+  });
+
+  document.getElementById('payoutMarkPaidBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('payoutMarkPaidBtn');
+    const requestId = (document.getElementById('payoutRequestId').value || '').trim();
+    const reference = (document.getElementById('payoutReference').value || '').trim();
+    const resultEl = document.getElementById('payoutMarkResult');
+
+    if (!requestId) { setResult(resultEl, alertErr('Please enter a Request ID.')); return; }
+
+    const confirmMsg = reference
+      ? `Mark payout for Request #${requestId} as paid?\n\nReference: ${reference}`
+      : `Mark payout for Request #${requestId} as paid? (No reference provided)`;
+    if (!confirm(confirmMsg)) return;
+
+    setLoading(btn, true);
+    setResult(resultEl, '');
+
+    const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/payout/mark_paid`, {
+      method: 'POST',
+      body: { reference: reference || undefined },
+    });
+    setLoading(btn, false);
+
+    if (res.ok) {
+      setResult(resultEl, alertOk(`✅ Payout for Request #${requestId} marked as paid.${reference ? ` Reference: ${reference}` : ''}`));
+    } else {
+      setResult(resultEl, alertErr(res.error || 'Failed to mark payout as paid'));
+    }
+  });
+
+  document.getElementById('cronTickBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('cronTickBtn');
+    const resultEl = document.getElementById('cronResult');
+    const outEl = document.getElementById('cronOut');
+
+    if (!confirm('Run cron tick? This will auto-release any overdue pending-release escrows.')) return;
+
+    setLoading(btn, true);
+    setResult(resultEl, '');
+    if (outEl) outEl.style.display = 'none';
+
+    const res = await apiFetch('/admin/cron/tick', { method: 'POST' });
+    setLoading(btn, false);
+
+    if (res.ok) {
+      const msg = res.processed_count > 0
+        ? `✅ Released ${res.processed_count} escrow(s). Scanned ${res.scanned}.`
+        : `✅ Cron ran. Nothing to release (${res.scanned} scanned).`;
+      setResult(resultEl, alertOk(msg));
+      if (outEl) {
+        outEl.textContent = JSON.stringify({ scanned: res.scanned, processed: res.processed, skipped: res.skipped, errors: res.errors }, null, 2);
+        outEl.style.display = 'block';
+      }
+      // Refresh action items since state may have changed
+      loadActionItems();
+    } else {
+      setResult(resultEl, alertErr(res.error || 'Cron tick failed'));
+    }
+  });
+
+  // ── Sender Management ─────────────────────────────────────
+
+  let currentSenderUser = null;
+
+  async function searchSender() {
+    const phone = (document.getElementById('senderSearchPhone').value || '').trim();
+    const resultEl = document.getElementById('senderSearchResult');
+    const cardEl = document.getElementById('senderCard');
+    const cardInner = document.getElementById('senderCardInner');
+
+    if (!phone) { setResult(resultEl, alertErr('Please enter a phone number.')); return; }
+
+    const btn = document.getElementById('senderSearchBtn');
+    setLoading(btn, true);
+    setResult(resultEl, '');
+    cardEl.classList.add('hidden');
+
+    const res = await apiFetch(`/admin/senders/search?phone=${encodeURIComponent(phone)}`);
+    setLoading(btn, false);
+
+    if (!res.ok) {
+      setResult(resultEl, alertErr(res.error || 'Not found'));
+      return;
+    }
+
+    currentSenderUser = res.user;
+    renderSenderCard(res.user, cardInner);
+    cardEl.classList.remove('hidden');
+  }
+
+  function renderSenderCard(u, container) {
+    const enabled = u.sender_enabled !== false;
+    const statusBadge = enabled
+      ? `<span class="badge badge-approved">✅ Active</span>`
+      : `<span class="badge badge-disabled">🚫 Suspended</span>`;
+
+    container.className = `driver-card ${enabled ? 'approved' : 'disabled'}`;
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+            <div style="font-weight:700; font-size:16px;">${esc(u.full_name || '—')}</div>
+            ${statusBadge}
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:4px 16px; font-size:13px;">
+            <div><span class="muted">Phone:</span> ${esc(u.phone || '—')}</div>
+            <div><span class="muted">Email:</span> ${esc(u.email || '—')}</div>
+            <div><span class="muted">Open requests:</span> ${esc(String(u.open_request_count ?? 0))}</div>
+            <div><span class="muted">Active requests:</span> ${esc(String(u.active_request_count ?? 0))}</div>
+            <div><span class="muted">User ID:</span> #${esc(String(u.id))}</div>
+            <div><span class="muted">Member since:</span> ${esc(fmtDate(u.created_at))}</div>
+          </div>
+          ${u.open_request_count > 0 && enabled
+            ? `<div style="margin-top:10px; padding:8px 12px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:6px; font-size:13px; color:#92400e;">
+                ⚠️ Suspending will automatically cancel their <strong>${u.open_request_count}</strong> open request(s).
+               </div>`
+            : ''}
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
+          ${enabled
+            ? `<button class="btn" id="senderSuspendBtn"
+                 style="background:#dc2626; border-color:#dc2626;">🚫 Suspend</button>`
+            : `<button class="btn" id="senderReinstateBtn"
+                 style="background:#16a34a; border-color:#16a34a;">✅ Reinstate</button>`}
+        </div>
+      </div>
+
+      <!-- Suspend reason (shown when suspending) -->
+      <div id="senderSuspendReasonWrap" class="hidden" style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(0,0,0,.08);">
+        <label>Suspension reason <span class="muted">(optional — logged in audit trail)</span></label>
+        <input id="senderSuspendReason" placeholder="e.g. Fraudulent activity reported" />
+        <div class="btn-row" style="margin-top:10px; gap:8px;">
+          <button class="btn" id="senderSuspendConfirmBtn"
+            style="background:#dc2626; border-color:#dc2626;">Confirm Suspension</button>
+          <button class="btn ghost" id="senderSuspendCancelBtn">Cancel</button>
+        </div>
+      </div>
+
+      <div class="result mt-2" id="senderActionResult"></div>
+    `;
+
+    // Wire suspend button (shows reason box first)
+    const suspendBtn = document.getElementById('senderSuspendBtn');
+    if (suspendBtn) {
+      suspendBtn.addEventListener('click', () => {
+        document.getElementById('senderSuspendReasonWrap').classList.remove('hidden');
+        suspendBtn.disabled = true;
+      });
+    }
+
+    // Wire cancel
+    const cancelBtn = document.getElementById('senderSuspendCancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        document.getElementById('senderSuspendReasonWrap').classList.add('hidden');
+        if (suspendBtn) suspendBtn.disabled = false;
+      });
+    }
+
+    // Wire confirm suspend
+    const confirmBtn = document.getElementById('senderSuspendConfirmBtn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => applySenderAction(u.id, false));
+    }
+
+    // Wire reinstate
+    const reinstateBtn = document.getElementById('senderReinstateBtn');
+    if (reinstateBtn) {
+      reinstateBtn.addEventListener('click', () => {
+        if (!confirm(`Reinstate "${u.full_name || u.phone}" as an active sender?`)) return;
+        applySenderAction(u.id, true);
+      });
+    }
+  }
+
+  async function applySenderAction(userId, enable) {
+    const resultEl = document.getElementById('senderActionResult');
+    const reason = enable ? null : (document.getElementById('senderSuspendReason')?.value || '').trim() || null;
+    const btn = enable
+      ? document.getElementById('senderReinstateBtn')
+      : document.getElementById('senderSuspendConfirmBtn');
+
+    setLoading(btn, true);
+    setResult(resultEl, '');
+
+    const res = await apiFetch(`/admin/users/${userId}/sender`, {
+      method: 'PATCH',
+      body: { enabled: enable, reason },
+    });
+    setLoading(btn, false);
+
+    if (res.ok) {
+      const msg = enable
+        ? alertOk(`✅ ${res.message}`)
+        : alertOk(`✅ ${res.message}`);
+      setResult(resultEl, msg);
+      // Refresh the card after 1s
+      setTimeout(searchSender, 1200);
+    } else {
+      setResult(resultEl, alertErr(res.error || 'Action failed'));
+    }
+  }
+
+  document.getElementById('senderSearchBtn').addEventListener('click', searchSender);
+  document.getElementById('senderSearchPhone').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchSender();
+  });
+
+  // ── Driver Payouts ─────────────────────────────────────────
+
+  let currentPayouts = [];
+
+  async function loadPendingPayouts() {
+    const listEl = document.getElementById('payoutsList');
+    const summaryEl = document.getElementById('payoutSummaryLine');
+
+    listEl.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
+    if (summaryEl) summaryEl.textContent = 'Loading pending payouts…';
+
+    const res = await apiFetch('/admin/payouts/pending');
+    if (!res.ok) {
+      listEl.innerHTML = alertErr(res.error || 'Failed to load payouts');
+      if (summaryEl) summaryEl.textContent = 'Failed to load.';
+      return;
+    }
+
+    currentPayouts = Array.isArray(res.payouts) ? res.payouts : [];
+    const total = Number(res.total_nzd || 0);
+
+    if (summaryEl) {
+      summaryEl.textContent = currentPayouts.length
+        ? `${currentPayouts.length} pending payout${currentPayouts.length === 1 ? '' : 's'} · Total: NZD $${total.toFixed(2)}`
+        : 'No pending payouts.';
+    }
+
+    if (currentPayouts.length === 0) {
+      listEl.innerHTML = `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:8px; padding:14px;">✅ No pending payouts. All drivers have been paid.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = '';
+
+    for (const p of currentPayouts) {
+      const card = document.createElement('div');
+      card.className = 'driver-card pending';
+      card.style.marginBottom = '10px';
+
+      const amount = p.payout_amount_nzd ? `NZD $${Number(p.payout_amount_nzd).toFixed(2)}` : '—';
+      const bankDisplay = p.payout_bank_account
+        ? `${esc(p.payout_bank_name || '')} ${esc(p.payout_bank_account)}`.trim()
+        : p.payout_account_last4
+          ? `···${esc(p.payout_account_last4)}`
+          : '<span style="color:#dc2626;">⚠️ No bank details</span>';
+      const driverName = esc(p.driver_full_name || p.driver_name || '—');
+      const releasedAt = fmtDate(p.escrow_released_at);
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:15px; margin-bottom:8px;">
+              ${driverName}
+              <span style="font-size:20px; font-weight:800; color:#92400e; margin-left:12px;">${esc(amount)}</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:4px 16px; font-size:13px;">
+              <div><span class="muted">Phone:</span> ${esc(p.driver_phone || '—')}</div>
+              <div><span class="muted">Email:</span> ${esc(p.driver_email || '—')}</div>
+              <div><span class="muted">Account name:</span> ${esc(p.payout_account_name || '—')}</div>
+              <div><span class="muted">Bank account:</span> ${bankDisplay}</div>
+              <div><span class="muted">Request #:</span> ${esc(String(p.request_id))}</div>
+              <div><span class="muted">Route:</span> ${esc(p.pickup_suburb || '—')} → ${esc(p.dropoff_suburb || '—')}</div>
+              <div><span class="muted">Escrow released:</span> ${esc(releasedAt)}</div>
+              <div><span class="muted">Payout status:</span> <span class="pill pill-accepted">${esc(p.payout_status || '—')}</span></div>
+            </div>
+          </div>
+          <div style="min-width:160px;">
+            <label style="font-size:12px;">Reference <span class="muted">(optional)</span></label>
+            <input class="payoutRefInput" data-id="${esc(String(p.request_id))}" placeholder="e.g. ANZ-20240217" style="font-size:13px; padding:6px 8px;" />
+            <button class="btn payoutMarkBtn" data-id="${esc(String(p.request_id))}" data-name="${driverName}" data-amount="${esc(amount)}"
+              style="width:100%; margin-top:6px; background:#16a34a; border-color:#16a34a;">✅ Mark as Paid</button>
+          </div>
+        </div>
+        <div class="result mt-2 payoutCardResult" id="payoutResult-${esc(String(p.request_id))}"></div>
+      `;
+      listEl.appendChild(card);
+    }
+
+    // Event delegation for Mark as Paid buttons
+    listEl.onclick = async (e) => {
+      const btn = e.target.closest('.payoutMarkBtn');
+      if (!btn) return;
+
+      const requestId = btn.dataset.id;
+      const driverName = btn.dataset.name;
+      const amount = btn.dataset.amount;
+      const refInput = listEl.querySelector(`.payoutRefInput[data-id="${CSS.escape(requestId)}"]`);
+      const reference = (refInput?.value || '').trim() || undefined;
+      const resultEl = document.getElementById(`payoutResult-${requestId}`);
+
+      const msg = reference
+        ? `Mark payout for Request #${requestId} (${driverName}, ${amount}) as paid?\n\nReference: ${reference}`
+        : `Mark payout for Request #${requestId} (${driverName}, ${amount}) as paid?\n\nNo reference provided.`;
+      if (!confirm(msg)) return;
+
+      setLoading(btn, true);
+      if (resultEl) setResult(resultEl, '');
+
+      const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/payout/mark_paid`, {
+        method: 'POST',
+        body: { reference },
+      });
+      setLoading(btn, false);
+
+      if (res.ok) {
+        if (resultEl) setResult(resultEl, alertOk(`✅ Marked as paid.${reference ? ` Ref: ${reference}` : ''}`));
+        btn.disabled = true;
+        btn.textContent = '✅ Paid';
+        btn.style.background = '#64748b';
+        btn.style.borderColor = '#64748b';
+        // Refresh summary line
+        setTimeout(loadPendingPayouts, 2000);
+      } else {
+        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to mark as paid'));
+      }
+    };
+  }
+
+  document.getElementById('payoutsRefreshBtn').addEventListener('click', loadPendingPayouts);
+
+  document.getElementById('payoutsCopyBtn').addEventListener('click', () => {
+    if (!currentPayouts.length) {
+      alert('No pending payouts to copy.');
+      return;
+    }
+
+    // Build a clean, tab-separated payout list suitable for pasting into a spreadsheet or email
+    const header = ['Request #', 'Driver Name', 'Phone', 'Account Name', 'Bank Account', 'Bank', 'Amount (NZD)', 'Released Date'].join('\t');
+    const rows = currentPayouts.map(p => [
+      p.request_id,
+      p.driver_full_name || p.driver_name || '',
+      p.driver_phone || '',
+      p.payout_account_name || '',
+      p.payout_bank_account || '',
+      p.payout_bank_name || '',
+      p.payout_amount_nzd ? Number(p.payout_amount_nzd).toFixed(2) : '',
+      p.escrow_released_at ? fmtDate(p.escrow_released_at) : '',
+    ].join('\t'));
+
+    const total = currentPayouts.reduce((s, p) => s + Number(p.payout_amount_nzd || 0), 0);
+    const footer = `\nTotal pending:\t\t\t\t\t\tNZD $${total.toFixed(2)}`;
+
+    const text = [header, ...rows, footer].join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('payoutsCopyBtn');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => {
+      alert('Copy failed — your browser may not support clipboard access. Try using HTTPS.');
+    });
+  });
+
+  // ── Load everything on dashboard show ─────────────────────
+
+  function loadAll() {
+    loadDriverQueue('pending_review');
+    loadPendingPayouts();
+    loadSummary();
+    loadActionItems();
+  }
+  </script>
 </body>
 </html>
