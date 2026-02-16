@@ -1555,4 +1555,253 @@ export function initDriverPage() {
   } catch (err) {
     console.error('Failed to start polling:', err);
   }
+
+  // ✅ Payout section
+  setupDriverPayoutMethod();
+  setTimeout(() => {
+    renderDriverPayoutJobs();
+    renderDriverPayoutHistory();
+  }, 600);
+}
+
+/* ---------------------------------------------------------
+   Payout - Bank details form + jobs ready for payout
+--------------------------------------------------------- */
+
+async function setupDriverPayoutMethod() {
+  const form = document.getElementById("driverPayoutMethodForm");
+  const result = document.getElementById("driverPayoutMethodResult");
+  const statusMsg = document.getElementById("driverBankStatusMsg");
+  if (!form) return;
+
+  // Load existing payout details from profile
+  try {
+    const profile = await api("/users/me", { method: "GET", role: "driver" });
+    if (profile.ok && profile.user) {
+      const u = profile.user;
+      if (u.payout_account_name && form.account_name) form.account_name.value = u.payout_account_name;
+      if (u.payout_bank_name && form.bank_name) form.bank_name.value = u.payout_bank_name;
+      if (u.payout_method && form.method) form.method.value = u.payout_method;
+      if (u.payout_account_last4 && statusMsg) {
+        const methodLabel = u.payout_method === "cash" ? "Cash" : u.payout_method === "other" ? "Other" : "Bank transfer";
+        statusMsg.innerHTML = `✅ Payout details saved — ${methodLabel}${u.payout_account_last4 ? ` (account ending ···${escapeHtml(u.payout_account_last4)})` : ""}. Update below if needed.`;
+        // Collapse if already saved
+        const details = document.getElementById("driverBankDetailsSection");
+        if (details) details.open = false;
+      } else if (statusMsg) {
+        statusMsg.innerHTML = `⚠️ No payout details saved yet. Add them below to receive payouts.`;
+      }
+    }
+  } catch (_) {}
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    const done = setWorking(btn, "Saving...");
+
+    const fd = new FormData(form);
+    const account_name = String(fd.get("account_name") || "").trim();
+    const bank_name = String(fd.get("bank_name") || "").trim();
+    const bank_account = String(fd.get("bank_account") || "").trim();
+    const method = String(fd.get("method") || "bank").trim();
+
+    if (!account_name) {
+      if (result) setResult(result, alertError("Full name is required."));
+      done(false);
+      return;
+    }
+
+    if (method === "bank" && !bank_account) {
+      if (result) setResult(result, alertError("Bank account number is required for bank transfer."));
+      done(false);
+      return;
+    }
+
+    const res = await api("/drivers/payout-method", {
+      method: "POST",
+      role: "driver",
+      body: { method, account_name, bank_name, bank_account },
+    });
+
+    done(!!res.ok);
+
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Payout details saved!"));
+      const methodLabel = method === "cash" ? "Cash" : method === "other" ? "Other" : "Bank transfer";
+      if (statusMsg) statusMsg.innerHTML = `✅ Payout details saved — ${methodLabel}${res.payout_account_last4 ? ` (account ending ···${escapeHtml(String(res.payout_account_last4))})` : ""}.`;
+      const details = document.getElementById("driverBankDetailsSection");
+      if (details) details.open = false;
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to save payout details"));
+    }
+  });
+}
+
+async function renderDriverPayoutJobs() {
+  const listEl = document.getElementById("driverPayoutJobsList");
+  const countEl = document.getElementById("driverPayoutJobsCount");
+  if (!listEl) return;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    listEl.innerHTML = `<div class="muted">Unable to load jobs.</div>`;
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+
+  // Jobs ready for payout: delivered + escrow released
+  const readyJobs = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrow = String(r?.escrow_status || "none").toLowerCase();
+    const payout = String(r?.payout_status || "none").toLowerCase();
+    return status === "delivered" && escrow === "released";
+  });
+
+  if (readyJobs.length === 0) {
+    listEl.innerHTML = `<div class="muted">No jobs ready for payout yet. Completed deliveries will appear here once the sender confirms and escrow is released.</div>`;
+    if (countEl) countEl.textContent = "";
+    return;
+  }
+
+  const pending = readyJobs.filter(r => String(r?.payout_status || "none").toLowerCase() === "pending_manual");
+  const paid = readyJobs.filter(r => String(r?.payout_status || "none").toLowerCase() === "paid");
+
+  if (countEl) {
+    if (pending.length > 0) {
+      countEl.textContent = `${pending.length} job${pending.length === 1 ? '' : 's'} awaiting payout · ${paid.length} paid`;
+    } else {
+      countEl.textContent = `All ${paid.length} job${paid.length === 1 ? '' : 's'} paid ✅`;
+    }
+  }
+
+  listEl.innerHTML = "";
+
+  for (const r of readyJobs) {
+    const id = String(r.id || "");
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const amount = r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : "Amount TBC";
+    const payoutStatus = String(r.payout_status || "none").toLowerCase();
+    const isPaid = payoutStatus === "paid";
+
+    const card = document.createElement("div");
+    card.style.cssText = `
+      padding:12px; border-radius:8px; margin:8px 0;
+      border:1px solid ${isPaid ? "rgba(34,197,94,.3)" : "rgba(245,158,11,.3)"};
+      background:${isPaid ? "rgba(34,197,94,.04)" : "rgba(245,158,11,.04)"};
+    `;
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;">Request #${escapeHtml(id)}</div>
+          <div class="muted" style="font-size:13px;">${pickup} → ${dropoff}</div>
+        </div>
+        <div style="font-weight:700; font-size:15px; color:${isPaid ? "#16a34a" : "#92400e"};">${amount}</div>
+      </div>
+      <div style="margin-top:8px; font-size:13px;">
+        ${isPaid
+          ? `<span style="color:#16a34a;">✅ Paid</span>`
+          : `<span style="color:#92400e;">⏳ Payout pending</span>
+             <div class="muted" style="margin-top:4px; font-size:12px;">We will transfer to your saved bank account. Allow 1–3 business days.</div>`
+        }
+      </div>
+    `;
+
+    listEl.appendChild(card);
+  }
+
+  // Show total pending amount
+  const totalPending = readyJobs
+    .filter(r => String(r?.payout_status || "none").toLowerCase() === "pending_manual")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+
+  if (totalPending > 0) {
+    const totalEl = document.createElement("div");
+    totalEl.style.cssText = "margin-top:12px; padding:10px 14px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.2); border-radius:6px; font-size:14px;";
+    totalEl.innerHTML = `<strong>Total pending payout: NZD $${totalPending.toFixed(2)}</strong><div class="muted" style="font-size:12px; margin-top:2px;">Make sure your bank details above are correct.</div>`;
+    listEl.appendChild(totalEl);
+  }
+}
+
+async function renderDriverPayoutHistory() {
+  const histEl = document.getElementById("driverPayoutHistoryList");
+  if (!histEl) return;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    histEl.innerHTML = `<div class="muted">Unable to load history.</div>`;
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+
+  // All delivered jobs (complete history)
+  const history = all.filter(r => String(r?.status || "").toLowerCase() === "delivered");
+
+  if (history.length === 0) {
+    histEl.innerHTML = `<div class="muted">No completed deliveries yet.</div>`;
+    return;
+  }
+
+  const rows = history.map(r => {
+    const id = String(r.id || "");
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const amount = r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : "—";
+    const payoutStatus = String(r.payout_status || "none").toLowerCase();
+    const escrowStatus = String(r.escrow_status || "none").toLowerCase();
+    const deliveredAt = r.delivered_at ? new Date(r.delivered_at).toLocaleDateString("en-NZ", { day:"numeric", month:"short", year:"numeric" }) : "—";
+
+    let badge = "";
+    if (payoutStatus === "paid") {
+      badge = `<span style="color:#16a34a; font-weight:600;">✅ Paid</span>`;
+    } else if (escrowStatus === "released") {
+      badge = `<span style="color:#92400e; font-weight:600;">⏳ Pending payout</span>`;
+    } else if (escrowStatus === "pending_release" || escrowStatus === "funded") {
+      badge = `<span style="color:#0284c7;">⏳ Awaiting sender confirmation</span>`;
+    } else {
+      badge = `<span class="muted">—</span>`;
+    }
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(0,0,0,.06); gap:8px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:600; font-size:13px;">Request #${escapeHtml(id)} · ${pickup} → ${dropoff}</div>
+          <div class="muted" style="font-size:12px;">Delivered ${deliveredAt}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;">${amount}</div>
+          <div style="font-size:12px; margin-top:2px;">${badge}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Summary totals
+  const totalEarned = history
+    .filter(r => String(r?.payout_status || "").toLowerCase() === "paid")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+  const totalPending = history
+    .filter(r => String(r?.escrow_status || "").toLowerCase() === "released" && String(r?.payout_status || "").toLowerCase() !== "paid")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+
+  histEl.innerHTML = `
+    <div style="display:flex; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
+      <div style="padding:10px 14px; background:rgba(34,197,94,.06); border:1px solid rgba(34,197,94,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Total Paid</div>
+        <div style="font-weight:700; font-size:16px; color:#16a34a;">NZD $${totalEarned.toFixed(2)}</div>
+      </div>
+      <div style="padding:10px 14px; background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Pending Payout</div>
+        <div style="font-weight:700; font-size:16px; color:#92400e;">NZD $${totalPending.toFixed(2)}</div>
+      </div>
+      <div style="padding:10px 14px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Deliveries</div>
+        <div style="font-weight:700; font-size:16px;">${history.length}</div>
+      </div>
+    </div>
+    ${rows}
+  `;
 }
