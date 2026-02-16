@@ -1581,15 +1581,12 @@ async function setupDriverPayoutMethod() {
       const u = profile.user;
       if (u.payout_account_name && form.account_name) form.account_name.value = u.payout_account_name;
       if (u.payout_bank_name && form.bank_name) form.bank_name.value = u.payout_bank_name;
-      if (u.payout_method && form.method) form.method.value = u.payout_method;
       if (u.payout_account_last4 && statusMsg) {
-        const methodLabel = u.payout_method === "cash" ? "Cash" : u.payout_method === "other" ? "Other" : "Bank transfer";
-        statusMsg.innerHTML = `✅ Payout details saved — ${methodLabel}${u.payout_account_last4 ? ` (account ending ···${escapeHtml(u.payout_account_last4)})` : ""}. Update below if needed.`;
-        // Collapse if already saved
+        statusMsg.innerHTML = `✅ Bank details saved (account ending ···${escapeHtml(u.payout_account_last4)}). Update below if needed.`;
         const details = document.getElementById("driverBankDetailsSection");
         if (details) details.open = false;
       } else if (statusMsg) {
-        statusMsg.innerHTML = `⚠️ No payout details saved yet. Add them below to receive payouts.`;
+        statusMsg.innerHTML = `⚠️ No bank details saved yet. Add them below to receive payouts.`;
       }
     }
   } catch (_) {}
@@ -1603,7 +1600,6 @@ async function setupDriverPayoutMethod() {
     const account_name = String(fd.get("account_name") || "").trim();
     const bank_name = String(fd.get("bank_name") || "").trim();
     const bank_account = String(fd.get("bank_account") || "").trim();
-    const method = String(fd.get("method") || "bank").trim();
 
     if (!account_name) {
       if (result) setResult(result, alertError("Full name is required."));
@@ -1611,28 +1607,21 @@ async function setupDriverPayoutMethod() {
       return;
     }
 
-    if (method === "bank" && !bank_account) {
-      if (result) setResult(result, alertError("Bank account number is required for bank transfer."));
-      done(false);
-      return;
-    }
-
     const res = await api("/drivers/payout-method", {
       method: "POST",
       role: "driver",
-      body: { method, account_name, bank_name, bank_account },
+      body: { method: "bank", account_name, bank_name, bank_account },
     });
 
     done(!!res.ok);
 
     if (res.ok) {
-      if (result) setResult(result, alertSuccess("Payout details saved!"));
-      const methodLabel = method === "cash" ? "Cash" : method === "other" ? "Other" : "Bank transfer";
-      if (statusMsg) statusMsg.innerHTML = `✅ Payout details saved — ${methodLabel}${res.payout_account_last4 ? ` (account ending ···${escapeHtml(String(res.payout_account_last4))})` : ""}.`;
+      if (result) setResult(result, alertSuccess("Bank details saved!"));
+      if (statusMsg) statusMsg.innerHTML = `✅ Bank details saved${res.payout_account_last4 ? ` (account ending ···${escapeHtml(String(res.payout_account_last4))})` : ""}.`;
       const details = document.getElementById("driverBankDetailsSection");
       if (details) details.open = false;
     } else {
-      if (result) setResult(result, alertError(res.error || "Failed to save payout details"));
+      if (result) setResult(result, alertError(res.error || "Failed to save bank details"));
     }
   });
 }
