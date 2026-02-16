@@ -147,7 +147,7 @@ function updateDriverNextActionBanner(requestData) {
   if (status === "accepted" && escrowStatus === "funded" && isMyJob) {
     html = `
       <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
-        <strong>💰 Payment confirmed - Ready for pickup!</strong>
+        <strong>💰 Payment escrowed — Ready for pickup!</strong>
         <div class="muted" style="margin-top:4px;">
           From: ${escapeHtml(r.pickup_suburb || "—")} · To: ${escapeHtml(r.dropoff_suburb || "—")}
         </div>
@@ -732,7 +732,7 @@ async function renderDriverActiveJobs() {
     
     // State: Ready for pickup
     else if (status === "accepted" && escrowStatus === "funded") {
-      statusMessage = `💰 <strong>Payment received!</strong> — Ready for pickup`;
+      statusMessage = `💰 <strong>Payment escrowed</strong> — Ready for pickup`;
       cardStyle = "background: rgba(34,197,94,.05); border-color: rgba(34,197,94,.3);";
       actionButton = `<button class="btn activeJobPickupBtn" data-id="${escapeHtml(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">Mark as Picked Up</button>`;
     }
