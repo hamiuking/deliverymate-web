@@ -1325,6 +1325,21 @@ async function renderSenderActiveRequests() {
       actionButton = `<button class="btn activeReqReleaseBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">✓ Confirm Delivery & Release Payment</button>`;
     }
 
+    // Determine if cancellable and what warning to show
+    let cancelButton = "";
+    if (status === "open") {
+      const warning = offersCount > 0
+        ? `This will reject ${offersCount} pending offer${offersCount === 1 ? '' : 's'}.`
+        : "";
+      cancelButton = `<button class="btn activeReqCancelBtn" data-id="${safeText(id)}" data-warning="${safeText(warning)}" style="margin-top:8px; width:100%; background:transparent; border-color:#dc2626; color:#dc2626;">✕ Cancel Request</button>`;
+    } else if (status === "accepted" && escrowStatus === "none") {
+      cancelButton = `<button class="btn activeReqCancelBtn" data-id="${safeText(id)}" data-warning="The driver's offer will be cancelled and they will be notified by email." style="margin-top:8px; width:100%; background:transparent; border-color:#dc2626; color:#dc2626;">✕ Cancel Request</button>`;
+    } else if (status === "accepted" && escrowStatus === "funded") {
+      cancelButton = `<div class="muted" style="margin-top:8px; font-size:13px;">⚠️ Payment already made — to cancel please contact support.</div>`;
+    } else if (status === "picked_up") {
+      cancelButton = `<div class="muted" style="margin-top:8px; font-size:13px;">⚠️ Item is in transit — to cancel please contact support.</div>`;
+    }
+
     card.style.cssText += cardStyle;
     card.innerHTML = `
       <div>
@@ -1332,6 +1347,7 @@ async function renderSenderActiveRequests() {
         <div style="margin-top:4px;">${pickup} → ${dropoff}</div>
         <div style="margin-top:8px; font-size:14px;">${statusMessage}</div>
         ${actionButton}
+        ${cancelButton}
       </div>
     `;
 
@@ -1343,6 +1359,42 @@ async function renderSenderActiveRequests() {
     const viewBtn = e.target?.closest?.(".activeReqViewBtn");
     const fundBtn = e.target?.closest?.(".activeReqFundBtn");
     const releaseBtn = e.target?.closest?.(".activeReqReleaseBtn");
+    const cancelBtn = e.target?.closest?.(".activeReqCancelBtn");
+
+    // Cancel request
+    if (cancelBtn) {
+      const id = cancelBtn.dataset.id;
+      const warning = cancelBtn.dataset.warning;
+
+      const confirmMsg = warning
+        ? `Cancel Request #${id}?\n\n${warning}`
+        : `Cancel Request #${id}? This cannot be undone.`;
+
+      if (!confirm(confirmMsg)) return;
+
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = "Cancelling...";
+
+      const res = await api(`/requests/${id}/status`, {
+        method: "PATCH",
+        role: "sender",
+        body: { status: "cancelled" },
+      });
+
+      if (res.ok) {
+        // Refresh active requests to remove cancelled card
+        renderSenderActiveRequests();
+        // Also refresh view if this request was loaded
+        const viewForm = document.getElementById("viewRequestForm");
+        if (viewForm?.request_id?.value === id) {
+          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }
+      } else {
+        alert(res.error || "Failed to cancel request");
+        cancelBtn.disabled = false;
+        cancelBtn.textContent = "✕ Cancel Request";
+      }
+    }
 
     // Review Offers → load the request in View section
     if (viewBtn) {
