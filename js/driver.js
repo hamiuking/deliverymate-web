@@ -149,7 +149,7 @@ function updateDriverNextActionBanner(requestData) {
       <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
         <strong>💰 Payment confirmed - Ready for pickup!</strong>
         <div class="muted" style="margin-top:4px;">
-          Pickup: ${escapeHtml(r.pickup_suburb || "—")} · Drop-off: ${escapeHtml(r.dropoff_suburb || "—")}
+          From: ${escapeHtml(r.pickup_suburb || "—")} · To: ${escapeHtml(r.dropoff_suburb || "—")}
         </div>
         <div class="muted" style="margin-top:4px;">Mark as picked up when you collect the item.</div>
         <button class="btn mt-2" id="bannerPickupBtn" style="background: #16a34a; border-color: #16a34a;">Mark Picked Up</button>
@@ -162,7 +162,7 @@ function updateDriverNextActionBanner(requestData) {
     html = `
       <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
         <strong>🚗 Item picked up - In transit</strong>
-        <div class="muted" style="margin-top:4px;">Drop-off: ${escapeHtml(r.dropoff_suburb || "—")}</div>
+        <div class="muted" style="margin-top:4px;">To: ${escapeHtml(r.dropoff_suburb || "—")}</div>
         <div class="muted" style="margin-top:4px;">Mark as delivered when drop-off is complete (delivery photo required).</div>
         <button class="btn mt-2" id="bannerDeliverBtn" style="background: #0284c7; border-color: #0284c7;">Mark Delivered</button>
       </div>
@@ -1018,8 +1018,8 @@ function renderOpenJobPreview(r) {
         Preview only — full details and history appear after this job is assigned to you.
       </div>
       <div style="margin-top:10px;">
-        <div><strong>Pickup:</strong> ${escapeHtml(pickup || "-")}</div>
-        <div><strong>Drop-off:</strong> ${escapeHtml(dropoff || "-")}</div>
+        <div><strong>From:</strong> ${escapeHtml(pickup || "-")}</div>
+        <div><strong>To:</strong> ${escapeHtml(dropoff || "-")}</div>
         ${item ? `<div style="margin-top:6px;"><strong>Item:</strong> ${escapeHtml(item)}</div>` : ``}
         ${price != null && price !== "" ? `<div style="margin-top:6px;"><strong>Sender budget:</strong> $${escapeHtml(price)}</div>` : ``}
         <div style="margin-top:6px;"><strong>Status:</strong> ${escapeHtml(status)}</div>
@@ -1546,8 +1546,10 @@ async function loadDriverProfileSnapshot() {
   // Pre-fill basic form
   const nameInput = document.getElementById("driverProfileName");
   const emailInput = document.getElementById("driverProfileEmail");
+  const addressInput = document.getElementById("driverProfileAddress");
   if (nameInput && u.full_name) nameInput.value = u.full_name;
   if (emailInput && u.email) emailInput.value = u.email;
+  if (addressInput && u.default_address) addressInput.value = u.default_address;
 
   // Pre-fill vehicle form
   const plateInput = document.getElementById("driverProfilePlate");
@@ -1574,6 +1576,7 @@ async function loadDriverProfileSnapshot() {
       <div><strong>Name:</strong> ${escapeHtml(u.full_name || "—")}</div>
       <div><strong>Phone:</strong> ${escapeHtml(u.phone || "—")}</div>
       <div><strong>Email:</strong> ${escapeHtml(u.email || "—")}</div>
+      <div><strong>Default address:</strong> ${escapeHtml(u.default_address || "—")}</div>
       <div><strong>Driver status:</strong> ${statusBadge}</div>
       <div><strong>Vehicle plate:</strong> ${escapeHtml(u.vehicle_plate || "—")}</div>
       <div><strong>WOF expiry:</strong> ${escapeHtml(wofDisplay)}</div>
@@ -1604,23 +1607,28 @@ function setupDriverProfile() {
       const fd = new FormData(basicForm);
       const full_name = String(fd.get("full_name") || "").trim();
       const email = String(fd.get("email") || "").trim();
+      const default_address = String(fd.get("default_address") || "").trim();
 
-      if (!full_name && !email) {
+      if (!full_name && !email && !default_address) {
         done(false);
-        if (basicResult) setResult(basicResult, alertError("Please enter a name or email to update."));
+        if (basicResult) setResult(basicResult, alertError("Please enter at least one field to update."));
         return;
       }
+
+      const body = {};
+      if (full_name) body.full_name = full_name;
+      if (email) body.email = email;
+      if (fd.get("default_address") !== null) body.default_address = default_address || null;
 
       const res = await api("/users/me", {
         method: "PATCH",
         role: "driver",
-        body: { full_name, email },
+        body,
       });
 
       done(!!res.ok);
       if (res.ok) {
         if (basicResult) setResult(basicResult, alertSuccess("Contact details saved."));
-        // Update locally stored user
         const u = getSavedDriverUser() || {};
         if (full_name) u.full_name = full_name;
         if (email) u.email = email;
