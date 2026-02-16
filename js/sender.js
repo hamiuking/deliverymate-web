@@ -1142,6 +1142,8 @@ function setupSenderAuth() {
 
     if (out) setResult(out, alertSuccess("Logged in"));
     renderRecentRequests();
+    // Refresh profile snapshot if section is open
+    try { loadSenderProfileSnapshot(); } catch (_) {}
   });
 
   const logoutBtn = document.getElementById("senderLogoutBtn");
@@ -1494,6 +1496,91 @@ async function renderSenderActiveRequests() {
 }
 
 /* ---------------------------------------------------------
+   Sender Profile section
+   - Loads current profile from GET /users/me on open
+   - senderBasicProfileForm → PATCH /users/me (name + email only)
+   Senders cannot change phone (identity) and have no vehicle/licence fields.
+--------------------------------------------------------- */
+
+async function loadSenderProfileSnapshot() {
+  const snapshot = document.getElementById("senderProfileSnapshot");
+  if (!snapshot) return;
+
+  const res = await api("/users/me", { method: "GET", role: "sender" });
+  if (!res || !res.ok || !res.user) {
+    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile.</span>`;
+    return;
+  }
+
+  const u = res.user;
+
+  // Pre-fill form fields
+  const nameInput = document.getElementById("senderProfileName");
+  const emailInput = document.getElementById("senderProfileEmail");
+  if (nameInput && u.full_name) nameInput.value = u.full_name;
+  if (emailInput && u.email) emailInput.value = u.email;
+
+  snapshot.innerHTML = `
+    <div style="display:grid; gap:6px; font-size:14px; padding:12px; background:rgba(0,0,0,.03); border-radius:8px; border:1px solid rgba(0,0,0,.06);">
+      <div><strong>Name:</strong> ${escapeHtml(u.full_name || "—")}</div>
+      <div><strong>Phone:</strong> ${escapeHtml(u.phone || "—")}</div>
+      <div><strong>Email:</strong> ${escapeHtml(u.email || "—")}</div>
+    </div>
+  `;
+}
+
+function setupSenderProfile() {
+  // Load profile when the collapsible section is opened
+  const details = document.getElementById("senderProfileDetails");
+  if (details) {
+    details.addEventListener("toggle", () => {
+      if (details.open) loadSenderProfileSnapshot();
+    });
+  }
+
+  // Basic profile form (name + email)
+  const form = document.getElementById("senderBasicProfileForm");
+  const result = document.getElementById("senderBasicProfileResult");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    const done = setWorking(btn, "Saving…");
+    if (result) setResult(result, "");
+
+    const fd = new FormData(form);
+    const full_name = String(fd.get("full_name") || "").trim();
+    const email = String(fd.get("email") || "").trim();
+
+    if (!full_name && !email) {
+      done(false);
+      if (result) setResult(result, alertError("Please enter a name or email to update."));
+      return;
+    }
+
+    const res = await api("/users/me", {
+      method: "PATCH",
+      role: "sender",
+      body: { full_name, email },
+    });
+
+    done(!!res.ok);
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Contact details saved."));
+      // Update the locally stored user so auth status reflects new name
+      const u = getSavedUser() || {};
+      if (full_name) u.full_name = full_name;
+      if (email) u.email = email;
+      saveUser(u);
+      loadSenderProfileSnapshot();
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to save."));
+    }
+  });
+}
+
+/* ---------------------------------------------------------
    Init - FIXED: Check dm_user_token
 --------------------------------------------------------- */
 
@@ -1542,6 +1629,7 @@ export function initSenderPage() {
   setupConfirmRelease();
   setupSenderOffersActions();
   setupQuickButtons();
+  setupSenderProfile();         // ← NEW: profile section
 
   // Stripe return auto-refresh
   handlePaidRedirectRefresh();
