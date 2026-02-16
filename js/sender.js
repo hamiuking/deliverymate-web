@@ -385,6 +385,19 @@ function renderRequestSummary(r) {
     `;
   }
 
+  // Delivery photo (shown when delivered)
+  const photoUrl = r?.delivered_photo_url || "";
+  const photoHtml = (status === "delivered" && photoUrl) ? `
+    <div style="margin-top:14px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:6px; color:#166534;">📸 Proof of Delivery</div>
+      <a href="${safeText(photoUrl)}" target="_blank" rel="noopener">
+        <img src="${safeText(photoUrl)}" alt="Delivery photo"
+          style="max-width:100%; max-height:260px; border-radius:8px; border:1px solid rgba(34,197,94,.3); display:block; cursor:zoom-in;" />
+      </a>
+      <div class="muted" style="font-size:12px; margin-top:4px;">Click photo to view full size · Link expires in 5 minutes</div>
+    </div>
+  ` : "";
+
   box.innerHTML = `
     <div class="card compact">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
@@ -396,6 +409,7 @@ function renderRequestSummary(r) {
       </div>
       <div style="margin-top:10px;">${tl}</div>
       <div style="margin-top:10px;" class="muted"><strong>Next:</strong> ${safeText(next || "")}</div>
+      ${photoHtml}
       ${actionButton}
     </div>
   `;
