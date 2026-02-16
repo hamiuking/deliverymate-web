@@ -256,6 +256,19 @@
      Uses X-Admin-Token header for all API calls.
   ========================================================== */
 
+  /* ----------------------------------------------------------
+     API base URL.
+     admin.html is served from deliverymate.nz (static host)
+     but the backend lives on Render. We detect this at runtime
+     so the file works from either host without changes.
+  ---------------------------------------------------------- */
+  const RENDER_BACKEND = 'https://deliverymate-web.onrender.com';
+  const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? ''                    // local dev — relative paths hit the local server
+    : window.location.hostname.includes('onrender.com')
+      ? ''                  // served directly from Render — relative paths work
+      : RENDER_BACKEND;     // deliverymate.nz or any other static host — use full Render URL
+
   const SESSION_KEY = 'dm_admin_token';
   let adminToken = '';
   let currentDriverStatus = 'pending_review';
@@ -300,7 +313,7 @@
     };
     if (body !== undefined) opts.body = JSON.stringify(body);
     try {
-      const res = await fetch(path, opts);
+      const res = await fetch(API_BASE + path, opts);
       const json = await res.json();
       return { ok: res.ok, status: res.status, ...json };
     } catch (e) {
@@ -365,9 +378,10 @@
     if (res.ok) {
       adminToken = token;
       try { sessionStorage.setItem(SESSION_KEY, token); } catch (_) {}
-      return true;
+      return { ok: true };
     }
-    return false;
+    // Return a meaningful reason so the UI can show a clear message
+    return { ok: false, status: res.status, error: res.error };
   }
 
   document.getElementById('adminSignInBtn').addEventListener('click', async () => {
@@ -381,14 +395,25 @@
     setResult(result, '');
     adminToken = token; // set temporarily for trySignIn
 
-    const ok = await trySignIn(token);
+    const res = await trySignIn(token);
     setLoading(btn, false);
-    if (ok) {
+
+    if (res.ok) {
       input.value = '';
       showDashboard();
     } else {
       adminToken = '';
-      setResult(result, alertErr('Invalid admin token or server error. Please try again.'));
+      let msg;
+      if (res.status === 404) {
+        msg = `404 — Admin route not found. Sending requests to: <code>${API_BASE || '(relative)'}</code>. Check that <code>RENDER_BACKEND</code> in admin.html matches your actual Render URL.`;
+      } else if (res.status === 401 || res.status === 403) {
+        msg = 'Invalid admin token. Please check the token in your Render environment variables.';
+      } else if (!res.status) {
+        msg = 'Network error — could not reach the server. Check your connection or try again.';
+      } else {
+        msg = `Server returned ${res.status}. ${res.error || 'Please try again.'}`;
+      }
+      setResult(result, alertErr(msg));
     }
   });
 
