@@ -154,10 +154,11 @@
         </div>
 
         <form id="createRequestForm" onsubmit="return false">
-          <label>Pickup suburb</label>
-          <input name="pickup_suburb" required />
+          <label>From <span class="muted">(pickup address)</span></label>
+          <input name="pickup_suburb" id="createPickupSuburb" required />
+          <div class="muted" id="pickupSuburbHint" style="margin-top:4px; font-size:13px; display:none;">Pre-filled from your saved address — change if needed.</div>
 
-          <label>Drop-off suburb</label>
+          <label>To <span class="muted">(drop-off address)</span></label>
           <input name="dropoff_suburb" required />
 
           <label>Item description</label>
@@ -261,7 +262,11 @@
               <label>Email <span class="muted">(for delivery notifications)</span></label>
               <input name="email" id="senderProfileEmail" type="email" placeholder="you@example.com" />
 
-              <button class="btn" type="submit">Save Contact Details</button>
+              <label>Default pickup address <span class="muted">(optional)</span></label>
+              <input name="default_address" id="senderProfileAddress" placeholder="e.g. 123 Queen St, Ponsonby, Auckland" />
+              <div class="muted" style="margin-top:4px; font-size:13px;">Your usual pickup location. The area will be pre-filled automatically when you create a new request.</div>
+
+              <button class="btn mt-2" type="submit">Save Contact Details</button>
             </form>
             <div class="result" id="senderBasicProfileResult"></div>
           </div>
