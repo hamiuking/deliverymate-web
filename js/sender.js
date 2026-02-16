@@ -1617,9 +1617,8 @@ function setupSenderProfile() {
     const body = {};
     if (full_name) body.full_name = full_name;
     if (email) body.email = email;
-    // Send default_address even if empty string — allows clearing it
-    // But only if the field was changed (non-empty or was previously set)
-    if (default_address || fd.get("default_address") !== null) body.default_address = default_address || null;
+    // Always send default_address if the field exists — allows clearing it
+    body.default_address = default_address || null;
 
     const res = await api("/users/me", {
       method: "PATCH",
