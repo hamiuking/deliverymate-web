@@ -262,7 +262,7 @@
      but the backend lives on Render. We detect this at runtime
      so the file works from either host without changes.
   ---------------------------------------------------------- */
-  const RENDER_BACKEND = 'https://deliverymate-web.onrender.com';
+  const RENDER_BACKEND = 'https://deliverymate.onrender.com';
   const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? ''                    // local dev — relative paths hit the local server
     : window.location.hostname.includes('onrender.com')
