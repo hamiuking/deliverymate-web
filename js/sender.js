@@ -1736,7 +1736,8 @@ export function initSenderPage() {
 
   //
   // 4. Auth LAST — so it cannot override restored login state
-  //\n  setupSenderAuth();
+  //
+  setupSenderAuth();
 
   //
   // 5. Render recent requests + active requests
@@ -1751,14 +1752,15 @@ export function initSenderPage() {
   }, 500);
   
   setInterval(() => {
-    try { renderSenderActiveRequests(); } catch (_) {}\n  }, 30000);
+    try { renderSenderActiveRequests(); } catch (_) {}
+  }, 30000);
 }
 
 /* -------------------------------------------------------------
    Google Maps Places Autocomplete
    Attached to From/To fields when Google Maps loads
 ------------------------------------------------------------- */
-window.initGoogleMaps = function() {
+window.setupGoogleMapsAutocomplete = function() {
   console.log('[Google Maps] Initializing autocomplete...');
   
   const pickupInput = document.getElementById('createPickupSuburb');
