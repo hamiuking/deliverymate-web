@@ -29,6 +29,25 @@ function setResult(el, html) {
   el.innerHTML = html || "";
 }
 
+function setWorking(btn, workingText = "Working…") {
+  if (!btn) return () => {};
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = workingText;
+  return (ok) => {
+    if (ok) {
+      btn.textContent = "Done ✓";
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }, 900);
+    } else {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  };
+}
+
 function normaliseNzdAmount(v) {
   const s = String(v ?? "").trim();
   if (!s) return "";
