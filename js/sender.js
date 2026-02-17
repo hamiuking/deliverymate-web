@@ -1504,7 +1504,10 @@ async function renderSenderActiveRequests() {
 
 async function loadSenderProfileSnapshot() {
   const snapshot = document.getElementById("senderProfileSnapshot");
-  if (!snapshot) return; // element not in DOM yet — skip silently
+  if (!snapshot) {
+    console.warn('[Profile] Snapshot element not found in DOM');
+    return;
+  }
 
   // Show spinner while loading
   snapshot.innerHTML = `<span class="muted">Loading profile…</span>`;
@@ -1512,13 +1515,19 @@ async function loadSenderProfileSnapshot() {
   // Guard: don't call if no user token available
   const tok = getUserToken();
   if (!tok) {
+    console.warn('[Profile] No user token available');
     snapshot.innerHTML = `<span class="muted">Sign in to view your profile.</span>`;
     return;
   }
 
+  console.log('[Profile] Fetching from GET /users/me...');
   const res = await api("/users/me", { method: "GET", role: "sender" });
+  console.log('[Profile] Response:', res);
+
   if (!res || !res.ok || !res.user) {
-    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile${res && res.error ? `: ${escapeHtml(res.error)}` : '.'}  Try closing and reopening this section.</span>`;
+    const errorMsg = res && res.error ? escapeHtml(res.error) : 'Unknown error';
+    console.error('[Profile] Failed to load:', errorMsg, res);
+    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile: ${errorMsg}. Check browser console for details.</span>`;
     return;
   }
 
