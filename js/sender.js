@@ -24,6 +24,9 @@ function safeText(s) {
     .replaceAll('"', "&quot;");
 }
 
+// Alias for compatibility with driver.js code patterns
+const escapeHtml = safeText;
+
 function setResult(el, html) {
   if (!el) return;
   el.innerHTML = html || "";
