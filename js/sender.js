@@ -560,8 +560,8 @@ function setupCreateRequest() {
       return;
     }
 
-    const pickup_suburb = String(fd.pickup_suburb || "").trim();
-    const dropoff_suburb = String(fd.dropoff_suburb || "").trim();
+    const pickup_suburb = String(fd.pickup_suburb_only || fd.pickup_suburb || "").trim();
+    const dropoff_suburb = String(fd.dropoff_suburb_only || fd.dropoff_suburb || "").trim();
     const item_desc = String(fd.item_desc || "").trim();
     const sender_note = String(fd.sender_note || "").trim();
 
@@ -1833,19 +1833,21 @@ function handlePlaceSelection(place, type) {
     suburb = place.formatted_address.split(',')[0].trim();
   }
   
-  // Update visible field with suburb
+  // Show FULL ADDRESS in visible field (what sender sees)
   const visibleInput = document.getElementById(
     type === 'pickup' ? 'createPickupSuburb' : 'createDropoffSuburb'
   );
-  if (visibleInput && suburb) {
-    visibleInput.value = suburb;
+  if (visibleInput && place.formatted_address) {
+    visibleInput.value = place.formatted_address;
   }
   
-  // Store full address + coordinates in hidden fields
+  // Store suburb (for public job listings), full address + coordinates in hidden fields
+  const suburbInput = document.getElementById(`${prefix}SuburbOnly`);
   const fullAddrInput = document.getElementById(`${prefix}AddressFull`);
   const latInput = document.getElementById(`${prefix}Lat`);
   const lngInput = document.getElementById(`${prefix}Lng`);
   
+  if (suburbInput) suburbInput.value = suburb || '';
   if (fullAddrInput) fullAddrInput.value = place.formatted_address || '';
   if (latInput) latInput.value = place.geometry.location.lat();
   if (lngInput) lngInput.value = place.geometry.location.lng();
