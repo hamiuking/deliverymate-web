@@ -584,7 +584,14 @@ function setupCreateRequest() {
       item_description, // Backend expects this field name
       weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
       suggested_price_nzd: fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
-      sender_ack_version: "v1" // Required by backend
+      sender_ack_version: "v1", // Required by backend
+      // Phase 4: Google Maps data (if available from autocomplete)
+      pickup_address_full: String(fd.pickup_address_full || "").trim() || null,
+      pickup_lat: fd.pickup_lat === "" || fd.pickup_lat == null ? null : Number(fd.pickup_lat),
+      pickup_lng: fd.pickup_lng === "" || fd.pickup_lng == null ? null : Number(fd.pickup_lng),
+      dropoff_address_full: String(fd.dropoff_address_full || "").trim() || null,
+      dropoff_lat: fd.dropoff_lat === "" || fd.dropoff_lat == null ? null : Number(fd.dropoff_lat),
+      dropoff_lng: fd.dropoff_lng === "" || fd.dropoff_lng == null ? null : Number(fd.dropoff_lng),
     };
 
     const res = await api("/requests", {
@@ -1729,8 +1736,7 @@ export function initSenderPage() {
 
   //
   // 4. Auth LAST — so it cannot override restored login state
-  //
-  setupSenderAuth();
+  //\n  setupSenderAuth();
 
   //
   // 5. Render recent requests + active requests
@@ -1745,6 +1751,107 @@ export function initSenderPage() {
   }, 500);
   
   setInterval(() => {
-    try { renderSenderActiveRequests(); } catch (_) {}
-  }, 30000);
+    try { renderSenderActiveRequests(); } catch (_) {}\n  }, 30000);
+}
+
+/* -------------------------------------------------------------
+   Google Maps Places Autocomplete
+   Attached to From/To fields when Google Maps loads
+------------------------------------------------------------- */
+window.initGoogleMaps = function() {
+  console.log('[Google Maps] Initializing autocomplete...');
+  
+  const pickupInput = document.getElementById('createPickupSuburb');
+  const dropoffInput = document.getElementById('createDropoffSuburb');
+  
+  if (!pickupInput || !dropoffInput) {
+    console.warn('[Google Maps] Form inputs not found yet');
+    return;
+  }
+  
+  // Restrict to New Zealand only
+  const options = {
+    componentRestrictions: { country: 'nz' },
+    fields: ['address_components', 'geometry', 'formatted_address', 'name'],
+  };
+  
+  const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, options);
+  const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, options);
+  
+  // When user selects a place from pickup dropdown
+  pickupAutocomplete.addListener('place_changed', () => {
+    const place = pickupAutocomplete.getPlace();
+    if (!place || !place.geometry) {
+      console.warn('[Google Maps] No geometry for pickup place');
+      return;
+    }
+    
+    handlePlaceSelection(place, 'pickup');
+  });
+  
+  // When user selects a place from dropoff dropdown
+  dropoffAutocomplete.addListener('place_changed', () => {
+    const place = dropoffAutocomplete.getPlace();
+    if (!place || !place.geometry) {
+      console.warn('[Google Maps] No geometry for dropoff place');
+      return;
+    }
+    
+    handlePlaceSelection(place, 'dropoff');
+  });
+  
+  console.log('[Google Maps] Autocomplete initialized ✓');
+};
+
+function handlePlaceSelection(place, type) {
+  const prefix = type; // 'pickup' or 'dropoff'
+  
+  // Extract suburb from address_components
+  // In NZ: usually "locality" or "sublocality" or "administrative_area_level_2"
+  let suburb = '';
+  const components = place.address_components || [];
+  
+  for (const comp of components) {
+    if (comp.types.includes('locality')) {
+      suburb = comp.long_name;
+      break;
+    }
+    if (comp.types.includes('sublocality')) {
+      suburb = comp.long_name;
+      break;
+    }
+    if (comp.types.includes('administrative_area_level_2')) {
+      suburb = comp.long_name;
+      break;
+    }
+  }
+  
+  // Fallback: use the first part of formatted_address
+  if (!suburb && place.formatted_address) {
+    suburb = place.formatted_address.split(',')[0].trim();
+  }
+  
+  // Update visible field with suburb
+  const visibleInput = document.getElementById(
+    type === 'pickup' ? 'createPickupSuburb' : 'createDropoffSuburb'
+  );
+  if (visibleInput && suburb) {
+    visibleInput.value = suburb;
+  }
+  
+  // Store full address + coordinates in hidden fields
+  const fullAddrInput = document.getElementById(`${prefix}AddressFull`);
+  const latInput = document.getElementById(`${prefix}Lat`);
+  const lngInput = document.getElementById(`${prefix}Lng`);
+  
+  if (fullAddrInput) fullAddrInput.value = place.formatted_address || '';
+  if (latInput) latInput.value = place.geometry.location.lat();
+  if (lngInput) lngInput.value = place.geometry.location.lng();
+  
+  console.log(`[Google Maps] ${type} selected:`, {
+    suburb,
+    fullAddress: place.formatted_address,
+    lat: place.geometry.location.lat(),
+    lng: place.geometry.location.lng(),
+  });
 }
