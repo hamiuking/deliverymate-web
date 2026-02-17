@@ -9,6 +9,16 @@
   <link rel="stylesheet" href="/css/layout.css" />
   <link rel="stylesheet" href="/css/mobile.css" />
   <script type="module" src="/js/app.js"></script>
+  
+  <!-- Google Maps for job availability map -->
+  <script>
+    window.initDriverJobMap = function() {
+      if (window.setupDriverJobMap) {
+        window.setupDriverJobMap();
+      }
+    };
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkVEHPu9mNBBddXLRa7B0mq9VXpQw7xrk&libraries=places,marker&loading=async&callback=initDriverJobMap"></script>
 </head>
 
 <body data-page="driver">
@@ -23,7 +33,7 @@
   </header>
 
   <main class="container">
-    <h1>Driver</h1>
+    <h1>Driver Dashboard</h1>
 
     <!-- =============================================
          AUTH AREA (visible when not logged in)
@@ -32,7 +42,7 @@
       <div class="grid">
         <section class="card" id="driverRegisterSection">
           <h2>Register as Driver</h2>
-          <p class="muted"> Email admin@deliverymate.nz with the subject 'Driver Invite Code' or 'Sender Invite Code' to get started.</p>
+          <p class="muted">Invite-only pilot. Admin approval required before you can submit offers.</p>
 
           <form id="driverRegForm">
             <label>Invite code</label>
@@ -168,18 +178,23 @@
         <div class="result" id="driverActiveJobsResult"></div>
       </section>
 
-      <!-- ── OPEN JOBS (MARKETPLACE) ────────────────────────
-           Browse available jobs and submit quick offers.
+      <!-- ── OPEN JOBS MAP (MARKETPLACE) ──────────────────────
+           Interactive map showing available jobs across NZ.
+           Click pins to see jobs in that area.
       ──────────────────────────────────────────────────────── -->
       <section class="card requires-driver">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <h2 style="margin:0;">Open Jobs</h2>
-          <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
+          <h2 style="margin:0;">Available Jobs</h2>
+          <button class="btn ghost" id="driverJobMapRefreshBtn" type="button">Refresh</button>
         </div>
         <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
-        <div class="muted" style="margin-top:4px;">Click <strong>Make Offer</strong> on any job to quickly submit your price.</div>
+        <div class="muted" style="margin-top:4px;">Click any pin to see jobs. Select a job to make an offer.</div>
 
-        <div id="driverOpenJobsList" style="margin-top:12px;"></div>
+        <!-- Map Container -->
+        <div id="driverJobMap" style="width:100%; height:500px; margin-top:12px; border-radius:8px; border:1px solid rgba(0,0,0,.1);"></div>
+        
+        <!-- Job List (appears when clicking a pin) -->
+        <div id="driverJobMapList" style="margin-top:12px; display:none;"></div>
         <div class="result" id="driverOpenJobsResult"></div>
 
         <!-- Inline Offer Form (slides in when clicking Make Offer) -->
