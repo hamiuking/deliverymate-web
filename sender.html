@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
+  
+  <!-- Google Maps Places Autocomplete -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkVEHPu9mNBBddXLRa7B0mq9VXpQw7xrk&libraries=places&callback=initGoogleMaps" defer></script>
 </head>
 
 <body data-page="sender">
@@ -21,7 +24,7 @@
   </header>
 
   <main class="container">
-    <h1>Sender</h1>
+    <h1>Sender Dashboard</h1>
 
     <!-- =============================================
          AUTH AREA (visible when not logged in)
@@ -30,7 +33,7 @@
       <div class="grid">
         <section class="card locked-only" id="senderRegisterSection">
           <h2>Register</h2>
-          <p class="muted"> Email admin@deliverymate.nz with the subject 'Driver Invite Code' or 'Sender Invite Code' to get started.</p>
+          <p class="muted">Invite-only pilot. Register this device to create requests.</p>
 
           <form id="senderRegForm" onsubmit="return false">
             <label>Invite code</label>
@@ -155,11 +158,21 @@
 
         <form id="createRequestForm" onsubmit="return false">
           <label>From <span class="muted">(pickup address)</span></label>
-          <input name="pickup_suburb" id="createPickupSuburb" required />
+          <input name="pickup_suburb" id="createPickupSuburb" required autocomplete="off" />
           <div class="muted" id="pickupSuburbHint" style="margin-top:4px; font-size:13px; display:none;">Pre-filled from your saved address — change if needed.</div>
+          
+          <!-- Hidden fields for Google Maps data -->
+          <input type="hidden" name="pickup_address_full" id="pickupAddressFull" />
+          <input type="hidden" name="pickup_lat" id="pickupLat" />
+          <input type="hidden" name="pickup_lng" id="pickupLng" />
 
           <label>To <span class="muted">(drop-off address)</span></label>
-          <input name="dropoff_suburb" required />
+          <input name="dropoff_suburb" id="createDropoffSuburb" required autocomplete="off" />
+          
+          <!-- Hidden fields for Google Maps data -->
+          <input type="hidden" name="dropoff_address_full" id="dropoffAddressFull" />
+          <input type="hidden" name="dropoff_lat" id="dropoffLat" />
+          <input type="hidden" name="dropoff_lng" id="dropoffLng" />
 
           <label>Item description</label>
           <input name="item_desc" required />
