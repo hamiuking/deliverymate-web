@@ -8,8 +8,19 @@
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
   
+  <!-- Google Maps: define callback BEFORE script loads -->
+  <script>
+    window.initGoogleMaps = function() {
+      // This will be called when Google Maps loads
+      // The actual logic is in sender.js
+      if (window.setupGoogleMapsAutocomplete) {
+        window.setupGoogleMapsAutocomplete();
+      }
+    };
+  </script>
+  
   <!-- Google Maps Places Autocomplete -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkVEHPu9mNBBddXLRa7B0mq9VXpQw7xrk&libraries=places&callback=initGoogleMaps" defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkVEHPu9mNBBddXLRa7B0mq9VXpQw7xrk&libraries=places&loading=async&callback=initGoogleMaps"></script>
 </head>
 
 <body data-page="sender">
