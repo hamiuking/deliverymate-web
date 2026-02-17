@@ -2052,3 +2052,224 @@ async function renderDriverPayoutHistory() {
     ${rows}
   `;
 }
+/* =============================================================
+   DRIVER JOB MAP — Interactive map of available jobs
+   Replaces the text-based open jobs list
+============================================================= */
+
+let jobMap = null;
+let jobMarkers = [];
+let jobsData = [];
+
+window.setupDriverJobMap = function() {
+  console.log('[Job Map] Google Maps loaded, initializing...');
+  initializeJobMap();
+  loadJobsOntoMap();
+};
+
+function initializeJobMap() {
+  const mapContainer = document.getElementById('driverJobMap');
+  if (!mapContainer) {
+    console.warn('[Job Map] Map container not found');
+    return;
+  }
+
+  // Center on New Zealand
+  jobMap = new google.maps.Map(mapContainer, {
+    zoom: 6,
+    center: { lat: -40.9006, lng: 174.886 }, // Center of NZ
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: true,
+  });
+
+  console.log('[Job Map] Map initialized ✓');
+}
+
+async function loadJobsOntoMap() {
+  if (!jobMap) {
+    console.warn('[Job Map] Map not initialized yet');
+    return;
+  }
+
+  console.log('[Job Map] Fetching open jobs...');
+  const countEl = document.getElementById('driverOpenCount');
+  if (countEl) countEl.textContent = 'Loading jobs...';
+
+  const res = await api('/driver/requests', { method: 'GET', role: 'driver' });
+  
+  if (!res || !res.ok || !res.requests) {
+    console.error('[Job Map] Failed to load jobs:', res);
+    if (countEl) countEl.textContent = 'Failed to load jobs';
+    return;
+  }
+
+  const openJobs = res.requests.filter(r => r.status === 'open');
+  jobsData = openJobs;
+
+  if (countEl) {
+    countEl.textContent = openJobs.length === 0 
+      ? 'No open jobs available at the moment'
+      : `${openJobs.length} job${openJobs.length === 1 ? '' : 's'} available`;
+  }
+
+  console.log(`[Job Map] Found ${openJobs.length} open jobs`);
+
+  // Clear existing markers
+  jobMarkers.forEach(m => m.setMap(null));
+  jobMarkers = [];
+
+  // Group jobs by location (lat/lng rounded to 2 decimals for clustering)
+  const locationGroups = {};
+  
+  openJobs.forEach(job => {
+    // Only show jobs with coordinates
+    if (!job.pickup_lat || !job.pickup_lng) return;
+    
+    // Round to ~1km precision for clustering
+    const clusterKey = `${job.pickup_lat.toFixed(2)},${job.pickup_lng.toFixed(2)}`;
+    
+    if (!locationGroups[clusterKey]) {
+      locationGroups[clusterKey] = {
+        lat: job.pickup_lat,
+        lng: job.pickup_lng,
+        suburb: job.pickup_suburb || 'Unknown',
+        jobs: [],
+      };
+    }
+    
+    locationGroups[clusterKey].jobs.push(job);
+  });
+
+  // Create markers for each location cluster
+  Object.values(locationGroups).forEach(group => {
+    const marker = new google.maps.Marker({
+      position: { lat: group.lat, lng: group.lng },
+      map: jobMap,
+      title: `${group.jobs.length} job${group.jobs.length === 1 ? '' : 's'} in ${group.suburb}`,
+      label: {
+        text: String(group.jobs.length),
+        color: '#ffffff',
+        fontSize: '14px',
+        fontWeight: 'bold',
+      },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 20,
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
+    });
+
+    // Click marker to show jobs in that area
+    marker.addListener('click', () => {
+      showJobsInArea(group);
+      
+      // Center map on clicked location
+      jobMap.panTo({ lat: group.lat, lng: group.lng });
+      jobMap.setZoom(12);
+    });
+
+    jobMarkers.push(marker);
+  });
+
+  // If there are jobs, fit map to show all markers
+  if (jobMarkers.length > 0) {
+    const bounds = new google.maps.LatLngBounds();
+    jobMarkers.forEach(m => bounds.extend(m.getPosition()));
+    jobMap.fitBounds(bounds);
+    
+    // Don't zoom in too close if there's only one cluster
+    google.maps.event.addListenerOnce(jobMap, 'bounds_changed', () => {
+      if (jobMap.getZoom() > 10) jobMap.setZoom(10);
+    });
+  }
+
+  console.log(`[Job Map] Created ${jobMarkers.length} location markers`);
+}
+
+function showJobsInArea(group) {
+  const listEl = document.getElementById('driverJobMapList');
+  if (!listEl) return;
+
+  listEl.style.display = 'block';
+  
+  const jobCards = group.jobs.map(job => {
+    const pickup = escapeHtml(job.pickup_suburb || '—');
+    const dropoff = escapeHtml(job.dropoff_suburb || '—');
+    const item = escapeHtml(job.item_description || '—');
+    const suggested = job.suggested_price_nzd 
+      ? `NZD $${Number(job.suggested_price_nzd).toFixed(2)}`
+      : 'Not specified';
+    
+    return `
+      <div class="card" style="margin-bottom:12px; border-left:3px solid #3b82f6;">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:15px;">Request #${escapeHtml(job.id)}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">${pickup} → ${dropoff}</div>
+            <div style="margin-top:6px;">${item}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">Suggested: ${suggested}</div>
+          </div>
+          <button class="btn" onclick="showJobDetailsAndOffer(${job.id})" style="white-space:nowrap;">Make Offer</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <h3 style="margin:0 0 4px 0;">${group.jobs.length} job${group.jobs.length === 1 ? '' : 's'} in ${escapeHtml(group.suburb)}</h3>
+      <button class="btn ghost" onclick="closeJobList()" style="font-size:13px; padding:4px 8px;">Close</button>
+    </div>
+    ${jobCards}
+  `;
+}
+
+window.showJobDetailsAndOffer = function(requestId) {
+  // Find the job
+  const job = jobsData.find(j => j.id === requestId);
+  if (!job) {
+    console.error('[Job Map] Job not found:', requestId);
+    return;
+  }
+
+  // Show full pickup address to driver
+  const pickup = job.pickup_address_full || job.pickup_suburb || '—';
+  const dropoff = job.dropoff_address_full || job.dropoff_suburb || '—';
+  const item = escapeHtml(job.item_description || '—');
+
+  // Populate inline offer form
+  document.getElementById('inlineOfferRequestId').textContent = requestId;
+  document.getElementById('inlineOfferRequestIdInput').value = requestId;
+  document.getElementById('inlineOfferJobInfo').innerHTML = `
+    <div><strong>From:</strong> ${escapeHtml(pickup)}</div>
+    <div><strong>To:</strong> ${escapeHtml(dropoff)}</div>
+    <div><strong>Item:</strong> ${item}</div>
+  `;
+
+  // Show offer form
+  document.getElementById('driverInlineOfferSection').classList.remove('hidden');
+  document.getElementById('inlineOfferPrice').focus();
+  
+  // Scroll to form
+  document.getElementById('driverInlineOfferSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+window.closeJobList = function() {
+  const listEl = document.getElementById('driverJobMapList');
+  if (listEl) listEl.style.display = 'none';
+};
+
+// Wire up refresh button
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBtn = document.getElementById('driverJobMapRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      closeJobList();
+      loadJobsOntoMap();
+    });
+  }
+});
