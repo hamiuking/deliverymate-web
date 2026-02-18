@@ -1760,14 +1760,23 @@ export function initSenderPage() {
    Google Maps Places Autocomplete
    Using new PlaceAutocompleteElement (recommended by Google)
 ------------------------------------------------------------- */
+let autocompleteRetries = 0;
+const MAX_AUTOCOMPLETE_RETRIES = 20; // 10 seconds max
+
 window.setupGoogleMapsAutocomplete = function() {
-  console.log('[Google Maps] Initializing autocomplete...');
+  console.log('[Google Maps] Initializing autocomplete... (attempt ' + (autocompleteRetries + 1) + ')');
+  
+  if (autocompleteRetries >= MAX_AUTOCOMPLETE_RETRIES) {
+    console.error('[Google Maps] Failed to initialize after ' + MAX_AUTOCOMPLETE_RETRIES + ' attempts. Autocomplete disabled.');
+    return;
+  }
   
   const pickupInput = document.getElementById('createPickupSuburb');
   const dropoffInput = document.getElementById('createDropoffSuburb');
   
   if (!pickupInput || !dropoffInput) {
     console.warn('[Google Maps] Form inputs not found yet, retrying in 500ms...');
+    autocompleteRetries++;
     setTimeout(window.setupGoogleMapsAutocomplete, 500);
     return;
   }
@@ -1775,6 +1784,7 @@ window.setupGoogleMapsAutocomplete = function() {
   // Check if inputs are visible (important for Safari)
   if (pickupInput.offsetParent === null || dropoffInput.offsetParent === null) {
     console.warn('[Google Maps] Form inputs not visible yet, retrying in 500ms...');
+    autocompleteRetries++;
     setTimeout(window.setupGoogleMapsAutocomplete, 500);
     return;
   }
@@ -1782,6 +1792,7 @@ window.setupGoogleMapsAutocomplete = function() {
   // Check if google.maps.places is loaded
   if (!window.google || !window.google.maps || !window.google.maps.places) {
     console.warn('[Google Maps] Places library not loaded yet, retrying...');
+    autocompleteRetries++;
     setTimeout(window.setupGoogleMapsAutocomplete, 500);
     return;
   }
@@ -1820,9 +1831,11 @@ window.setupGoogleMapsAutocomplete = function() {
     });
     
     console.log('[Google Maps] Autocomplete initialized ✓');
+    autocompleteRetries = 0; // Reset counter on success
   } catch (error) {
     console.error('[Google Maps] Failed to initialize autocomplete:', error);
     console.warn('[Google Maps] Retrying in 1 second...');
+    autocompleteRetries++;
     setTimeout(window.setupGoogleMapsAutocomplete, 1000);
   }
 };
