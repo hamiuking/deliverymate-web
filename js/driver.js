@@ -1854,6 +1854,21 @@ export function initDriverPage() {
     renderDriverPayoutJobs();
     renderDriverPayoutHistory();
   }, 600);
+
+  //
+  // Cross-tab logout detection
+  // If user logs out from sender page (or another tab), detect it here
+  //
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'dm_user_token' && !e.newValue) {
+      // Token was removed (logout happened in another tab)
+      console.log('[Driver] Detected logout in another tab, logging out...');
+      sessionStorage.removeItem('dm_user_token');
+      localStorage.removeItem('dm_driver_user');
+      localStorage.removeItem('dm_sender_user');
+      enforceDriverGate();
+    }
+  });
 }
 
 /* ---------------------------------------------------------
