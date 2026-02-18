@@ -11,10 +11,15 @@
   <!-- Google Maps: define callback BEFORE script loads -->
   <script>
     window.initGoogleMaps = function() {
-      // This will be called when Google Maps loads
-      // The actual logic is in sender.js
+      console.log('[Google Maps] Callback fired');
+      // Safari sometimes needs a delay
       if (window.setupGoogleMapsAutocomplete) {
-        window.setupGoogleMapsAutocomplete();
+        setTimeout(function() {
+          window.setupGoogleMapsAutocomplete();
+        }, 100);
+      } else {
+        console.warn('[Google Maps] Setup function not ready, retrying...');
+        setTimeout(window.initGoogleMaps, 500);
       }
     };
   </script>
