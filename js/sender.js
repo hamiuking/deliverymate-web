@@ -420,6 +420,18 @@ function renderRequestSummary(r) {
     </div>
   ` : "";
 
+  // Driver contact info (shown after offer accepted)
+  const driverPhone = r?.driver_phone || "";
+  const driverName = r?.driver_name || "Driver";
+  const contactHtml = (status !== "open" && driverPhone) ? `
+    <div style="margin-top:14px; padding:10px; background:rgba(59,130,246,.06); border-radius:6px; border:1px solid rgba(59,130,246,.2);">
+      <div style="font-size:13px; font-weight:600; margin-bottom:4px;">📞 Driver Contact</div>
+      <div><strong>${escapeHtml(driverName)}</strong></div>
+      <div class="muted" style="font-size:13px;">Phone: ${escapeHtml(driverPhone)}</div>
+      <div class="muted" style="font-size:12px; margin-top:4px;">Contact the driver directly if you have questions or issues.</div>
+    </div>
+  ` : "";
+
   box.innerHTML = `
     <div class="card compact">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
@@ -431,6 +443,7 @@ function renderRequestSummary(r) {
       </div>
       <div style="margin-top:10px;">${tl}</div>
       <div style="margin-top:10px;" class="muted"><strong>Next:</strong> ${safeText(next || "")}</div>
+      ${contactHtml}
       ${photoHtml}
       ${actionButton}
     </div>
