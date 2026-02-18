@@ -185,24 +185,29 @@
         <div class="result" id="driverActiveJobsResult"></div>
       </section>
 
-      <!-- ── OPEN JOBS MAP (MARKETPLACE) ──────────────────────
-           Interactive map showing available jobs across NZ.
-           Click pins to see jobs in that area.
+      <!-- ── OPEN JOBS (MARKETPLACE) ────────────────────────
+           Browse available jobs. Toggle between list and map view.
       ──────────────────────────────────────────────────────── -->
       <section class="card requires-driver">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
           <h2 style="margin:0;">Available Jobs</h2>
-          <button class="btn ghost" id="driverJobMapRefreshBtn" type="button">Refresh</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn ghost" id="driverToggleMapBtn" type="button">🗺️ View Map</button>
+            <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
+          </div>
         </div>
         <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
-        <div class="muted" style="margin-top:4px;">Click any pin to see jobs. Select a job to make an offer.</div>
+        <div class="muted" style="margin-top:4px;">Click <strong>Make Offer</strong> on any job to quickly submit your price.</div>
 
-        <!-- Map Container -->
-        <div id="driverJobMap" style="width:100%; height:500px; margin-top:12px; border-radius:8px; border:1px solid rgba(0,0,0,.1);"></div>
-        
-        <!-- Job List (appears when clicking a pin) -->
-        <div id="driverJobMapList" style="margin-top:12px; display:none;"></div>
+        <!-- Text List View (Default) -->
+        <div id="driverOpenJobsList" style="margin-top:12px;"></div>
         <div class="result" id="driverOpenJobsResult"></div>
+
+        <!-- Map View (Hidden by default) -->
+        <div id="driverJobMapContainer" class="hidden" style="margin-top:12px;">
+          <div id="driverJobMap" style="width:100%; height:500px; border-radius:8px; border:1px solid rgba(0,0,0,.1);"></div>
+          <div id="driverJobMapList" style="margin-top:12px; display:none;"></div>
+        </div>
 
         <!-- Inline Offer Form (slides in when clicking Make Offer) -->
         <div id="driverInlineOfferSection" class="hidden" style="margin-top:16px;">
