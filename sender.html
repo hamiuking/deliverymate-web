@@ -232,6 +232,21 @@
             <div id="senderReqSummary"></div>
           </section>
 
+          <!-- Report Issue (only shown for delivered requests) -->
+          <section class="card compact requires-sender hidden" id="senderReportIssueCard" style="border-left:3px solid #f59e0b; background:rgba(245,158,11,.05);">
+            <h3 style="margin-top:0;">🚩 Report an Issue</h3>
+            <p class="muted" style="margin-bottom:12px;">If there's a problem with this delivery (item damaged, not delivered, etc.), report it here. This will pause the automatic payment release and alert our team for review.</p>
+            <form id="reportIssueForm" onsubmit="return false">
+              <input type="hidden" id="reportIssueRequestId" name="request_id" />
+              
+              <label>What's the issue?</label>
+              <textarea id="reportIssueDescription" name="description" rows="3" placeholder="e.g., Item was damaged in transit, Item never arrived, Wrong item delivered" required></textarea>
+              
+              <button class="btn" type="submit" style="background:#f59e0b; border-color:#f59e0b;">Submit Report</button>
+            </form>
+            <div class="result" id="reportIssueResult"></div>
+          </section>
+
           <h3>Offers from Drivers</h3>
           <div id="senderOffersList"></div>
 
