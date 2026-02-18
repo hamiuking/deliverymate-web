@@ -604,7 +604,7 @@ function setupCreateAcksGate() {
   const btn = document.getElementById("createRequestBtn");
   if (!btn) return;
 
-  const ids = ["sAck1", "sAck2", "sAck3", "sAck4"];
+  const ids = ["sAck1", "sAck2", "sAck3", "sAck4", "sAck5"];
   const boxes = ids.map((id) => document.getElementById(id)).filter(Boolean);
 
   const refresh = () => {
@@ -1719,7 +1719,10 @@ function setupSenderProfile() {
   const details = document.getElementById("senderProfileDetails");
   if (details) {
     details.addEventListener("toggle", () => {
-      if (details.open) loadSenderProfileSnapshot();
+      if (details.open) {
+        loadSenderProfileSnapshot();
+        checkSenderDriverStatus(); // Check if already applied
+      }
     });
   }
 
@@ -1769,6 +1772,129 @@ function setupSenderProfile() {
       loadSenderProfileSnapshot();
     } else {
       if (result) setResult(result, alertError(res.error || "Failed to save."));
+    }
+  });
+
+  // Apply to be driver form
+  setupSenderDriverApplication();
+}
+
+/* ---------------------------------------------------------
+   Sender → Driver Application
+--------------------------------------------------------- */
+async function checkSenderDriverStatus() {
+  const statusEl = document.getElementById("senderDriverAppStatus");
+  if (!statusEl) return;
+
+  const res = await api("/users/me", { method: "GET", role: "sender" });
+  if (!res.ok || !res.user) return;
+
+  const driverStatus = String(res.user.driver_status || "").toLowerCase();
+  
+  if (driverStatus === "approved") {
+    statusEl.innerHTML = `
+      <div style="padding:12px; background:rgba(34,197,94,.1); border-radius:6px; border:1px solid rgba(34,197,94,.3);">
+        <div style="font-weight:700; color:#166534;">✓ You're approved as a driver!</div>
+        <div class="muted" style="margin-top:4px;">Visit the <a href="/driver.html">Driver Dashboard</a> to browse jobs and make offers.</div>
+      </div>
+    `;
+    // Hide the application form
+    const form = document.getElementById("senderApplyDriverForm");
+    if (form) form.style.display = "none";
+  } else if (driverStatus === "pending" || driverStatus === "pending_review") {
+    statusEl.innerHTML = `
+      <div style="padding:12px; background:rgba(245,158,11,.1); border-radius:6px; border:1px solid rgba(245,158,11,.3);">
+        <div style="font-weight:700; color:#92400e;">⏳ Application pending</div>
+        <div class="muted" style="margin-top:4px;">Your driver application is under review. You'll be notified when approved (usually within 24 hours).</div>
+      </div>
+    `;
+    // Hide the application form
+    const form = document.getElementById("senderApplyDriverForm");
+    if (form) form.style.display = "none";
+  } else if (driverStatus === "disabled") {
+    statusEl.innerHTML = `
+      <div style="padding:12px; background:rgba(239,68,68,.1); border-radius:6px; border:1px solid rgba(239,68,68,.3);">
+        <div style="font-weight:700; color:#991b1b;">⚠️ Driver account disabled</div>
+        <div class="muted" style="margin-top:4px;">Please contact admin@deliverymate.nz for more information.</div>
+      </div>
+    `;
+    const form = document.getElementById("senderApplyDriverForm");
+    if (form) form.style.display = "none";
+  }
+}
+
+function setupSenderDriverApplication() {
+  const form = document.getElementById("senderApplyDriverForm");
+  const result = document.getElementById("senderApplyDriverResult");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = document.getElementById("senderApplyDriverBtn");
+    const consent = document.getElementById("senderDriverConsent");
+    
+    if (!consent || !consent.checked) {
+      if (result) setResult(result, alertError("Please confirm the consent checkbox."));
+      return;
+    }
+
+    const done = setWorking(btn, "Submitting…");
+    if (result) setResult(result, "");
+
+    // Get form data
+    const vehiclePlate = document.getElementById("senderDriverVehiclePlate")?.value.trim();
+    const licenseNumber = document.getElementById("senderDriverLicenseNumber")?.value.trim();
+    const wofExpiry = document.getElementById("senderDriverWofExpiry")?.value;
+    const licenseFrontFile = document.getElementById("senderDriverLicenseFront")?.files?.[0];
+    const licenseBackFile = document.getElementById("senderDriverLicenseBack")?.files?.[0];
+
+    // Validation
+    if (!vehiclePlate || !licenseNumber || !wofExpiry) {
+      done(false);
+      if (result) setResult(result, alertError("Please fill in all required fields."));
+      return;
+    }
+
+    if (!licenseFrontFile || !licenseBackFile) {
+      done(false);
+      if (result) setResult(result, alertError("Please upload both driver licence photos."));
+      return;
+    }
+
+    try {
+      // Convert images to base64
+      const frontBase64 = await fileToDataUrl(licenseFrontFile);
+      const backBase64 = await fileToDataUrl(licenseBackFile);
+
+      // Submit application
+      const res = await api("/users/me", {
+        method: "PATCH",
+        role: "sender",
+        body: {
+          vehicle_plate: vehiclePlate,
+          license_number: licenseNumber,
+          wof_expiry: wofExpiry,
+          driver_license_front_base64: frontBase64,
+          driver_license_back_base64: backBase64,
+          apply_as_driver: true, // Signal to backend to set driver_status = pending
+        },
+      });
+
+      done(!!res.ok);
+
+      if (res.ok) {
+        if (result) setResult(result, alertSuccess("Driver application submitted! Admin will review within 24 hours."));
+        // Refresh status
+        setTimeout(() => {
+          checkSenderDriverStatus();
+        }, 1500);
+      } else {
+        if (result) setResult(result, alertError(res.error || "Failed to submit application."));
+      }
+    } catch (err) {
+      done(false);
+      if (result) setResult(result, alertError(err?.message || "Failed to process images."));
     }
   });
 }
