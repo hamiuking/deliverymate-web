@@ -1493,30 +1493,46 @@ function setupUpdateStatus() {
 }
 
 /* -----------------------------
-   Issue report (pilot helper)
+   Driver Report Issue - submit to backend for logging
 ----------------------------- */
 function setupIssueReport_driver() {
-  const form = document.getElementById("driverIssueForm");
-  const out = document.getElementById("driverIssueOut");
-  if (!form || !out) return;
+  const form = document.getElementById("driverReportIssueForm");
+  const result = document.getElementById("driverReportIssueResult");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const fd = new FormData(form);
-    const requestId = String(fd.get("request_id") || "").trim();
-    const note = String(fd.get("note") || "").trim();
 
-    const now = new Date().toISOString();
-    const url = window.location.origin;
-    out.textContent = [
-      `DeliveryMate pilot issue report`,
-      `Time: ${now}`,
-      `Role: driver`,
-      requestId ? `Request ID: ${requestId}` : `Request ID: (not provided)`,
-      note ? `Note: ${note}` : "Note: (none)",
-      `\nPlease include a screenshot if possible.`,
-      `Site: ${url}`,
-    ].join("\n");
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Submitting...");
+    if (result) setResult(result, "");
+
+    const requestId = document.getElementById("driverReportRequestId")?.value.trim();
+    const description = document.getElementById("driverReportDescription")?.value.trim();
+
+    if (!description) {
+      done(false);
+      if (result) setResult(result, alertError("Please describe the issue"));
+      return;
+    }
+
+    const res = await api("/drivers/report-issue", {
+      method: "POST",
+      role: "driver",
+      body: {
+        request_id: requestId || null,
+        description: description,
+      },
+    });
+
+    done(!!res.ok);
+
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Issue reported and logged. Admin will review."));
+      form.reset();
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to submit report"));
+    }
   });
 }
 
