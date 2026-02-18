@@ -2068,8 +2068,16 @@ window.setupDriverJobMap = function() {
 
 function initializeJobMap() {
   const mapContainer = document.getElementById('driverJobMap');
+  
   if (!mapContainer) {
-    console.warn('[Job Map] Map container not found, retrying in 500ms...');
+    console.warn('[Job Map] Map container not found in DOM, retrying in 500ms...');
+    setTimeout(initializeJobMap, 500);
+    return;
+  }
+  
+  // Check if container is actually visible
+  if (mapContainer.offsetParent === null) {
+    console.warn('[Job Map] Map container exists but not visible yet, retrying in 500ms...');
     setTimeout(initializeJobMap, 500);
     return;
   }
@@ -2079,6 +2087,15 @@ function initializeJobMap() {
     console.log('[Job Map] Already initialized');
     return;
   }
+  
+  // Check if google.maps is loaded
+  if (!window.google || !window.google.maps) {
+    console.warn('[Job Map] Google Maps not loaded yet, retrying in 500ms...');
+    setTimeout(initializeJobMap, 500);
+    return;
+  }
+
+  console.log('[Job Map] Initializing map on visible container...');
 
   // Center on New Zealand
   jobMap = new google.maps.Map(mapContainer, {
