@@ -1593,32 +1593,25 @@ async function renderSenderActiveRequests() {
       }
     }
 
-    // Confirm release → inline, no scrolling
+    // Confirm release → scroll to View Request Details to see full context
     if (releaseBtn) {
       const id = releaseBtn.dataset.id;
-      if (!confirm("Confirm delivery and release payment to driver?")) return;
-
-      releaseBtn.disabled = true;
-      releaseBtn.textContent = "Releasing...";
-
-      const res = await api(`/requests/${id}/escrow/release`, {
-        method: "POST",
-        role: "sender",
-        body: {},
-      });
-
-      if (res.ok) {
-        // Refresh active requests to show updated state
-        renderSenderActiveRequests();
-        // Also refresh the view if loaded
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm?.request_id?.value === id) {
-          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      
+      // Load the request in View Request Details section
+      const viewForm = document.getElementById("viewRequestForm");
+      if (viewForm) {
+        viewForm.request_id.value = id;
+        
+        // Scroll to View Request Details section
+        const viewSection = viewForm.closest('section');
+        if (viewSection) {
+          viewSection.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      } else {
-        alert(res.error || "Failed to release payment");
-        releaseBtn.disabled = false;
-        releaseBtn.textContent = "✓ Confirm Delivery & Release Payment";
+        
+        // Auto-load the request to show delivery photo, report card, and confirm button
+        setTimeout(() => {
+          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        }, 300);
       }
     }
   };
