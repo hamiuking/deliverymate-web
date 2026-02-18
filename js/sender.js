@@ -1999,6 +1999,20 @@ export function initSenderPage() {
   setInterval(() => {
     try { renderSenderActiveRequests(); } catch (_) {}
   }, 30000);
+
+  //
+  // 6. Cross-tab logout detection
+  // If user logs out from driver page (or another tab), detect it here
+  //
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'dm_user_token' && !e.newValue) {
+      // Token was removed (logout happened in another tab)
+      console.log('[Sender] Detected logout in another tab, logging out...');
+      sessionStorage.removeItem('dm_user_token');
+      setAuthStatus('Not logged in');
+      setDashboardVisible(false);
+    }
+  });
 }
 
 /* -------------------------------------------------------------
