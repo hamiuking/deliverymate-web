@@ -2064,13 +2064,19 @@ let jobsData = [];
 window.setupDriverJobMap = function() {
   console.log('[Job Map] Google Maps loaded, initializing...');
   initializeJobMap();
-  loadJobsOntoMap();
 };
 
 function initializeJobMap() {
   const mapContainer = document.getElementById('driverJobMap');
   if (!mapContainer) {
-    console.warn('[Job Map] Map container not found');
+    console.warn('[Job Map] Map container not found, retrying in 500ms...');
+    setTimeout(initializeJobMap, 500);
+    return;
+  }
+
+  // Check if already initialized
+  if (jobMap) {
+    console.log('[Job Map] Already initialized');
     return;
   }
 
@@ -2084,6 +2090,9 @@ function initializeJobMap() {
   });
 
   console.log('[Job Map] Map initialized ✓');
+  
+  // Load jobs once map is ready
+  loadJobsOntoMap();
 }
 
 async function loadJobsOntoMap() {
