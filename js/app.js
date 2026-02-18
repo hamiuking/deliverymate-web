@@ -39,6 +39,14 @@ export function initApp() {
 }
 
 function injectPilotBanner() {
+  // Only show banner on home page (index.html)
+  // Sender/driver pages have their own acknowledgements
+  const isHomePage = window.location.pathname === '/' || 
+                     window.location.pathname === '/index.html' ||
+                     window.location.pathname.endsWith('/');
+  
+  if (!isHomePage) return; // Skip banner on other pages
+  
   // Place banner at the top of the main container, if present.
   const main = document.querySelector('main.container');
   if (!main) return;
