@@ -43,6 +43,23 @@
     <h1>Sender Dashboard</h1>
 
     <!-- =============================================
+         PILOT DISCLAIMER (Prominent on homepage)
+    ============================================= -->\n    <div class="card" style="background:rgba(245,158,11,.08); border:2px solid rgba(245,158,11,.4); margin-bottom:20px;">
+      <div style="display:flex; align-items:start; gap:12px;">
+        <div style="font-size:24px;">⚠️</div>
+        <div style="flex:1;">
+          <h3 style="margin:0 0 8px 0;">Invite-Only Pilot (New Zealand)</h3>
+          <p style="margin:0 0 8px 0;"><strong>Please do not use for urgent or high-value deliveries.</strong></p>
+          <p style="margin:0; font-size:14px;" class="muted">
+            DeliveryMate is a <strong>facilitator only</strong> — we are not a courier, employer, or agent. 
+            We do not provide dispute resolution, insurance, or guarantees. 
+            All deliveries are between independent parties at their own risk.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============================================
          AUTH AREA (visible when not logged in)
     ============================================= -->
     <div id="senderAuthArea">
@@ -164,6 +181,11 @@
             <label style="font-weight:600; margin-top:8px; display:block;">
               <input type="checkbox" id="sAck4" />
               I accept the risk of loss or damage — any claim must be made against the driver, not the Platform.
+            </label>
+
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck5" />
+              The Platform is a facilitator only. We do not provide dispute resolution, mediation, or intervention in delivery issues.
             </label>
 
             <div class="muted" style="margin-top:8px;">
@@ -321,6 +343,47 @@
               <button class="btn mt-2" type="submit">Save Contact Details</button>
             </form>
             <div class="result" id="senderBasicProfileResult"></div>
+
+            <!-- Apply to be Driver -->
+            <div style="margin-top:32px; padding-top:24px; border-top:2px solid rgba(0,0,0,.1);">
+              <h3 style="margin-top:0;">💰 Want to Earn as a Driver?</h3>
+              <p class="muted">Upload your documents to apply. You'll be able to browse jobs and make offers once approved by admin.</p>
+
+              <div id="senderDriverAppStatus" style="margin-bottom:16px;"></div>
+
+              <form id="senderApplyDriverForm">
+                <label>Vehicle plate</label>
+                <input name="vehicle_plate" id="senderDriverVehiclePlate" placeholder="e.g. ABC123" />
+
+                <label>Driver licence number</label>
+                <input name="license_number" id="senderDriverLicenseNumber" placeholder="Your NZ driver licence number" />
+
+                <label>WOF expiry</label>
+                <input name="wof_expiry" id="senderDriverWofExpiry" type="date" />
+
+                <div class="mt-2">
+                  <div class="muted" style="margin-bottom:6px;">Driver licence photos (required, max 6MB each)</div>
+
+                  <label>Driver licence — front</label>
+                  <input type="file" id="senderDriverLicenseFront" accept="image/*" />
+                  <div class="muted" id="senderDLFrontStatus" style="margin-top:4px;"></div>
+
+                  <label class="mt-2">Driver licence — back</label>
+                  <input type="file" id="senderDriverLicenseBack" accept="image/*" />
+                  <div class="muted" id="senderDLBackStatus" style="margin-top:4px;"></div>
+                </div>
+
+                <div style="margin-top:16px; padding:12px; background:rgba(245,158,11,.08); border-radius:6px; border:1px solid rgba(245,158,11,.3);">
+                  <label style="font-weight:600; cursor:pointer;">
+                    <input type="checkbox" id="senderDriverConsent" />
+                    I consent to a background check and understand all driver acknowledgements apply.
+                  </label>
+                </div>
+
+                <button class="btn mt-2" type="submit" id="senderApplyDriverBtn">Submit Driver Application</button>
+              </form>
+              <div class="result" id="senderApplyDriverResult"></div>
+            </div>
           </div>
         </details>
       </section>
