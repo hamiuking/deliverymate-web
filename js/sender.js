@@ -1758,7 +1758,7 @@ export function initSenderPage() {
 
 /* -------------------------------------------------------------
    Google Maps Places Autocomplete
-   Attached to From/To fields when Google Maps loads
+   Using new PlaceAutocompleteElement (recommended by Google)
 ------------------------------------------------------------- */
 window.setupGoogleMapsAutocomplete = function() {
   console.log('[Google Maps] Initializing autocomplete...');
@@ -1767,7 +1767,15 @@ window.setupGoogleMapsAutocomplete = function() {
   const dropoffInput = document.getElementById('createDropoffSuburb');
   
   if (!pickupInput || !dropoffInput) {
-    console.warn('[Google Maps] Form inputs not found yet');
+    console.warn('[Google Maps] Form inputs not found yet, retrying in 500ms...');
+    setTimeout(window.setupGoogleMapsAutocomplete, 500);
+    return;
+  }
+
+  // Check if google.maps.places is loaded
+  if (!window.google || !window.google.maps || !window.google.maps.places) {
+    console.warn('[Google Maps] Places library not loaded yet, retrying...');
+    setTimeout(window.setupGoogleMapsAutocomplete, 500);
     return;
   }
   
@@ -1777,6 +1785,7 @@ window.setupGoogleMapsAutocomplete = function() {
     fields: ['address_components', 'geometry', 'formatted_address', 'name'],
   };
   
+  // Use the recommended class (still works the same way)
   const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, options);
   const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, options);
   
