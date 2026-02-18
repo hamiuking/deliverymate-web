@@ -562,6 +562,10 @@ function setupDriverLogout() {
     localStorage.removeItem("dm_user_token");
     localStorage.removeItem("dm_driver_user_token");
 
+    // Clear BOTH sender and driver user data to prevent cross-contamination
+    localStorage.removeItem("dm_sender_user");
+    localStorage.removeItem("dm_driver_user");
+
     enforceDriverGate();
     if (hint) hint.textContent = "";
   });
