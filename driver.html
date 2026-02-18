@@ -290,41 +290,6 @@
         </details>
       </section>
 
-      <!-- ── MY SAVED JOBS + MANUAL OFFER ──────────────────── -->
-      <section class="card requires-driver">
-        <details>
-          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Manual Entry &amp; Saved Jobs</summary>
-          <div style="margin-top:12px;">
-
-            <h3 style="margin-top:0;">My Saved Jobs</h3>
-            <p class="muted">Quick access to jobs you've interacted with on this device.</p>
-            <div class="row" style="gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;">
-              <select id="driverRecentSelect" class="select"></select>
-              <button class="btn secondary" type="button" id="driverQuickViewBtn">View</button>
-              <button class="btn ghost" type="button" id="driverQuickCopyBtn">Copy ID</button>
-            </div>
-            <div class="muted" id="driverAssignedCount" style="margin-top:6px;"></div>
-
-            <h3 style="margin-top:20px;">Make Offer (Manual)</h3>
-            <p class="muted">Prefer manual entry? Use this form directly.</p>
-
-            <form id="driverOfferForm">
-              <label>Request ID</label>
-              <input name="request_id" id="driverOfferRequestId" required />
-
-              <label>Price (NZD)</label>
-              <input name="price_nzd" type="number" step="0.01" placeholder="e.g. 25.00" />
-
-              <label>Note <span class="muted">(optional)</span></label>
-              <textarea name="note" placeholder="e.g. Can deliver tonight"></textarea>
-
-              <button class="btn" type="submit" id="driverOfferBtn" disabled>Submit Offer</button>
-            </form>
-            <div class="result" id="driverOfferResult"></div>
-          </div>
-        </details>
-      </section>
-
       <!-- ── PAYOUTS ─────────────────────────────────────────
            Bank details + jobs ready for payout + history.
       ──────────────────────────────────────────────────────── -->
@@ -370,7 +335,7 @@
       <!-- ── REPORT AN ISSUE ────────────────────────────────── -->
       <section class="card requires-driver">
         <h2>Report an Issue</h2>
-        <p class="muted">Generate a message to send to <a href="mailto:support@deliverymate.nz">support@deliverymate.nz</a>.</p>
+        <p class="muted">Generate a message to send to <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</p>
 
         <form id="driverIssueForm">
           <label>Request ID <span class="muted">(optional)</span></label>
