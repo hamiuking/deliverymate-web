@@ -1281,6 +1281,9 @@ function setupSenderAuth() {
     logoutBtn.addEventListener("click", () => {
       sessionStorage.removeItem("dm_user_token");
       localStorage.removeItem("dm_user_token");
+      // Clear BOTH sender and driver user data to prevent cross-contamination
+      localStorage.removeItem("dm_sender_user");
+      localStorage.removeItem("dm_driver_user");
       setAuthStatus("Not logged in");
       setDashboardVisible(false);
     });
@@ -1923,22 +1926,24 @@ export function initSenderPage() {
     }
   } catch (_) {}
 
-  // NEW: If driver is logged in but sender user data doesn't exist, copy it over
-  // This allows drivers to seamlessly create requests without logging in again
+  // NEW: Auto-sync between driver and sender user data for seamless cross-login
+  // This allows drivers to create requests without logging in again
   try {
     const senderUser = getSavedUser();
-    if (!senderUser) {
-      // Check if there's driver user data
-      const driverUserData = localStorage.getItem("dm_driver_user");
-      if (driverUserData) {
-        const driverUser = JSON.parse(driverUserData);
-        // Copy driver user to sender storage (same user, different role)
+    const driverUserData = localStorage.getItem("dm_driver_user");
+    
+    if (driverUserData) {
+      const driverUser = JSON.parse(driverUserData);
+      
+      // If no sender user, OR sender user has different phone, sync from driver
+      if (!senderUser || senderUser.phone !== driverUser.phone) {
+        // Copy driver user to sender storage (same person, different role)
         saveUser({
           phone: driverUser.phone,
           full_name: driverUser.full_name || driverUser.name,
           email: driverUser.email,
         });
-        console.log('[Sender] Auto-logged in from driver session');
+        console.log('[Sender] Auto-synced user from driver session:', driverUser.phone);
       }
     }
   } catch (_) {}
