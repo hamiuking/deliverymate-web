@@ -306,10 +306,11 @@ function setupDriverAckGate() {
   const a1 = document.getElementById("dAck1");
   const a2 = document.getElementById("dAck2");
   const a3 = document.getElementById("dAck3");
+  const a4 = document.getElementById("dAck4");
   const offerBtn = document.getElementById("driverOfferBtn");
   const statusBtn = document.getElementById("driverStatusBtn");
   const lastEl = document.getElementById("driverAckLast");
-  if (!a1 || !a2 || !a3) return;
+  if (!a1 || !a2 || !a3 || !a4) return;
 
   const renderLast = () => {
     if (!lastEl) return;
@@ -322,10 +323,10 @@ function setupDriverAckGate() {
 
   // Pre-tick if previously agreed on this device
   const prev = localStorage.getItem(DRIVER_ACK_KEY);
-  if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; }
+  if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true; }
 
   const refresh = () => {
-    const ok = a1.checked && a2.checked && a3.checked;
+    const ok = a1.checked && a2.checked && a3.checked && a4.checked;
     if (offerBtn) offerBtn.disabled = !ok;
     if (statusBtn) statusBtn.disabled = !ok;
 
@@ -337,6 +338,7 @@ function setupDriverAckGate() {
   a1.addEventListener("change", refresh);
   a2.addEventListener("change", refresh);
   a3.addEventListener("change", refresh);
+  a4.addEventListener("change", refresh);
   refresh();
 }
 
