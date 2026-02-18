@@ -39,31 +39,9 @@ export function initApp() {
 }
 
 function injectPilotBanner() {
-  // Only show banner on home page (index.html)
-  // Sender/driver pages have their own acknowledgements
-  const isHomePage = window.location.pathname === '/' || 
-                     window.location.pathname === '/index.html' ||
-                     window.location.pathname.endsWith('/');
-  
-  if (!isHomePage) return; // Skip banner on other pages
-  
-  // Place banner at the top of the main container, if present.
-  const main = document.querySelector('main.container');
-  if (!main) return;
-
-  // Avoid duplicating if app.js is loaded more than once.
-  if (main.querySelector('[data-dm-banner="pilot"]')) return;
-
-  const div = document.createElement('div');
-  div.className = 'banner';
-  div.setAttribute('data-dm-banner', 'pilot');
-  div.innerHTML = `
-    <strong>Invite-only pilot (NZ).</strong> Please do not use for urgent or high-value deliveries.
-    <div class="muted" style="margin-top:6px;">
-      DeliveryMate is a facilitator only — not a courier, employer, or agent. No dispute resolution.
-    </div>
-  `;
-  main.insertBefore(div, main.firstChild);
+  // Banner disabled - we have a prominent disclaimer box in index.html instead
+  // This avoids duplicate disclaimers on the home page
+  return;
 }
 
 initApp();
