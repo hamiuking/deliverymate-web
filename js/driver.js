@@ -2126,13 +2126,19 @@ async function loadJobsOntoMap() {
     // Only show jobs with coordinates
     if (!job.pickup_lat || !job.pickup_lng) return;
     
+    // Convert to numbers (they come as strings from database)
+    const lat = Number(job.pickup_lat);
+    const lng = Number(job.pickup_lng);
+    
+    if (isNaN(lat) || isNaN(lng)) return; // Skip invalid coordinates
+    
     // Round to ~1km precision for clustering
-    const clusterKey = `${job.pickup_lat.toFixed(2)},${job.pickup_lng.toFixed(2)}`;
+    const clusterKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
     
     if (!locationGroups[clusterKey]) {
       locationGroups[clusterKey] = {
-        lat: job.pickup_lat,
-        lng: job.pickup_lng,
+        lat: lat,
+        lng: lng,
         suburb: job.pickup_suburb || 'Unknown',
         jobs: [],
       };
