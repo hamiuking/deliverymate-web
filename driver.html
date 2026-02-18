@@ -13,8 +13,15 @@
   <!-- Google Maps for job availability map -->
   <script>
     window.initDriverJobMap = function() {
+      console.log('[Job Map] Callback fired');
+      // Safari sometimes needs a delay
       if (window.setupDriverJobMap) {
-        window.setupDriverJobMap();
+        setTimeout(function() {
+          window.setupDriverJobMap();
+        }, 100);
+      } else {
+        console.warn('[Job Map] Setup function not ready, retrying...');
+        setTimeout(window.initDriverJobMap, 500);
       }
     };
   </script>
