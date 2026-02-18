@@ -526,8 +526,8 @@ function updateReportIssueCard(r) {
   if (disputed) {
     card.classList.remove('hidden');
     card.innerHTML = `
-      <h3 style="margin-top:0;">⚠️ Issue Reported</h3>
-      <p class="muted">You have reported an issue with this delivery. Payment has been paused and our team is reviewing.</p>
+      <h3 style="margin-top:0;">📝 Issue Logged</h3>
+      <p class="muted">You reported an issue with this delivery. Your report has been logged for our records. Payment will still release automatically.</p>
       <p><strong>Reported reason:</strong> ${escapeHtml(r.dispute_reason || 'No details provided')}</p>
     `;
   }
@@ -567,7 +567,7 @@ function setupReportIssueForm() {
     done(!!res.ok);
     
     if (res.ok) {
-      if (result) setResult(result, alertSuccess(res.message || 'Issue reported. Payment release paused.'));
+      if (result) setResult(result, alertSuccess(res.message || 'Issue logged. Please contact the driver to resolve.'));
       
       // Refresh the request view to show updated status
       setTimeout(() => {
