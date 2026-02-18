@@ -1826,12 +1826,6 @@ window.setupGoogleMapsAutocomplete = function() {
     setTimeout(window.setupGoogleMapsAutocomplete, 1000);
   }
 };
-    
-    handlePlaceSelection(place, 'dropoff');
-  });
-  
-  console.log('[Google Maps] Autocomplete initialized ✓');
-};
 
 function handlePlaceSelection(place, type) {
   const prefix = type; // 'pickup' or 'dropoff'
