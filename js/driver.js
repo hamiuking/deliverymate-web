@@ -2166,9 +2166,13 @@ function toggleJobView() {
 
 // Show inline offer form (called from both list and map views)
 window.showInlineOfferForm = function(requestId) {
-  const job = openJobsData.find(j => j.id === requestId);
+  // Convert to number for comparison (job.id is number, requestId might be string)
+  const id = Number(requestId);
+  const job = openJobsData.find(j => Number(j.id) === id);
+  
   if (!job) {
-    console.error('[Open Jobs] Job not found:', requestId);
+    console.error('[Open Jobs] Job not found:', requestId, 'Available jobs:', openJobsData.length);
+    alert('Job not found. Please refresh and try again.');
     return;
   }
 
