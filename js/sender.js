@@ -494,6 +494,93 @@ function renderRequestSummary(r) {
       }
     });
   }
+  
+  // Show/hide report issue card
+  updateReportIssueCard(r);
+}
+
+function updateReportIssueCard(r) {
+  const card = document.getElementById('senderReportIssueCard');
+  if (!card) return;
+  
+  const status = String(r?.status || '').toLowerCase();
+  const disputed = r?.disputed === true;
+  
+  // Show report button only if:
+  // - Status is 'delivered'
+  // - Not already disputed
+  // - Escrow not yet released
+  const canReport = status === 'delivered' && !disputed && r?.escrow_status !== 'released';
+  
+  if (canReport) {
+    card.classList.remove('hidden');
+    
+    // Pre-fill the hidden request ID
+    const requestIdInput = document.getElementById('reportIssueRequestId');
+    if (requestIdInput) requestIdInput.value = r.id;
+  } else {
+    card.classList.add('hidden');
+  }
+  
+  // If already disputed, show a notice
+  if (disputed) {
+    card.classList.remove('hidden');
+    card.innerHTML = `
+      <h3 style="margin-top:0;">⚠️ Issue Reported</h3>
+      <p class="muted">You have reported an issue with this delivery. Payment has been paused and our team is reviewing.</p>
+      <p><strong>Reported reason:</strong> ${escapeHtml(r.dispute_reason || 'No details provided')}</p>
+    `;
+  }
+}
+
+/* ---------------------------------------------------------
+   Report Issue Form Handler
+--------------------------------------------------------- */
+function setupReportIssueForm() {
+  const form = document.getElementById('reportIssueForm');
+  if (!form) return;
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const result = document.getElementById('reportIssueResult');
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, 'Submitting...');
+    
+    if (result) setResult(result, '');
+    
+    const requestId = form.request_id.value;
+    const description = form.description.value;
+    
+    if (!requestId || !description) {
+      done(false);
+      if (result) setResult(result, alertError('Please provide a description'));
+      return;
+    }
+    
+    const res = await api(`/requests/${requestId}/report`, {
+      method: 'POST',
+      role: 'sender',
+      body: { description },
+    });
+    
+    done(!!res.ok);
+    
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess(res.message || 'Issue reported. Payment release paused.'));
+      
+      // Refresh the request view to show updated status
+      setTimeout(() => {
+        const viewForm = document.getElementById('viewRequestForm');
+        if (viewForm && viewForm.request_id) {
+          viewForm.request_id.value = requestId;
+          viewForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+      }, 1500);
+    } else {
+      if (result) setResult(result, alertError(res.error || 'Failed to submit report'));
+    }
+  });
 }
 
 /* ---------------------------------------------------------
@@ -1730,6 +1817,7 @@ export function initSenderPage() {
   setupSenderOffersActions();
   setupQuickButtons();
   setupSenderProfile();         // ← NEW: profile section
+  setupReportIssueForm();       // ← Report issue functionality
 
   // Stripe return auto-refresh
   handlePaidRedirectRefresh();
