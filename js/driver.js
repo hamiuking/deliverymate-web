@@ -2060,6 +2060,8 @@ async function renderDriverPayoutHistory() {
 let jobMap = null;
 let jobMarkers = [];
 let jobsData = [];
+let mapInitRetries = 0;
+const MAX_MAP_INIT_RETRIES = 20; // 10 seconds max
 
 window.setupDriverJobMap = function() {
   console.log('[Job Map] Google Maps loaded, initializing...');
@@ -2067,17 +2069,26 @@ window.setupDriverJobMap = function() {
 };
 
 function initializeJobMap() {
+  if (mapInitRetries >= MAX_MAP_INIT_RETRIES) {
+    console.error('[Job Map] Failed to initialize after ' + MAX_MAP_INIT_RETRIES + ' attempts. Map disabled.');
+    const countEl = document.getElementById('driverOpenCount');
+    if (countEl) countEl.textContent = 'Map failed to load. Please refresh the page.';
+    return;
+  }
+  
   const mapContainer = document.getElementById('driverJobMap');
   
   if (!mapContainer) {
-    console.warn('[Job Map] Map container not found in DOM, retrying in 500ms...');
+    console.warn('[Job Map] Map container not found in DOM, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
     setTimeout(initializeJobMap, 500);
     return;
   }
   
   // Check if container is actually visible
   if (mapContainer.offsetParent === null) {
-    console.warn('[Job Map] Map container exists but not visible yet, retrying in 500ms...');
+    console.warn('[Job Map] Map container exists but not visible yet, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
     setTimeout(initializeJobMap, 500);
     return;
   }
@@ -2090,26 +2101,34 @@ function initializeJobMap() {
   
   // Check if google.maps is loaded
   if (!window.google || !window.google.maps) {
-    console.warn('[Job Map] Google Maps not loaded yet, retrying in 500ms...');
+    console.warn('[Job Map] Google Maps not loaded yet, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
     setTimeout(initializeJobMap, 500);
     return;
   }
 
   console.log('[Job Map] Initializing map on visible container...');
 
-  // Center on New Zealand
-  jobMap = new google.maps.Map(mapContainer, {
-    zoom: 6,
-    center: { lat: -40.9006, lng: 174.886 }, // Center of NZ
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: true,
-  });
+  try {
+    // Center on New Zealand
+    jobMap = new google.maps.Map(mapContainer, {
+      zoom: 6,
+      center: { lat: -40.9006, lng: 174.886 }, // Center of NZ
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
 
-  console.log('[Job Map] Map initialized ✓');
-  
-  // Load jobs once map is ready
-  loadJobsOntoMap();
+    console.log('[Job Map] Map initialized ✓');
+    mapInitRetries = 0; // Reset counter on success
+    
+    // Load jobs once map is ready
+    loadJobsOntoMap();
+  } catch (error) {
+    console.error('[Job Map] Error creating map:', error);
+    mapInitRetries++;
+    setTimeout(initializeJobMap, 1000);
+  }
 }
 
 async function loadJobsOntoMap() {
