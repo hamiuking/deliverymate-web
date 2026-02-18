@@ -2096,7 +2096,7 @@ async function loadJobsOntoMap() {
   const countEl = document.getElementById('driverOpenCount');
   if (countEl) countEl.textContent = 'Loading jobs...';
 
-  const res = await api('/driver/requests', { method: 'GET', role: 'driver' });
+  const res = await api('/driver/requests/available', { method: 'GET', role: 'driver' });
   
   if (!res || !res.ok || !res.requests) {
     console.error('[Job Map] Failed to load jobs:', res);
