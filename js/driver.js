@@ -746,12 +746,24 @@ async function renderDriverActiveJobs() {
     
     card.style.cssText += cardStyle;
     
+    // Sender contact info (available once offer accepted)
+    const senderPhone = r.sender_phone || "";
+    const senderName = r.sender_name || "Sender";
+    const contactHtml = (status !== "open" && senderPhone) ? `
+      <div style="margin-top:10px; padding:8px; background:rgba(255,255,255,.5); border-radius:4px; border:1px solid rgba(0,0,0,.1);">
+        <div style="font-size:12px; font-weight:600; margin-bottom:2px;">📞 Sender Contact</div>
+        <div style="font-size:13px;"><strong>${escapeHtml(senderName)}</strong></div>
+        <div class="muted" style="font-size:12px;">Phone: ${escapeHtml(senderPhone)}</div>
+      </div>
+    ` : "";
+    
     card.innerHTML = `
       <div>
         <div style="font-weight:700;">Request #${escapeHtml(id)}</div>
         <div style="margin-top:4px;"><strong>${pickup} → ${dropoff}</strong></div>
         <div class="muted" style="margin-top:4px;">${item}</div>
         <div style="margin-top:8px; font-size:14px;">${statusMessage}</div>
+        ${contactHtml}
         ${actionButton}
       </div>
     `;
