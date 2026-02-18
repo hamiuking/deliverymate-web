@@ -2116,7 +2116,12 @@ function renderJobsList(jobs) {
     return;
   }
 
-  const jobCards = jobs.map(job => {
+  // Show max 5 by default
+  const MAX_DISPLAY = 5;
+  const displayJobs = window._showAllJobs ? jobs : jobs.slice(0, MAX_DISPLAY);
+  const remaining = jobs.length - displayJobs.length;
+
+  const jobCards = displayJobs.map(job => {
     const pickup = escapeHtml(job.pickup_suburb || '—');
     const dropoff = escapeHtml(job.dropoff_suburb || '—');
     const item = escapeHtml(job.item_description || '—');
@@ -2143,7 +2148,16 @@ function renderJobsList(jobs) {
     `;
   }).join('');
 
-  listEl.innerHTML = jobCards;
+  // Add "Show More" button if there are hidden jobs
+  const showMoreBtn = remaining > 0 ? `
+    <div style="text-align:center; margin-top:12px;">
+      <button class="btn ghost" onclick="window._showAllJobs=true; renderJobsList(openJobsData);">
+        Show ${remaining} more job${remaining === 1 ? '' : 's'}
+      </button>
+    </div>
+  ` : '';
+
+  listEl.innerHTML = jobCards + showMoreBtn;
 }
 
 // Toggle between list and map view
