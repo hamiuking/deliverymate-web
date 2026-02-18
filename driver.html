@@ -337,28 +337,21 @@
         </details>
       </section>
 
-      <!-- ── REPORT AN ISSUE ────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>Report an Issue</h2>
-        <p class="muted">Generate a message to send to <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</p>
+      <!-- ── REPORT AN ISSUE ────────────────────────────────── -->\n      <section class="card requires-driver">
+        <h2>📝 Report an Issue</h2>
+        <p class="muted">Report problems with senders or deliveries. Issues are logged and reviewed by admin.</p>
 
-        <form id="driverIssueForm">
+        <form id="driverReportIssueForm">
           <label>Request ID <span class="muted">(optional)</span></label>
-          <input name="request_id" placeholder="e.g. 123" />
+          <input name="request_id" id="driverReportRequestId" placeholder="e.g. 123" />
 
-          <label>What happened?</label>
-          <textarea name="note" placeholder="Describe the issue briefly"></textarea>
+          <label>Describe the issue</label>
+          <textarea name="description" id="driverReportDescription" rows="4" placeholder="e.g., Sender provided wrong address, Item was not as described" required></textarea>
 
-          <button class="btn" type="submit">Generate Message</button>
+          <button class="btn" type="submit" style="background:#f59e0b; border-color:#f59e0b;">Submit Report</button>
         </form>
-
-        <div class="mt-2">
-          <div class="muted">Message preview</div>
-          <pre id="driverIssueOut" style="min-height:80px;"></pre>
-          <div class="btn-row mt-2">
-            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy Message</button>
-          </div>
-        </div>
+        
+        <div class="result" id="driverReportIssueResult"></div>
       </section>
 
       <!-- ── MY PROFILE ─────────────────────────────────────
