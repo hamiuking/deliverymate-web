@@ -1923,6 +1923,26 @@ export function initSenderPage() {
     }
   } catch (_) {}
 
+  // NEW: If driver is logged in but sender user data doesn't exist, copy it over
+  // This allows drivers to seamlessly create requests without logging in again
+  try {
+    const senderUser = getSavedUser();
+    if (!senderUser) {
+      // Check if there's driver user data
+      const driverUserData = localStorage.getItem("dm_driver_user");
+      if (driverUserData) {
+        const driverUser = JSON.parse(driverUserData);
+        // Copy driver user to sender storage (same user, different role)
+        saveUser({
+          phone: driverUser.phone,
+          full_name: driverUser.full_name || driverUser.name,
+          email: driverUser.email,
+        });
+        console.log('[Sender] Auto-logged in from driver session');
+      }
+    }
+  } catch (_) {}
+
   //
   // 2. Update UI immediately based on restored token
   // ✅ FIX: Check dm_user_token (not dm_sender_token)
