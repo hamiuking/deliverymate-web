@@ -1772,6 +1772,13 @@ window.setupGoogleMapsAutocomplete = function() {
     return;
   }
 
+  // Check if inputs are visible (important for Safari)
+  if (pickupInput.offsetParent === null || dropoffInput.offsetParent === null) {
+    console.warn('[Google Maps] Form inputs not visible yet, retrying in 500ms...');
+    setTimeout(window.setupGoogleMapsAutocomplete, 500);
+    return;
+  }
+
   // Check if google.maps.places is loaded
   if (!window.google || !window.google.maps || !window.google.maps.places) {
     console.warn('[Google Maps] Places library not loaded yet, retrying...');
@@ -1785,28 +1792,40 @@ window.setupGoogleMapsAutocomplete = function() {
     fields: ['address_components', 'geometry', 'formatted_address', 'name'],
   };
   
-  // Use the recommended class (still works the same way)
-  const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, options);
-  const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, options);
-  
-  // When user selects a place from pickup dropdown
-  pickupAutocomplete.addListener('place_changed', () => {
-    const place = pickupAutocomplete.getPlace();
-    if (!place || !place.geometry) {
-      console.warn('[Google Maps] No geometry for pickup place');
-      return;
-    }
+  try {
+    // Use the recommended class (still works the same way)
+    const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, options);
+    const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, options);
     
-    handlePlaceSelection(place, 'pickup');
-  });
-  
-  // When user selects a place from dropoff dropdown
-  dropoffAutocomplete.addListener('place_changed', () => {
-    const place = dropoffAutocomplete.getPlace();
-    if (!place || !place.geometry) {
-      console.warn('[Google Maps] No geometry for dropoff place');
-      return;
-    }
+    // When user selects a place from pickup dropdown
+    pickupAutocomplete.addListener('place_changed', () => {
+      const place = pickupAutocomplete.getPlace();
+      if (!place || !place.geometry) {
+        console.warn('[Google Maps] No geometry for pickup place');
+        return;
+      }
+      
+      handlePlaceSelection(place, 'pickup');
+    });
+    
+    // When user selects a place from dropoff dropdown
+    dropoffAutocomplete.addListener('place_changed', () => {
+      const place = dropoffAutocomplete.getPlace();
+      if (!place || !place.geometry) {
+        console.warn('[Google Maps] No geometry for dropoff place');
+        return;
+      }
+      
+      handlePlaceSelection(place, 'dropoff');
+    });
+    
+    console.log('[Google Maps] Autocomplete initialized ✓');
+  } catch (error) {
+    console.error('[Google Maps] Failed to initialize autocomplete:', error);
+    console.warn('[Google Maps] Retrying in 1 second...');
+    setTimeout(window.setupGoogleMapsAutocomplete, 1000);
+  }
+};
     
     handlePlaceSelection(place, 'dropoff');
   });
