@@ -3,55 +3,55 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DeliveryMate — Driver</title>
+  <title>DeliveryMate — Sender</title>
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/mobile.css" />
-  <script type="module" src="/js/app.js"></script>
   
-  <!-- Google Maps for job availability map -->
+  <!-- Google Maps: define callback BEFORE script loads -->
   <script>
-    window.initDriverJobMap = function() {
-      console.log('[Job Map] Callback fired');
+    window.initGoogleMaps = function() {
+      console.log('[Google Maps] Callback fired');
       // Safari sometimes needs a delay
-      if (window.setupDriverJobMap) {
+      if (window.setupGoogleMapsAutocomplete) {
         setTimeout(function() {
-          window.setupDriverJobMap();
+          window.setupGoogleMapsAutocomplete();
         }, 100);
       } else {
-        console.warn('[Job Map] Setup function not ready, retrying...');
-        setTimeout(window.initDriverJobMap, 500);
+        console.warn('[Google Maps] Setup function not ready, retrying...');
+        setTimeout(window.initGoogleMaps, 500);
       }
     };
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&libraries=places,marker&loading=async&callback=initDriverJobMap"></script>
+  
+  <!-- Google Maps Places Autocomplete -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&libraries=places&loading=async&callback=initGoogleMaps"></script>
 </head>
 
-<body data-page="driver">
+<body data-page="sender">
   <header class="topbar">
     <nav class="nav">
       <a href="/index.html">Home</a>
-      <a href="/sender.html">Sender</a>
-      <a href="/driver.html" class="active">Driver</a>
+      <a href="/sender.html" class="active">Sender</a>
+      <a href="/driver.html">Driver</a>
       <a href="/about.html">About</a>
       <a href="/admin.html" id="navAdmin">Admin</a>
     </nav>
   </header>
 
   <main class="container">
-    <h1>Driver Dashboard</h1>
+    <h1>Sender Dashboard</h1>
 
     <!-- =============================================
          AUTH AREA (visible when not logged in)
     ============================================= -->
-    <div id="driverAuthArea">
+    <div id="senderAuthArea">
       <div class="grid">
-        <section class="card" id="driverRegisterSection">
-          <h2>Register as Driver</h2>
-          <p class="muted">Apply to become a driver. Admin approval required (usually within 24 hours).</p>
+        <section class="card locked-only" id="senderRegisterSection">
+          <h2>Register</h2>
+          <p class="muted">Register to create delivery requests. You can apply to become a driver later from your profile.</p>
 
-          <form id="driverRegForm">
+          <form id="senderRegForm" onsubmit="return false">
             <label>Invite code</label>
             <input name="invite_code" required />
 
@@ -64,59 +64,39 @@
             <label>Email</label>
             <input name="email" />
 
-            <label>Vehicle plate</label>
-            <input name="vehicle_plate" />
-
-            <label>Licence number</label>
-            <input name="license_number" required />
-
-            <label>WOF expiry</label>
-            <input name="wof_expiry" placeholder="YYYY-MM-DD" required />
-
-            <div class="mt-2">
-              <div class="muted" style="margin-bottom:6px;">Driver licence photos (required, max 6MB each)</div>
-
-              <label>Driver licence — front</label>
-              <input type="file" id="driver_license_front_file" accept="image/*" required />
-              <div class="muted" id="dlFrontStatus" style="margin-top:4px;"></div>
-
-              <label class="mt-2">Driver licence — back</label>
-              <input type="file" id="driver_license_back_file" accept="image/*" required />
-              <div class="muted" id="dlBackStatus" style="margin-top:4px;"></div>
-            </div>
-
-            <button class="btn mt-2" type="submit" disabled>Apply as Driver</button>
+            <button class="btn" type="submit">Register</button>
           </form>
 
-          <div class="result" id="driverRegResult"></div>
+          <div class="result" id="senderRegResult"></div>
         </section>
 
-        <section class="card" id="driverLoginSection">
+        <section class="card locked-only" id="senderLoginSection">
           <h2>Log in</h2>
-          <form id="driverLoginForm">
+          <form id="senderLoginForm">
             <label>Phone</label>
             <input name="phone" placeholder="e.g. 021..." required />
             <label>Email <span class="muted">(add or update to receive notifications)</span></label>
             <input name="email" type="email" placeholder="e.g. you@example.com" />
+
             <div class="muted">First time here? Register with your invite code.</div>
 
             <div class="btn-row mt-2">
-              <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
+              <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
             </div>
           </form>
-
-          <div class="muted mt-2" id="driverAuthHint"></div>
+          <div class="result mt-2" id="senderLoginResult"></div>
+          <div class="muted mt-2" id="senderAuthHint"></div>
         </section>
       </div>
 
       <section class="card">
-        <h2>How it works (Driver)</h2>
+        <h2>How it works (Sender)</h2>
         <ol>
-          <li><strong>Apply</strong> — Admin approval required (usually within 24 hours).</li>
-          <li><strong>Browse open jobs</strong> — Submit offers with your price.</li>
-          <li><strong>If selected</strong> — Pickup item and update status.</li>
-          <li><strong>Deliver &amp; photo</strong> — Upload proof of delivery.</li>
-          <li><strong>Get paid</strong> — Payment releases after delivery confirmation.</li>
+          <li><strong>Create a request</strong> — Describe what you need delivered.</li>
+          <li><strong>Review offers</strong> — Approved drivers submit their price.</li>
+          <li><strong>Accept &amp; pay</strong> — Choose a driver and fund escrow (Stripe).</li>
+          <li><strong>Track delivery</strong> — Your driver updates you at pickup and delivery.</li>
+          <li><strong>Confirm delivery</strong> — Release payment immediately, or it auto-releases after 24 hours.</li>
         </ol>
       </section>
     </div>
@@ -124,310 +104,274 @@
     <!-- =============================================
          DASHBOARD (hidden until logged in)
     ============================================= -->
-    <div id="driverDashboard" class="hidden">
+    <div id="senderDashboard" class="hidden">
 
       <!-- Top bar: auth status + logout -->
       <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
-        <div class="muted" id="driverAuthStatusDash"></div>
-        <button class="btn ghost" type="button" id="driverLogoutBtn">Log out</button>
+        <div class="muted" id="senderAuthStatusDash"></div>
+        <button class="btn ghost" type="button" id="senderLogoutBtn">Log out</button>
       </div>
 
-      <!-- ── RE-APPROVAL BANNER ───────────────────────────────
-           Shown when driver_status = pending_review.
-           Blocks offer submission with a clear explanation.
+      <!-- ── MY ACTIVE REQUESTS ─────────────────────────────
+           Top of page — requests that need action right now.
       ──────────────────────────────────────────────────────── -->
-      <div id="driverReapprovalBanner" class="hidden" style="margin-bottom:16px;">
-        <div style="background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.4); border-radius:10px; padding:16px;">
-          <div style="font-weight:700; font-size:15px; color:#92400e;">⏳ Pending Admin Approval</div>
-          <div class="muted" style="margin-top:6px;">
-            Your driver profile has been submitted and is awaiting admin review. You cannot submit offers until your account is approved.
-            This usually happens within 24 hours. You will be notified by email once approved.
-          </div>
-        </div>
-      </div>
-
-      <!-- ── SMART NEXT-ACTION BANNER ──────────────────────── -->
-      <div id="driverNextActionBanner" style="margin-bottom:16px;"></div>
-
-      <!-- ── DRIVER ACKNOWLEDGEMENTS ───────────────────────── -->
-      <section class="card requires-driver">
-        <h2>Driver Acknowledgements</h2>
-        <p class="muted">Confirm the following before submitting offers or updating status:</p>
-
-        <label style="font-weight:600;">
-          <input type="checkbox" id="dAck1" />
-          I am fully responsible for my own driving, including compliance with NZ road rules, vehicle safety, and insurance. The Platform is not responsible for accidents, infringements, damage, or injury.
-        </label>
-
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck2" />
-          My vehicle is roadworthy, holds a current WOF and registration, and I maintain appropriate insurance cover.
-        </label>
-
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck3" />
-          The Platform does not insure items I carry and is not liable for loss, theft, or damage to goods.
-        </label>
-
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck4" />
-          The Platform is a facilitator only. We do not provide dispute resolution, mediation, or intervention in delivery issues.
-        </label>
-
-        <div class="muted" style="margin-top:10px;">
-          Full terms: <a href="/terms/driver-terms.html" target="_blank" rel="noopener">Driver Agreement</a>
-          <span style="margin-left:10px;" id="driverAckLast"></span>
-        </div>
+      <section class="card requires-sender">
+        <h2>My Active Requests</h2>
+        <div class="muted" id="senderActiveRequestsCount" style="margin-top:6px;">Loading…</div>
+        <div id="senderActiveRequestsList" style="margin-top:10px;"></div>
       </section>
 
-      <!-- ── MY ACTIVE JOBS ─────────────────────────────────
-           Top priority — jobs that need driver action right now.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>My Active Jobs</h2>
-        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
-        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
-        <div class="result" id="driverActiveJobsResult"></div>
-      </section>
-
-      <!-- ── OPEN JOBS (MARKETPLACE) ────────────────────────
-           Browse available jobs. Toggle between list and map view.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-          <h2 style="margin:0;">Available Jobs</h2>
-          <div style="display:flex; gap:8px;">
-            <button class="btn ghost" id="driverToggleMapBtn" type="button">🗺️ View Map</button>
-            <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
-          </div>
-        </div>
-        <div class="muted" id="driverOpenCount" style="margin-top:6px;"></div>
-        <div class="muted" style="margin-top:4px;">Click <strong>Make Offer</strong> on any job to quickly submit your price.</div>
-
-        <!-- Text List View (Default) -->
-        <div id="driverOpenJobsList" style="margin-top:12px;"></div>
-        <div class="result" id="driverOpenJobsResult"></div>
-
-        <!-- Map View (Hidden by default) -->
-        <div id="driverJobMapContainer" class="hidden" style="margin-top:12px;">
-          <div id="driverJobMap" style="width:100%; height:500px; border-radius:8px; border:1px solid rgba(0,0,0,.1);"></div>
-          <div id="driverJobMapList" style="margin-top:12px; display:none;"></div>
-        </div>
-
-        <!-- Inline Offer Form (slides in when clicking Make Offer) -->
-        <div id="driverInlineOfferSection" class="hidden" style="margin-top:16px;">
-          <div class="card" style="background:rgba(59,130,246,.05); border-color:rgba(59,130,246,.3);">
-            <h3 style="margin-top:0;">Quick Offer — Request #<span id="inlineOfferRequestId"></span></h3>
-            <div class="muted" id="inlineOfferJobInfo" style="margin-bottom:12px;"></div>
-
-            <form id="driverInlineOfferForm" onsubmit="return false">
-              <input type="hidden" id="inlineOfferRequestIdInput" />
-
-              <label>Your Price (NZD)</label>
-              <input id="inlineOfferPrice" type="number" step="0.01" placeholder="e.g. 25.00" required />
-
-              <label>Note <span class="muted">(optional)</span></label>
-              <textarea id="inlineOfferNote" placeholder="e.g. Can deliver tonight" rows="2"></textarea>
-
-              <div class="btn-row" style="margin-top:12px;">
-                <button class="btn" type="submit" id="inlineOfferSubmitBtn">Submit Offer</button>
-                <button class="btn ghost" type="button" id="inlineOfferCancelBtn">Cancel</button>
-              </div>
-            </form>
-            <div class="result" id="inlineOfferResult"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── UPDATE STATUS ──────────────────────────────────
-           Primary action for active jobs: mark picked up or delivered.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>Update Job Status</h2>
-        <p class="muted">Use the buttons in My Active Jobs above, or enter a Request ID manually here.</p>
-
-        <form id="driverStatusForm">
-          <label>Request ID</label>
-          <input name="request_id" id="driverStatusRequestId" required />
-
-          <label>Status</label>
-          <select name="status" id="driverStatusSelect">
-            <option value="picked_up">Picked up — item collected from sender</option>
-            <option value="delivered">Delivered — drop-off complete</option>
-          </select>
-
-          <input type="hidden" name="driver_name" id="driverStatusDriverName" />
-
-          <div id="deliveredPhotoBlock" class="mt-2">
-            <label>Delivery photo <span class="muted">(required when marking delivered)</span></label>
-            <input type="file" id="delivered_photo_file" accept="image/*" />
-            <div class="muted" style="margin-top:4px;">Take a clear photo showing the item at the drop-off location.</div>
-          </div>
-
-          <button class="btn mt-2" type="submit" id="driverStatusBtn" disabled>Update Status</button>
-        </form>
-
-        <div class="result" id="driverStatusResult"></div>
-      </section>
-
-      <!-- ── VIEW JOB DETAILS ───────────────────────────────── -->
-      <section class="card requires-driver">
+      <!-- ── ALL MY REQUESTS (quick access dropdown) ───────── -->
+      <section class="card requires-sender">
         <details>
-          <summary style="cursor:pointer; font-weight:600; font-size:18px;">View Job Details</summary>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">All My Requests</summary>
           <div style="margin-top:12px;">
-            <p class="muted">Load a specific job to see full details and activity history.</p>
+            <div class="muted" id="senderRecentCount" style="margin-bottom:10px;"></div>
+            <div class="row" style="gap:10px; flex-wrap:wrap; align-items:center;">
+              <select id="senderRecentSelect" class="select"></select>
+              <button class="btn secondary" type="button" id="senderQuickViewBtn">View</button>
+              <button class="btn ghost" type="button" id="senderQuickCopyBtn">Copy ID</button>
+            </div>
+            <div id="senderNextActionBanner" style="margin-top:10px;"></div>
+          </div>
+        </details>
+      </section>
 
-            <form id="driverViewForm">
-              <label>Request ID</label>
-              <input name="request_id" id="driverViewRequestId" required />
-              <button class="btn" type="submit">Load Job</button>
-            </form>
+      <!-- ── CREATE DELIVERY REQUEST ────────────────────────── -->
+      <section class="card requires-sender">
+        <h2>Create Delivery Request</h2>
 
-            <div class="result" id="driverViewResult"></div>
+        <div class="banner">
+          <strong>Before posting a request</strong>
+          <div class="muted" style="margin-top:6px;">Please confirm all items below.</div>
 
-            <div id="driverJobDetails" class="hidden" style="margin-top:16px;">
-              <div id="driverStatusSummary"></div>
-              <h3>Activity History</h3>
-              <div id="driverJobSummary"></div>
-              <div id="driverHistoryList"></div>
+          <div style="margin-top:10px;">
+            <label style="font-weight:600;">
+              <input type="checkbox" id="sAck1" />
+              I understand no prohibited or illegal items may be delivered.
+            </label>
+
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck2" />
+              Delivery is provided by an independent driver, not the Platform.
+            </label>
+
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck3" />
+              The Platform does not insure parcels and does not guarantee delivery outcomes.
+            </label>
+
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck4" />
+              I accept the risk of loss or damage — any claim must be made against the driver, not the Platform.
+            </label>
+
+            <label style="font-weight:600; margin-top:8px; display:block;">
+              <input type="checkbox" id="sAck5" />
+              The Platform is a facilitator only. We do not provide dispute resolution, mediation, or intervention in delivery issues.
+            </label>
+
+            <div class="muted" style="margin-top:8px;">
+              Recommendation: do not arrange delivery of high-value, fragile, or irreplaceable items.
             </div>
           </div>
-        </details>
-      </section>
+        </div>
 
-      <!-- ── PAYOUTS ─────────────────────────────────────────
-           Bank details + jobs ready for payout + history.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>💰 My Payouts</h2>
-        <p class="muted">Completed deliveries where escrow has been released are listed here. We transfer to your saved bank account within 1–3 business days.</p>
+        <form id="createRequestForm" onsubmit="return false">
+          <label>From <span class="muted">(pickup address)</span></label>
+          <input name="pickup_suburb" id="createPickupSuburb" required autocomplete="off" />
+          <div class="muted" id="pickupSuburbHint" style="margin-top:4px; font-size:13px; display:none;">Pre-filled from your saved address — change if needed.</div>
+          
+          <!-- Hidden fields for Google Maps data -->
+          <input type="hidden" name="pickup_suburb_only" id="pickupSuburbOnly" />
+          <input type="hidden" name="pickup_address_full" id="pickupAddressFull" />
+          <input type="hidden" name="pickup_lat" id="pickupLat" />
+          <input type="hidden" name="pickup_lng" id="pickupLng" />
 
-        <!-- Bank Details -->
-        <details id="driverBankDetailsSection" open>
-          <summary style="font-weight:600; cursor:pointer; padding:8px 0;">🏦 My Bank Details</summary>
-          <div style="margin-top:12px;">
-            <div id="driverBankStatusMsg" class="muted" style="margin-bottom:10px;"></div>
-            <form id="driverPayoutMethodForm">
-              <label>Full Name <span class="muted">(name on bank account)</span></label>
-              <input name="account_name" placeholder="e.g. John Smith" required />
+          <label>To <span class="muted">(drop-off address)</span></label>
+          <input name="dropoff_suburb" id="createDropoffSuburb" required autocomplete="off" />
+          
+          <!-- Hidden fields for Google Maps data -->
+          <input type="hidden" name="dropoff_suburb_only" id="dropoffSuburbOnly" />
+          <input type="hidden" name="dropoff_address_full" id="dropoffAddressFull" />
+          <input type="hidden" name="dropoff_lat" id="dropoffLat" />
+          <input type="hidden" name="dropoff_lng" id="dropoffLng" />
 
-              <label>Bank Account Number <span class="muted">(e.g. 01-1234-1234567-00)</span></label>
-              <input name="bank_account" placeholder="e.g. 01-1234-1234567-00" />
+          <label>Item description</label>
+          <input name="item_desc" required />
 
-              <label>Bank Name <span class="muted">(optional)</span></label>
-              <input name="bank_name" placeholder="e.g. ANZ, Westpac, ASB…" />
+          <label>Weight (kg) <span class="muted">(optional)</span></label>
+          <input name="weight_kg" type="number" step="0.1" />
 
-              <button class="btn" type="submit" id="driverSaveBankBtn">Save Bank Details</button>
-            </form>
-            <div class="result mt-2" id="driverPayoutMethodResult"></div>
-          </div>
-        </details>
+          <label>Suggested price (NZD) <span class="muted">(optional)</span></label>
+          <input name="suggested_price_nzd" type="number" step="0.01" />
 
-        <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+          <label>Sender note <span class="muted">(optional)</span></label>
+          <textarea name="sender_note"></textarea>
 
-        <div style="font-weight:600; margin-bottom:8px;">Jobs Ready for Payout</div>
-        <div id="driverPayoutJobsCount" class="muted" style="margin-bottom:10px;"></div>
-        <div id="driverPayoutJobsList"><div class="muted">Loading…</div></div>
-
-        <hr style="margin:16px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
-
-        <details id="driverPayoutHistorySection">
-          <summary style="font-weight:600; cursor:pointer; padding:8px 0;">📋 Full Payout History</summary>
-          <div id="driverPayoutHistoryList" style="margin-top:10px;"><div class="muted">Loading…</div></div>
-        </details>
-      </section>
-
-      <!-- ── REPORT AN ISSUE ────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>Report an Issue</h2>
-        <p class="muted">Generate a message to send to <a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a>.</p>
-
-        <form id="driverIssueForm">
-          <label>Request ID <span class="muted">(optional)</span></label>
-          <input name="request_id" placeholder="e.g. 123" />
-
-          <label>What happened?</label>
-          <textarea name="note" placeholder="Describe the issue briefly"></textarea>
-
-          <button class="btn" type="submit">Generate Message</button>
+          <button class="btn mt-2" id="createRequestBtn" type="submit" disabled>Create Request</button>
         </form>
 
-        <div class="mt-2">
-          <div class="muted">Message preview</div>
-          <pre id="driverIssueOut" style="min-height:80px;"></pre>
-          <div class="btn-row mt-2">
-            <button class="btn secondary" type="button" data-copy="#driverIssueOut">Copy Message</button>
-          </div>
+        <div class="result" id="createRequestResult"></div>
+        <div id="senderCreateInfo"></div>
+      </section>
+
+      <!-- ── VIEW REQUEST DETAILS ───────────────────────────── -->
+      <section class="card requires-sender">
+        <h2>View Request Details</h2>
+        <p class="muted">Load a request to see its current status, offers, and history.</p>
+
+        <form id="viewRequestForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input name="request_id" required />
+          <button class="btn" type="submit">Load Request</button>
+        </form>
+
+        <div class="result" id="viewRequestResult"></div>
+        <div class="result" id="viewOffersResult"></div>
+
+        <!-- Details (hidden until request loaded) -->
+        <div id="senderRequestDetails" class="hidden" style="margin-top:16px;">
+          <section class="card compact requires-sender" id="senderStatusCard">
+            <h3 style="margin-top:0;">Current Status</h3>
+            <div id="senderReqSummary"></div>
+          </section>
+
+          <!-- Report Issue (only shown for delivered requests) -->
+          <section class="card compact requires-sender hidden" id="senderReportIssueCard" style="border-left:3px solid #f59e0b; background:rgba(245,158,11,.05);">
+            <h3 style="margin-top:0;">📝 Report an Issue (Optional)</h3>
+            <p class="muted" style="margin-bottom:12px;">
+              If there's a problem with this delivery, you can log it here for our records. 
+              <strong>Note:</strong> Payment will still release automatically after 24 hours. 
+              Please contact the driver directly (phone number shown above) to resolve any issues.
+            </p>
+            <form id="reportIssueForm" onsubmit="return false">
+              <input type="hidden" id="reportIssueRequestId" name="request_id" />
+              
+              <label>Describe the issue <span class="muted">(optional)</span></label>
+              <textarea id="reportIssueDescription" name="description" rows="3" placeholder="e.g., Item was damaged in transit" required></textarea>
+              
+              <button class="btn" type="submit" style="background:#f59e0b; border-color:#f59e0b;">Log Report</button>
+            </form>
+            <div class="result" id="reportIssueResult"></div>
+          </section>
+
+          <h3>Offers from Drivers</h3>
+          <div id="senderOffersList"></div>
+
+          <details style="margin-top:16px;">
+            <summary style="cursor:pointer; font-weight:600; font-size:16px;">Activity History <span class="muted" style="font-weight:400;">(detailed timeline)</span></summary>
+            <div id="senderHistoryList" style="margin-top:12px;"></div>
+          </details>
         </div>
+      </section>
+
+      <!-- ── FUND ESCROW (Payment) ──────────────────────────── -->
+      <section class="card requires-sender">
+        <h2>Fund Escrow (Payment)</h2>
+        <p class="muted">Stripe Checkout. Funds are held securely until delivery is confirmed.</p>
+
+        <form id="fundEscrowForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input id="fundRequestId" name="request_id" required />
+
+          <label>Amount (NZD)</label>
+          <input name="amount_nzd" type="number" step="0.01" required />
+
+          <button class="btn" type="submit">Pay with Stripe</button>
+        </form>
+
+        <div class="result" id="fundEscrowResult"></div>
+      </section>
+
+      <!-- ── CONFIRM DELIVERY / RELEASE ESCROW ─────────────── -->
+      <section class="card requires-sender">
+        <h2>Confirm Delivery</h2>
+        <p class="muted">Release payment to your driver after successful delivery. If you don't confirm, payment auto-releases after 24 hours.</p>
+
+        <form id="releaseEscrowForm" onsubmit="return false">
+          <label>Request ID</label>
+          <input id="releaseRequestId" name="request_id" required />
+          <button class="btn" type="submit">Confirm Delivery &amp; Release Payment</button>
+        </form>
+
+        <div class="result" id="releaseEscrowResult"></div>
       </section>
 
       <!-- ── MY PROFILE ─────────────────────────────────────
-           Collapsible at the bottom. Edit name/email/vehicle/WOF/licence photos.
-           WARNING: vehicle or licence changes reset driver_status → pending_review.
+           Collapsible at the bottom. Update name and email.
       ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver" id="driverProfileSection">
-        <details id="driverProfileDetails">
+      <section class="card requires-sender" id="senderProfileSection">
+        <details id="senderProfileDetails">
           <summary style="cursor:pointer; font-weight:600; font-size:18px;">My Profile</summary>
           <div style="margin-top:16px;">
 
             <!-- Current profile snapshot (loaded on open) -->
-            <div id="driverProfileSnapshot" class="muted" style="margin-bottom:16px;">Loading profile…</div>
+            <div id="senderProfileSnapshot" class="muted" style="margin-bottom:16px;">Loading profile…</div>
 
-            <!-- ── Basic details (name + email only — no re-approval needed) -->
             <h3 style="margin-top:0;">Contact Details</h3>
             <p class="muted">Update your name or email address. Your phone number is your account identity and cannot be changed here.</p>
 
-            <form id="driverBasicProfileForm">
+            <form id="senderBasicProfileForm">
               <label>Full name</label>
-              <input name="full_name" id="driverProfileName" placeholder="Your full name" />
+              <input name="full_name" id="senderProfileName" placeholder="Your full name" />
 
               <label>Email <span class="muted">(for delivery notifications)</span></label>
-              <input name="email" id="driverProfileEmail" type="email" placeholder="you@example.com" />
+              <input name="email" id="senderProfileEmail" type="email" placeholder="you@example.com" />
 
               <label>Default pickup address <span class="muted">(optional)</span></label>
-              <input name="default_address" id="driverProfileAddress" placeholder="e.g. 123 Queen St, Ponsonby, Auckland" />
-              <div class="muted" style="margin-top:4px; font-size:13px;">Your usual location. The area will be pre-filled automatically when you create a delivery request as a sender.</div>
+              <input name="default_address" id="senderProfileAddress" placeholder="e.g. 123 Queen St, Ponsonby, Auckland" />
+              <div class="muted" style="margin-top:4px; font-size:13px;">Your usual pickup location. The area will be pre-filled automatically when you create a new request.</div>
 
-              <button class="btn" type="submit">Save Contact Details</button>
+              <button class="btn mt-2" type="submit">Save Contact Details</button>
             </form>
-            <div class="result" id="driverBasicProfileResult"></div>
+            <div class="result" id="senderBasicProfileResult"></div>
 
-            <hr style="margin:20px 0; border:none; border-top:1px solid rgba(0,0,0,.08);" />
+            <!-- Apply to be Driver -->
+            <div style="margin-top:32px; padding-top:24px; border-top:2px solid rgba(0,0,0,.1);">
+              <h3 style="margin-top:0;">💰 Want to Earn as a Driver?</h3>
+              <p class="muted">Upload your documents to apply. You'll be able to browse jobs and make offers once approved by admin.</p>
 
-            <!-- ── Vehicle & Licence (triggers re-approval) -->
-            <h3>Vehicle &amp; Licence</h3>
-            <div style="background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:8px; padding:12px; margin-bottom:14px;">
-              <strong style="color:#92400e;">⚠️ Important:</strong>
-              <span class="muted"> Updating vehicle plate, WOF expiry, or licence photos will reset your driver status to <strong>Pending Review</strong>. You will not be able to accept jobs until an admin re-approves your account.</span>
+              <div id="senderDriverAppStatus" style="margin-bottom:16px;"></div>
+
+              <form id="senderApplyDriverForm">
+                <label>Vehicle plate</label>
+                <input name="vehicle_plate" id="senderDriverVehiclePlate" placeholder="e.g. ABC123" />
+
+                <label>Driver licence number</label>
+                <input name="license_number" id="senderDriverLicenseNumber" placeholder="Your NZ driver licence number" />
+
+                <label>WOF expiry</label>
+                <input name="wof_expiry" id="senderDriverWofExpiry" type="date" />
+
+                <div class="mt-2">
+                  <div class="muted" style="margin-bottom:6px;">Driver licence photos (required, max 6MB each)</div>
+
+                  <label>Driver licence — front</label>
+                  <input type="file" id="senderDriverLicenseFront" accept="image/*" />
+                  <div class="muted" id="senderDLFrontStatus" style="margin-top:4px;"></div>
+
+                  <label class="mt-2">Driver licence — back</label>
+                  <input type="file" id="senderDriverLicenseBack" accept="image/*" />
+                  <div class="muted" id="senderDLBackStatus" style="margin-top:4px;"></div>
+                </div>
+
+                <div style="margin-top:16px; padding:12px; background:rgba(245,158,11,.08); border-radius:6px; border:1px solid rgba(245,158,11,.3);">
+                  <label style="font-weight:600; cursor:pointer;">
+                    <input type="checkbox" id="senderDriverConsent" />
+                    I consent to a background check and understand all driver acknowledgements apply.
+                  </label>
+                </div>
+
+                <button class="btn mt-2" type="submit" id="senderApplyDriverBtn">Submit Driver Application</button>
+              </form>
+              <div class="result" id="senderApplyDriverResult"></div>
             </div>
-
-            <form id="driverVehicleProfileForm">
-              <label>Vehicle plate</label>
-              <input name="vehicle_plate" id="driverProfilePlate" placeholder="e.g. ABC123" />
-
-              <label>WOF expiry</label>
-              <input name="wof_expiry" id="driverProfileWof" type="date" />
-
-              <div class="mt-2">
-                <div class="muted" style="margin-bottom:6px;">Driver licence photos <span class="muted">(upload both to replace current photos)</span></div>
-
-                <label>Licence — front</label>
-                <input type="file" id="driverProfileFrontFile" accept="image/*" />
-                <div class="muted" id="driverProfileFrontStatus" style="margin-top:4px;"></div>
-
-                <label class="mt-2">Licence — back</label>
-                <input type="file" id="driverProfileBackFile" accept="image/*" />
-                <div class="muted" id="driverProfileBackStatus" style="margin-top:4px;"></div>
-              </div>
-
-              <button class="btn mt-2" type="submit" id="driverVehicleProfileBtn">Update Vehicle &amp; Licence</button>
-            </form>
-            <div class="result" id="driverVehicleProfileResult"></div>
           </div>
         </details>
       </section>
 
-    </div><!-- /driverDashboard -->
+    </div><!-- /senderDashboard -->
   </main>
 
   <script type="module" src="/js/app.js"></script>
