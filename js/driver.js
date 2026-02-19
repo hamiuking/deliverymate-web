@@ -15,6 +15,43 @@ import { statusPill, timeline, nextActionText } from "./components/status.js";
 import { startPolling } from "./polling.js";
 
 /* -----------------------------
+   Driver Notification Toast
+----------------------------- */
+function showDriverNotification(message) {
+  // Create toast notification
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: #16a34a;
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    font-weight: 600;
+    max-width: 400px;
+    animation: slideIn 0.3s ease-out;
+  `;
+  toast.textContent = message;
+  
+  document.body.appendChild(toast);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease-out';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+  
+  // Play sound if available
+  try {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVqzn7K5aFApCm9zwtmMcBjeQ1/HNeisFI3XD8N+RQAoUXrTp66hVFApGnt/yuWwgBTOI0fPTgjMGHmzA7+OaSQ0PVavmK7+4H2C/S8BqwP/AicG1wk7E2sX3xvnH5cjAyXjKC8t8y7/LuctwzuPOJM92zxXPec7ZzWjN');
+    audio.play().catch(() => {}); // Ignore if sound fails
+  } catch (_) {}
+}
+
+/* -----------------------------
    Small helpers
 ----------------------------- */
 function setResult(el, html) {
@@ -1808,10 +1845,38 @@ export function initDriverPage() {
     refreshDriverStatusFromServer();
   }, 500);
 
-  // Auto-refresh active jobs every 30 seconds
-  setInterval(() => {
-    try { renderDriverActiveJobs(); } catch (_) {}
-  }, 30000);
+  // Auto-refresh active jobs every 10 seconds (faster for offer acceptance notifications)
+  let previousAcceptedOffers = new Set();
+  
+  setInterval(async () => {
+    try {
+      const res = await api("/driver/requests", { method: "GET", role: "driver" });
+      if (res && res.ok && Array.isArray(res.requests)) {
+        const currentAcceptedOffers = new Set();
+        
+        // Find newly accepted offers
+        res.requests.forEach(r => {
+          const status = String(r?.status || "").toLowerCase();
+          const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+          
+          // Check if offer was just accepted
+          if ((status === "accepted" || status === "picked_up") && r.id) {
+            currentAcceptedOffers.add(r.id);
+            
+            // New acceptance!
+            if (!previousAcceptedOffers.has(r.id)) {
+              // Show notification
+              showDriverNotification(`✓ Offer Accepted! Request #${r.id} is ready for pickup.`);
+            }
+          }
+        });
+        
+        previousAcceptedOffers = currentAcceptedOffers;
+      }
+      
+      renderDriverActiveJobs();
+    } catch (_) {}
+  }, 10000); // Check every 10 seconds
 
   // Real-time polling for status updates
   try {
