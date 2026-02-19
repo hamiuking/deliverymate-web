@@ -1306,9 +1306,22 @@ function setupInlineOfferForm() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    const offerBtn = document.getElementById("driverOfferBtn");
-    if (offerBtn && offerBtn.disabled) {
-      if (result) setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
+    // CRITICAL: Check acknowledgements again at submission
+    const a1 = document.getElementById("dAck1");
+    const a2 = document.getElementById("dAck2");
+    const a3 = document.getElementById("dAck3");
+    const a4 = document.getElementById("dAck4");
+    const a5 = document.getElementById("dAck5");
+    
+    const allChecked = a1?.checked && a2?.checked && a3?.checked && a4?.checked && a5?.checked;
+    
+    if (!allChecked) {
+      if (result) setResult(result, alertError("Please confirm all Driver Acknowledgements before submitting an offer."));
+      // Scroll to acknowledgements
+      const ackSection = document.querySelector('#dAck1')?.closest('.card');
+      if (ackSection) {
+        ackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       return;
     }
     
