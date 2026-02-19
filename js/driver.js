@@ -369,7 +369,16 @@ function setupDriverAckGate() {
     if (statusBtn) statusBtn.disabled = !ok;
 
     // Only set timestamp when all are checked
-    if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
+    if (ok) {
+      localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
+      // Auto-collapse after first complete agreement
+      const details = document.getElementById('driverAckDetails');
+      if (details && details.open) {
+        setTimeout(() => {
+          details.open = false;
+        }, 500);
+      }
+    }
     renderLast();
   };
 
@@ -765,14 +774,26 @@ async function renderDriverActiveJobs() {
     
     // State: Offer pending
     if (status === "open") {
-      statusMessage = `⏳ <strong>Offer pending</strong> — Waiting for sender to accept`;
-      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
+      statusMessage = `
+        <div style="padding:8px; background:rgba(59,130,246,.1); border-radius:6px; border-left:3px solid rgba(59,130,246,.6);">
+          <div style="font-weight:600; color:#1e40af;">⏳ Offer Submitted</div>
+          <div style="margin-top:4px; font-size:14px;">Waiting for sender to accept your offer on Request #${id}.</div>
+          <div class="muted" style="margin-top:4px; font-size:13px;">You'll receive an email notification when accepted.</div>
+        </div>
+      `;
+      cardStyle = "border-color: rgba(59,130,246,.4);";
     }
     
     // State: Accepted but not funded
     else if (status === "accepted" && escrowStatus === "none") {
-      statusMessage = `✓ <strong>Offer accepted!</strong> — Waiting for sender to fund escrow`;
-      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
+      statusMessage = `
+        <div style="padding:8px; background:rgba(34,197,94,.1); border-radius:6px; border-left:3px solid rgba(34,197,94,.6);">
+          <div style="font-weight:600; color:#166534;">✓ Offer Accepted!</div>
+          <div style="margin-top:4px; font-size:14px;">Waiting for sender to fund escrow for Request #${id}.</div>
+          <div class="muted" style="margin-top:4px; font-size:13px;">You'll be notified when ready for pickup.</div>
+        </div>
+      `;
+      cardStyle = "border-color: rgba(34,197,94,.4);";
     }
     
     // State: Ready for pickup
@@ -2296,6 +2317,26 @@ function toggleJobView() {
 
 // Show inline offer form (called from both list and map views)
 window.showInlineOfferForm = function(requestId) {
+  // Check acknowledgements first
+  const a1 = document.getElementById("dAck1");
+  const a2 = document.getElementById("dAck2");
+  const a3 = document.getElementById("dAck3");
+  const a4 = document.getElementById("dAck4");
+  const a5 = document.getElementById("dAck5");
+  
+  const allChecked = a1?.checked && a2?.checked && a3?.checked && a4?.checked && a5?.checked;
+  
+  if (!allChecked) {
+    alert('Please confirm all Driver Acknowledgements above before making an offer.');
+    // Scroll to acknowledgements
+    const ackSection = document.querySelector('#dAck1')?.closest('.card');
+    if (ackSection) {
+      ackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      ackSection.style.animation = 'pulse 0.5s';
+    }
+    return;
+  }
+  
   // Convert to number for comparison (job.id is number, requestId might be string)
   const id = Number(requestId);
   const job = openJobsData.find(j => Number(j.id) === id);
