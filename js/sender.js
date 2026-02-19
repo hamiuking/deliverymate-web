@@ -1283,7 +1283,7 @@ function setupSenderAuth() {
       localStorage.removeItem("dm_user_token");
       // Clear BOTH sender and driver user data to prevent cross-contamination
       localStorage.removeItem("dm_sender_user");
-      localStorage.removeItem("dm_driver_user");
+      localStorage.removeItem("dm_user_driver"); // FIXED: correct key
       setAuthStatus("Not logged in");
       setDashboardVisible(false);
     });
@@ -1930,7 +1930,7 @@ export function initSenderPage() {
   // This allows drivers to create requests without logging in again
   try {
     const senderUser = getSavedUser();
-    const driverUserData = localStorage.getItem("dm_driver_user");
+    const driverUserData = localStorage.getItem("dm_user_driver"); // FIXED: correct key
     
     if (driverUserData) {
       const driverUser = JSON.parse(driverUserData);
@@ -1946,7 +1946,9 @@ export function initSenderPage() {
         console.log('[Sender] Auto-synced user from driver session:', driverUser.phone);
       }
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error('[Sender] Auto-sync error:', e);
+  }
 
   //
   // 2. Update UI immediately based on restored token
