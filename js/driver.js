@@ -1,32 +1,22 @@
-// public/js/sender.js
-// IMPROVED VERSION with:
-// - ✅ FIX: Stripe return auth (dm_user_token check, not dm_sender_token)
-// - ✅ Auto-fill Request ID after create/accept
-// - ✅ Next action banner with smart guidance
-// - ✅ Professional status display (no technical jargon)
-// - ✅ Cleaner debug section organization
-// - ✅ Better post-payment flow
+// public/js/driver.js
+// Full replacement (minimal additive UX improvements)
+// - Populates #driverStatusSummary (Current job status card) when a job is loaded
+// - On successful status update: auto-refresh current job + refresh recent jobs list
+// - Login sends phone only (invite_code ignored if present), matching backend
+// - Adds "Open jobs" list (client-filtered from /requests) + 1-click fill Offer/View
+// - Keeps ack gating, photo handling, registration/login/logout, offer/status flows intact
+// - NEW: Open-jobs "View" becomes safe Preview (no protected endpoints) unless job is assigned to driver
 
 import { api } from "./api.js";
-import { getFormData } from "./components/forms.js";
+import { $ } from "./utils.js";
 import { alertSuccess, alertError } from "./components/alerts.js";
+import { getFormData } from "./components/forms.js";
 import { statusPill, timeline, nextActionText } from "./components/status.js";
+import { startPolling } from "./polling.js";
 
-/* ---------------------------------------------------------
-   Helpers
---------------------------------------------------------- */
-
-function safeText(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-// Alias for compatibility with driver.js code patterns
-const escapeHtml = safeText;
-
+/* -----------------------------
+   Small helpers
+----------------------------- */
 function setResult(el, html) {
   if (!el) return;
   el.innerHTML = html || "";
@@ -51,278 +41,150 @@ function setWorking(btn, workingText = "Working…") {
   };
 }
 
-function normaliseNzdAmount(v) {
-  const s = String(v ?? "").trim();
-  if (!s) return "";
-  const n = Number(String(s).replace(/[^0-9.]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) return "";
-  return String(Math.round(n * 100) / 100);
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-function offerPriceFromOfferObj(o) {
-  if (!o) return "";
-  const p =
-    o.price_nzd ??
-    o.offer_price_nzd ??
-    o.amount_nzd ??
-    o.price ??
-    o.amount ??
-    "";
-  return normaliseNzdAmount(p);
+function saveUserToken(tok) {
+  if (!tok) return;
+  const t = String(tok);
+
+  // What api.js expects:
+  localStorage.setItem("dm_user_token", t);
+  sessionStorage.setItem("dm_user_token", t);
+
+  // Optional: driver-only backup (harmless)
+  localStorage.setItem("dm_driver_user_token", t);
 }
 
-/* ---------------------------------------------------------
-   Local storage keys (scoped per sender phone)
---------------------------------------------------------- */
+function markDriverRegistered(user) {
+  localStorage.setItem("dm_driver_registered", "1");
+  if (user) {
+    localStorage.setItem("dm_user_driver", JSON.stringify(user));
+    sessionStorage.setItem("dm_user_driver", JSON.stringify(user));
+  }
+}
 
-const SENDER_USER_KEY = "dm_sender_user";
-const SENDER_RECENT_KEY_BASE = "dm_sender_recent_requests";
+function isDriverRegistered() {
+  return localStorage.getItem("dm_driver_registered") === "1";
+}
 
-function getSavedUser() {
+function getSavedDriverUser() {
   try {
-    return JSON.parse(localStorage.getItem(SENDER_USER_KEY) || "null");
+    const raw = localStorage.getItem("dm_user_driver");
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-function saveUser(userObj) {
-  try {
-    localStorage.setItem(SENDER_USER_KEY, JSON.stringify(userObj));
-  } catch (_) {}
-}
-
-function senderRecentKey() {
-  const u = getSavedUser();
-  const phone = String(u?.phone || "").trim();
-  return phone ? `${SENDER_RECENT_KEY_BASE}:${phone}` : `${SENDER_RECENT_KEY_BASE}:anon`;
-}
-
-function loadSenderRecent() {
-  try {
-    return JSON.parse(localStorage.getItem(senderRecentKey()) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveSenderRecent(list) {
-  try {
-    localStorage.setItem(senderRecentKey(), JSON.stringify(list));
-  } catch (_) {}
-}
-
-/* ---------------------------------------------------------
-   Per-request token + accepted offer price caching
---------------------------------------------------------- */
-
-function senderTokenKey(requestId) {
-  return `dm_sender_token_for_request:${String(requestId)}`;
-}
-
-function saveSenderTokenForRequest(requestId, token) {
-  if (!requestId || !token) return;
-  try {
-    localStorage.setItem(senderTokenKey(requestId), String(token));
-  } catch (_) {}
-}
-
-function loadSenderTokenForRequest(requestId) {
-  if (!requestId) return "";
-  try {
-    return localStorage.getItem(senderTokenKey(requestId)) || "";
-  } catch (_) {
-    return "";
-  }
-}
-
-function acceptedPriceKey(requestId) {
-  return `dm_sender_accepted_price:${String(requestId)}`;
-}
-
-function saveAcceptedPriceForRequest(requestId, price) {
-  const p = normaliseNzdAmount(price);
-  if (!requestId || !p) return;
-  try {
-    localStorage.setItem(acceptedPriceKey(requestId), p);
-  } catch (_) {}
-}
-
-function loadAcceptedPriceForRequest(requestId) {
-  if (!requestId) return "";
-  try {
-    return localStorage.getItem(acceptedPriceKey(requestId)) || "";
-  } catch (_) {
-    return "";
-  }
-}
-
-function offerPriceKey(requestId, offerId) {
-  return `dm_sender_offer_price:${String(requestId)}:${String(offerId)}`;
-}
-
-function saveOfferPriceForRequestOffer(requestId, offerId, price) {
-  const p = normaliseNzdAmount(price);
-  if (!requestId || !offerId || !p) return;
-  try {
-    localStorage.setItem(offerPriceKey(requestId, offerId), p);
-  } catch (_) {}
-}
-
-function loadOfferPriceForRequestOffer(requestId, offerId) {
-  if (!requestId || !offerId) return "";
-  try {
-    return localStorage.getItem(offerPriceKey(requestId, offerId)) || "";
-  } catch (_) {
-    return "";
-  }
-}
-
-/* ---------------------------------------------------------
-   Auth helpers - FIXED: Use dm_user_token consistently
---------------------------------------------------------- */
-
-function setAuthStatus(text) {
-  const el = document.getElementById("senderAuthStatusDash") || document.getElementById("senderAuthStatus");
-  if (el) el.textContent = text || "";
-}
-
-function getUserToken() {
-  // ✅ FIX: Check dm_user_token (unified auth), not dm_sender_token
-  return sessionStorage.getItem("dm_user_token") || localStorage.getItem("dm_user_token") || "";
-}
-
-function setDashboardVisible(isAuthed) {
-  const dash = document.getElementById("senderDashboard");
-  const auth = document.getElementById("senderAuthArea") || document.getElementById("senderAuthCard");
-  if (dash) dash.classList.toggle("hidden", !isAuthed);
-  if (auth) auth.classList.toggle("hidden", !!isAuthed);
-}
-
-/* ---------------------------------------------------------
-   Recent requests UI (aligned to senderMyRequestsCard)
---------------------------------------------------------- */
-
-function addRecentRequest(requestId) {
-  const id = String(requestId || "").trim();
-  if (!id) return;
-  const list = loadSenderRecent();
-  const next = [id, ...list.filter((x) => String(x) !== id)].slice(0, 12);
-  saveSenderRecent(next);
-}
-
-function renderRecentRequests() {
-  const sel = document.getElementById("senderRecentSelect");
-  if (!sel) return;
-
-  const list = loadSenderRecent();
-
-  const cnt = document.getElementById("senderRecentCount");
-  if (cnt) cnt.textContent = list.length ? `${list.length} saved on this device` : `No saved requests on this device yet.`;
-
-  sel.innerHTML = `<option value="">Select a request…</option>`;
-  for (const id of list) {
-    sel.insertAdjacentHTML("beforeend", `<option value="${safeText(id)}">Request #${safeText(id)}</option>`);
-  }
-
-  const clr = document.getElementById("senderRecentClearBtn");
-  if (clr && !clr.__bound) {
-    clr.__bound = true;
-    clr.addEventListener("click", () => {
-      saveSenderRecent([]);
-      renderRecentRequests();
-    });
-  }
-}
-
-/* ---------------------------------------------------------
-   NEW: Next Action Banner - Smart guidance based on request state
---------------------------------------------------------- */
-
-function updateNextActionBanner(requestData) {
-  const banner = document.getElementById("senderNextActionBanner");
+/* -----------------------------
+   NEW: Smart Next Action Banner for Drivers
+----------------------------- */
+function updateDriverNextActionBanner(requestData) {
+  const banner = document.getElementById("driverNextActionBanner");
   if (!banner) return;
 
   if (!requestData || !requestData.id) {
-    banner.innerHTML = "";
+    banner.innerHTML = `
+      <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
+        <strong>🔍 No active jobs</strong>
+        <div class="muted" style="margin-top:4px;">Browse open jobs below and submit offers to get started.</div>
+      </div>
+    `;
     return;
   }
 
   const r = requestData;
   const status = String(r.status || "").toLowerCase();
   const escrowStatus = String(r.escrow_status || "none").toLowerCase();
-  const offersCount = r.offers_count || 0;
+  const driverName = r.driver_name || r.assigned_driver_name || "";
+  const u = getSavedDriverUser();
+  const myName = u?.full_name || u?.phone || "";
+  
+  // Check if this job is assigned to me
+  const isMyJob = driverName && myName && String(driverName).toLowerCase().includes(String(myName).toLowerCase());
 
   let html = "";
 
-  // State: Open, waiting for offers
-  if (status === "open" && offersCount === 0) {
+  // State: Open (not assigned to me)
+  if (status === "open" && !isMyJob) {
     html = `
       <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
-        <strong>⏳ Waiting for driver offers</strong>
-        <div class="muted" style="margin-top:4px;">Your request is live. Approved drivers can now submit offers. You'll see them appear in the "Offers" section below.</div>
+        <strong>📋 Open job available</strong>
+        <div class="muted" style="margin-top:4px;">Submit an offer if you're interested in this delivery.</div>
       </div>
     `;
   }
 
-  // State: Open, has offers
-  if (status === "open" && offersCount > 0) {
-    html = `
-      <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
-        <strong>✓ You have ${offersCount} offer${offersCount > 1 ? 's' : ''}</strong>
-        <div class="muted" style="margin-top:4px;">Review offers below and click "Accept" on your preferred driver.</div>
-      </div>
-    `;
-  }
-
-  // State: Accepted, need to fund escrow
-  if (status === "accepted" && escrowStatus === "none") {
+  // State: Offer submitted, waiting for acceptance
+  if (status === "open" && isMyJob) {
     html = `
       <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
-        <strong>💳 Payment required</strong>
-        <div class="muted" style="margin-top:4px;">Fund escrow via Stripe to confirm this delivery with your driver.</div>
-        <button class="btn mt-2" id="bannerPayBtn" style="background: #0284c7; border-color: #0284c7;">Go to Payment</button>
+        <strong>⏳ Offer submitted</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender to accept your offer on Request #${r.id}.</div>
       </div>
     `;
   }
 
-  // State: Accepted, escrow funded, waiting for pickup
-  if (status === "accepted" && escrowStatus === "funded") {
+  // State: Accepted, waiting for escrow funding
+  if (status === "accepted" && escrowStatus === "none" && isMyJob) {
     html = `
-      <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
-        <strong>✓ Payment complete</strong>
-        <div class="muted" style="margin-top:4px;">Your driver will pick up the item and update you when it's on the way.</div>
+      <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
+        <strong>✓ Offer accepted!</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender to fund escrow. You'll be notified when ready for pickup.</div>
       </div>
     `;
   }
 
-  // State: Picked up
-  if (status === "picked_up") {
+  // State: Accepted, escrow funded, ready for pickup!
+  if (status === "accepted" && escrowStatus === "funded" && isMyJob) {
+    html = `
+      <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
+        <strong>💰 Payment escrowed — Ready for pickup!</strong>
+        <div class="muted" style="margin-top:4px;">
+          From: ${escapeHtml(r.pickup_suburb || "—")} · To: ${escapeHtml(r.dropoff_suburb || "—")}
+        </div>
+        <div class="muted" style="margin-top:4px;">Mark as picked up when you collect the item.</div>
+        <button class="btn mt-2" id="bannerPickupBtn" style="background: #16a34a; border-color: #16a34a;">Mark Picked Up</button>
+      </div>
+    `;
+  }
+
+  // State: Picked up, in transit
+  if (status === "picked_up" && isMyJob) {
     html = `
       <div class="alert" style="background: rgba(59,130,246,.08); border-color: rgba(59,130,246,.2); color: #1e3a8a;">
-        <strong>🚗 Item picked up</strong>
-        <div class="muted" style="margin-top:4px;">Your driver has collected the item and is on the way to drop-off.</div>
+        <strong>🚗 Item picked up - In transit</strong>
+        <div class="muted" style="margin-top:4px;">To: ${escapeHtml(r.dropoff_suburb || "—")}</div>
+        <div class="muted" style="margin-top:4px;">Mark as delivered when drop-off is complete (delivery photo required).</div>
+        <button class="btn mt-2" id="bannerDeliverBtn" style="background: #0284c7; border-color: #0284c7;">Mark Delivered</button>
       </div>
     `;
   }
 
   // State: Delivered, pending release
-  if (status === "delivered" && escrowStatus === "pending_release") {
+  if (status === "delivered" && escrowStatus === "pending_release" && isMyJob) {
     html = `
-      <div class="alert" style="background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: #166534;">
-        <strong>📦 Delivered! Confirm to release payment</strong>
-        <div class="muted" style="margin-top:4px;">Your driver marked this as delivered. Confirm delivery to release payment immediately, or it will auto-release in 24 hours.</div>
-        <button class="btn mt-2" id="bannerReleaseBtn" style="background: #16a34a; border-color: #16a34a;">Confirm Delivery</button>
+      <div class="alert" style="background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: #78350f;">
+        <strong>✓ Marked delivered</strong>
+        <div class="muted" style="margin-top:4px;">Waiting for sender confirmation (auto-release in 24 hours).</div>
       </div>
     `;
   }
 
-  // State: Released
-  if (escrowStatus === "released") {
+  // State: Payment released!
+  if (escrowStatus === "released" && isMyJob) {
     html = `
       <div class="alert success">
-        <strong>✓ Complete</strong>
-        <div class="muted" style="margin-top:4px;">Payment has been released to your driver. This delivery is complete.</div>
+        <strong>💸 Payment released!</strong>
+        <div class="muted" style="margin-top:4px;">Escrow released. Payout processing. Track with admin if needed.</div>
       </div>
     `;
   }
@@ -340,1169 +202,580 @@ function updateNextActionBanner(requestData) {
   banner.innerHTML = html;
 
   // Wire up banner buttons
-  const payBtn = document.getElementById("bannerPayBtn");
-  if (payBtn && !payBtn.__bound) {
-    payBtn.__bound = true;
-    payBtn.addEventListener("click", () => {
-      const fundForm = document.getElementById("fundEscrowForm");
-      if (fundForm) {
-        if (fundForm.request_id) fundForm.request_id.value = r.id;
-        const price = loadAcceptedPriceForRequest(r.id);
-        if (fundForm.amount_nzd && price) {
-          fundForm.amount_nzd.value = price;
-          fundForm.amount_nzd.readOnly = true;
-        }
-        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  const pickupBtn = document.getElementById("bannerPickupBtn");
+  if (pickupBtn && !pickupBtn.__bound) {
+    pickupBtn.__bound = true;
+    pickupBtn.addEventListener("click", () => {
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = r.id;
+        const statusSelect = document.getElementById("driverStatusSelect");
+        if (statusSelect) statusSelect.value = "picked_up";
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
   }
 
-  const releaseBtn = document.getElementById("bannerReleaseBtn");
-  if (releaseBtn && !releaseBtn.__bound) {
-    releaseBtn.__bound = true;
-    releaseBtn.addEventListener("click", () => {
-      const releaseForm = document.getElementById("releaseEscrowForm");
-      if (releaseForm) {
-        if (releaseForm.request_id) releaseForm.request_id.value = r.id;
-        releaseForm.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-  }
-}
-
-/* ---------------------------------------------------------
-   Status summary
---------------------------------------------------------- */
-
-function renderRequestSummary(r) {
-  const box = document.getElementById("senderReqSummary");
-  if (!box) return;
-
-  const pill = statusPill(r);
-  const tl = timeline(r);
-  const next = nextActionText(r);
-
-  const status = String(r?.status || "").toLowerCase();
-  const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
-  const requestId = r?.id || "";
-
-  // Determine which inline action to show
-  let actionButton = "";
-
-  // State: Accepted, need payment
-  if (status === "accepted" && escrowStatus === "none") {
-    actionButton = `
-      <button class="btn" id="inlineFundBtn" data-request-id="${safeText(requestId)}" style="margin-top:12px; width:100%; background:#0284c7; border-color:#0284c7;">
-        💳 Fund Escrow (Pay with Stripe)
-      </button>
-    `;
-  }
-
-  // State: Delivered, pending release
-  if (status === "delivered" && escrowStatus === "pending_release") {
-    actionButton = `
-      <button class="btn" id="inlineReleaseBtn" data-request-id="${safeText(requestId)}" style="margin-top:12px; width:100%; background:#16a34a; border-color:#16a34a;">
-        ✓ Confirm Delivery & Release Payment
-      </button>
-    `;
-  }
-
-  // Delivery photo (shown when delivered)
-  const photoUrl = r?.delivered_photo_url || "";
-  const photoHtml = (status === "delivered" && photoUrl) ? `
-    <div style="margin-top:14px;">
-      <div style="font-size:13px; font-weight:600; margin-bottom:6px; color:#166534;">📸 Proof of Delivery</div>
-      <a href="${safeText(photoUrl)}" target="_blank" rel="noopener">
-        <img src="${safeText(photoUrl)}" alt="Delivery photo"
-          style="max-width:100%; max-height:260px; border-radius:8px; border:1px solid rgba(34,197,94,.3); display:block; cursor:zoom-in;" />
-      </a>
-      <div class="muted" style="font-size:12px; margin-top:4px;">Click photo to view full size · Link expires in 5 minutes</div>
-    </div>
-  ` : "";
-
-  // Driver contact info (shown after offer accepted)
-  const driverPhone = r?.driver_phone || "";
-  const driverName = r?.driver_name || "Driver";
-  const contactHtml = (status !== "open" && driverPhone) ? `
-    <div style="margin-top:14px; padding:10px; background:rgba(59,130,246,.06); border-radius:6px; border:1px solid rgba(59,130,246,.2);">
-      <div style="font-size:13px; font-weight:600; margin-bottom:4px;">📞 Driver Contact</div>
-      <div><strong>${escapeHtml(driverName)}</strong></div>
-      <div class="muted" style="font-size:13px;">Phone: ${escapeHtml(driverPhone)}</div>
-      <div class="muted" style="font-size:12px; margin-top:4px;">Contact the driver directly if you have questions or issues.</div>
-    </div>
-  ` : "";
-
-  box.innerHTML = `
-    <div class="card compact">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:700;">Request #${safeText(requestId)}</div>
-          <div class="muted">${safeText(r?.pickup_suburb || "")}${r?.dropoff_suburb ? ` → ${safeText(r.dropoff_suburb)}` : ""}</div>
-        </div>
-        <div>${pill}</div>
-      </div>
-      <div style="margin-top:10px;">${tl}</div>
-      <div style="margin-top:10px;" class="muted"><strong>Next:</strong> ${safeText(next || "")}</div>
-      ${contactHtml}
-      ${photoHtml}
-      ${actionButton}
-    </div>
-  `;
-
-  // Wire up inline buttons
-  const fundBtn = document.getElementById("inlineFundBtn");
-  if (fundBtn && !fundBtn.__bound) {
-    fundBtn.__bound = true;
-    fundBtn.addEventListener("click", () => {
-      const reqId = fundBtn.dataset.requestId;
-      const fundForm = document.getElementById("fundEscrowForm");
-      if (fundForm && reqId) {
-        if (fundForm.request_id) fundForm.request_id.value = reqId;
+  const deliverBtn = document.getElementById("bannerDeliverBtn");
+  if (deliverBtn && !deliverBtn.__bound) {
+    deliverBtn.__bound = true;
+    deliverBtn.addEventListener("click", () => {
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = r.id;
+        const statusSelect = document.getElementById("driverStatusSelect");
+        if (statusSelect) statusSelect.value = "delivered";
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
         
-        // Pre-fill amount from accepted offer
-        const price = loadAcceptedPriceForRequest(reqId);
-        if (fundForm.amount_nzd && price) {
-          fundForm.amount_nzd.value = price;
-          fundForm.amount_nzd.readOnly = true;
+        // Focus on photo upload
+        const photoInput = document.getElementById("delivered_photo_file");
+        if (photoInput) {
+          setTimeout(() => photoInput.scrollIntoView({ behavior: "smooth", block: "center" }), 500);
         }
-        
-        // Auto-submit to go directly to Stripe
-        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        setTimeout(() => {
-          fundForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        }, 300);
       }
     });
   }
-
-  const releaseBtn = document.getElementById("inlineReleaseBtn");
-  if (releaseBtn && !releaseBtn.__bound) {
-    releaseBtn.__bound = true;
-    releaseBtn.addEventListener("click", async () => {
-      const reqId = releaseBtn.dataset.requestId;
-      
-      // Confirm before releasing
-      if (!confirm("Confirm delivery and release payment to driver?")) return;
-      
-      releaseBtn.disabled = true;
-      releaseBtn.textContent = "Releasing...";
-      
-      const res = await api(`/requests/${reqId}/escrow/release`, {
-        method: "POST",
-        role: "sender",
-        body: {},
-      });
-      
-      if (res.ok) {
-        // Refresh the view to show updated status
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm && viewForm.request_id) {
-          viewForm.request_id.value = reqId;
-          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        }
-      } else {
-        alert(res.error || "Failed to release payment");
-        releaseBtn.disabled = false;
-        releaseBtn.textContent = "✓ Confirm Delivery & Release Payment";
-      }
-    });
-  }
-  
-  // Show/hide report issue card
-  updateReportIssueCard(r);
 }
 
-function updateReportIssueCard(r) {
-  const card = document.getElementById('senderReportIssueCard');
-  if (!card) return;
-  
-  const status = String(r?.status || '').toLowerCase();
-  const disputed = r?.disputed === true;
-  
-  // Show report button only if:
-  // - Status is 'delivered'
-  // - Not already disputed
-  // - Escrow not yet released
-  const canReport = status === 'delivered' && !disputed && r?.escrow_status !== 'released';
-  
-  if (canReport) {
-    card.classList.remove('hidden');
-    
-    // Pre-fill the hidden request ID
-    const requestIdInput = document.getElementById('reportIssueRequestId');
-    if (requestIdInput) requestIdInput.value = r.id;
-  } else {
-    card.classList.add('hidden');
+/* -----------------------------
+   Gate: show Auth area when locked; show Dashboard when unlocked
+----------------------------- */
+function enforceDriverGate() {
+  const locked = !isDriverRegistered();
+
+  const authArea = document.getElementById("driverAuthArea");
+  const dash = document.getElementById("driverDashboard");
+  if (authArea) authArea.classList.toggle("hidden", !locked);
+  if (dash) dash.classList.toggle("hidden", locked);
+
+  const status = document.getElementById("driverAuthStatus");
+  const u = getSavedDriverUser();
+  if (status) {
+    status.textContent = locked
+      ? "Please register or log in to access the driver dashboard."
+      : (u?.phone ? `Logged in: ${u.phone}` : "Driver dashboard unlocked.");
   }
-  
-  // If already disputed, show a notice
-  if (disputed) {
-    card.classList.remove('hidden');
-    card.innerHTML = `
-      <h3 style="margin-top:0;">📝 Issue Logged</h3>
-      <p class="muted">You reported an issue with this delivery. Your report has been logged for our records. Payment will still release automatically.</p>
-      <p><strong>Reported reason:</strong> ${escapeHtml(r.dispute_reason || 'No details provided')}</p>
-    `;
+
+  const authStatusDash = document.getElementById("driverAuthStatusDash");
+  if (authStatusDash && !locked && u) {
+    authStatusDash.textContent = u.phone ? `Logged in as ${u.phone}` : "Logged in";
+  }
+
+  const logoutBtn = document.getElementById("driverLogoutBtn");
+  if (logoutBtn) logoutBtn.classList.toggle("hidden", locked);
+
+  const hint = document.getElementById("driverAuthHint");
+  if (hint) hint.textContent = locked ? "" : (u?.phone ? `Logged in as ${u.phone}` : "Logged in");
+
+  // Show/hide re-approval banner based on saved driver_status
+  updateReapprovalBanner();
+}
+
+function updateReapprovalBanner() {
+  const banner = document.getElementById("driverReapprovalBanner");
+  if (!banner) return;
+  const u = getSavedDriverUser();
+  const ds = String(u?.driver_status || "").trim().toLowerCase();
+  const isPending = ds === "pending_review";
+  banner.classList.toggle("hidden", !isPending);
+
+  // Disable offer buttons when pending_review
+  const offerBtn = document.getElementById("driverOfferBtn");
+  const inlineSubmit = document.getElementById("inlineOfferSubmitBtn");
+  if (isPending) {
+    if (offerBtn) { offerBtn.disabled = true; offerBtn.title = "Awaiting admin approval"; }
+    if (inlineSubmit) { inlineSubmit.disabled = true; }
   }
 }
 
-/* ---------------------------------------------------------
-   Report Issue Form Handler
---------------------------------------------------------- */
-function setupReportIssueForm() {
-  const form = document.getElementById('reportIssueForm');
-  if (!form) return;
-  
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const result = document.getElementById('reportIssueResult');
-    const btn = form.querySelector('button[type="submit"]');
-    const done = setWorking(btn, 'Submitting...');
-    
-    if (result) setResult(result, '');
-    
-    const requestId = form.request_id.value;
-    const description = form.description.value;
-    
-    if (!requestId || !description) {
-      done(false);
-      if (result) setResult(result, alertError('Please provide a description'));
-      return;
-    }
-    
-    const res = await api(`/requests/${requestId}/report`, {
-      method: 'POST',
-      role: 'sender',
-      body: { description },
-    });
-    
-    done(!!res.ok);
-    
-    if (res.ok) {
-      if (result) setResult(result, alertSuccess(res.message || 'Issue logged. Please contact the driver to resolve.'));
-      
-      // Refresh the request view to show updated status
-      setTimeout(() => {
-        const viewForm = document.getElementById('viewRequestForm');
-        if (viewForm && viewForm.request_id) {
-          viewForm.request_id.value = requestId;
-          viewForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        }
-      }, 1500);
-    } else {
-      if (result) setResult(result, alertError(res.error || 'Failed to submit report'));
-    }
-  });
+/* -----------------------------
+   Driver acknowledgements gate
+   IMPORTANT: must match backend DRIVER_ACK_VERSION (default 'v2')
+----------------------------- */
+const DRIVER_ACK_VERSION = "v2";
+const DRIVER_ACK_KEY = "dm_driver_ack_v2_ts";
+
+function getDriverAckMeta() {
+  // Backend only checks driver_ack_version.
+  // We keep a timestamp locally for UI only.
+  const ts = localStorage.getItem(DRIVER_ACK_KEY) || new Date().toISOString();
+  return { driver_ack_version: DRIVER_ACK_VERSION, driver_ack_ts: ts };
 }
 
-/* ---------------------------------------------------------
-   Create request acknowledgement gating
---------------------------------------------------------- */
+function setupDriverAckGate() {
+  const a1 = document.getElementById("dAck1");
+  const a2 = document.getElementById("dAck2");
+  const a3 = document.getElementById("dAck3");
+  const a4 = document.getElementById("dAck4");
+  const a5 = document.getElementById("dAck5");
+  const offerBtn = document.getElementById("driverOfferBtn");
+  const statusBtn = document.getElementById("driverStatusBtn");
+  const lastEl = document.getElementById("driverAckLast");
+  if (!a1 || !a2 || !a3 || !a4 || !a5) return;
 
-function setupCreateAcksGate() {
-  const btn = document.getElementById("createRequestBtn");
-  if (!btn) return;
-
-  const ids = ["sAck1", "sAck2", "sAck3", "sAck4", "sAck5", "sAck6"];
-  const boxes = ids.map((id) => document.getElementById(id)).filter(Boolean);
-
-  const refresh = () => {
-    const ok = boxes.length === 6 && boxes.every((b) => b.checked);
-    btn.disabled = !ok;
+  const renderLast = () => {
+    if (!lastEl) return;
+    const ts = localStorage.getItem(DRIVER_ACK_KEY);
+    if (!ts) { lastEl.textContent = ""; return; }
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) { lastEl.textContent = ""; return; }
+    lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
-  boxes.forEach((b) => b.addEventListener("change", refresh));
+  // Pre-tick if previously agreed on this device
+  const prev = localStorage.getItem(DRIVER_ACK_KEY);
+  if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true; a5.checked = true; }
+
+  const refresh = () => {
+    const ok = a1.checked && a2.checked && a3.checked && a4.checked && a5.checked;
+    if (offerBtn) offerBtn.disabled = !ok;
+    if (statusBtn) statusBtn.disabled = !ok;
+
+    // Only set timestamp when all are checked
+    if (ok) localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
+    renderLast();
+  };
+
+  a1.addEventListener("change", refresh);
+  a2.addEventListener("change", refresh);
+  a3.addEventListener("change", refresh);
+  a4.addEventListener("change", refresh);
+  a5.addEventListener("change", refresh);
   refresh();
 }
 
-/* ---------------------------------------------------------
-   Create Request - IMPROVED: Auto-fill ID after creation
---------------------------------------------------------- */
+/* -----------------------------
+   Image helper: 6MB original, compress to <=2MB dataURL
+----------------------------- */
+const MAX_ORIGINAL_BYTES = 6 * 1024 * 1024; // 6MB
+const MAX_FINAL_BYTES = 2 * 1024 * 1024;    // 2MB compressed
+const MAX_WIDTH = 1600;
+const JPEG_QUALITY = 0.75;
 
-function setupCreateRequest() {
-  const form = document.getElementById("createRequestForm");
-  if (!form) return;
+function fmtMB(bytes) {
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)}MB`;
+}
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const btn = document.getElementById("createRequestBtn");
-    const out = document.getElementById("senderOutput");
-    const result = document.getElementById("createRequestResult");
-    const info = document.getElementById("senderCreateInfo");
-
-    if (btn) btn.disabled = true;
-    if (result) setResult(result, "");
-    if (info) setResult(info, "");
-
-    const fd = getFormData(form);
-
-    // ✅ Verify acknowledgements are checked
-    const ackOk =
-      !!document.getElementById("sAck1")?.checked &&
-      !!document.getElementById("sAck2")?.checked &&
-      !!document.getElementById("sAck3")?.checked &&
-      !!document.getElementById("sAck4")?.checked;
-
-    if (!ackOk) {
-      if (btn) btn.disabled = false;
-      if (result) setResult(result, alertError("Please tick all acknowledgements to continue."));
-      return;
-    }
-
-    // ✅ Auto-include sender_phone from logged-in user
-    const u = getSavedUser();
-    const sender_phone = String(u?.phone || "").trim();
-    if (!sender_phone) {
-      if (btn) btn.disabled = false;
-      if (result) setResult(result, alertError("Your login session is missing a phone number. Please log out and log in again."));
-      return;
-    }
-
-    const pickup_suburb = String(fd.pickup_suburb_only || fd.pickup_suburb || "").trim();
-    const dropoff_suburb = String(fd.dropoff_suburb_only || fd.dropoff_suburb || "").trim();
-    const item_desc = String(fd.item_desc || "").trim();
-    const sender_note = String(fd.sender_note || "").trim();
-
-    if (!pickup_suburb || !dropoff_suburb || !item_desc) {
-      if (btn) btn.disabled = false;
-      if (result) setResult(result, alertError("From address, to address, and item description are required."));
-      return;
-    }
-
-    // ✅ Backend expects item_description (max 300 chars) and combines note
-    let item_description = item_desc;
-    if (sender_note) item_description = `${item_desc} | Note: ${sender_note}`;
-    item_description = item_description.slice(0, 300);
-
-    // ✅ Build proper payload matching backend expectations
-    const body = {
-      sender_phone,
-      pickup_suburb,
-      dropoff_suburb,
-      item_description, // Backend expects this field name
-      weight_kg: fd.weight_kg === "" || fd.weight_kg == null ? null : Number(fd.weight_kg),
-      suggested_price_nzd: fd.suggested_price_nzd === "" || fd.suggested_price_nzd == null ? null : Number(fd.suggested_price_nzd),
-      sender_ack_version: "v1", // Required by backend
-      // Phase 4: Google Maps data (if available from autocomplete)
-      pickup_address_full: String(fd.pickup_address_full || "").trim() || null,
-      pickup_lat: fd.pickup_lat === "" || fd.pickup_lat == null ? null : Number(fd.pickup_lat),
-      pickup_lng: fd.pickup_lng === "" || fd.pickup_lng == null ? null : Number(fd.pickup_lng),
-      dropoff_address_full: String(fd.dropoff_address_full || "").trim() || null,
-      dropoff_lat: fd.dropoff_lat === "" || fd.dropoff_lat == null ? null : Number(fd.dropoff_lat),
-      dropoff_lng: fd.dropoff_lng === "" || fd.dropoff_lng == null ? null : Number(fd.dropoff_lng),
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Invalid image file"));
+      img.src = String(reader.result || "");
     };
-
-    const res = await api("/requests", {
-      method: "POST",
-      role: "sender",
-      body,
-    });
-
-    if (btn) btn.disabled = false;
-    if (out) out.textContent = JSON.stringify(res, null, 2);
-
-    if (res.ok) {
-      if (result) setResult(result, alertSuccess("Request created"));
-      
-      const requestId = res.request?.id || res.id;
-      
-      if (requestId) {
-        // ✅ Auto-save to recent
-        addRecentRequest(requestId);
-        renderRecentRequests();
-
-        // ✅ Auto-fill View form (but don't auto-submit - avoid invalid token error)
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm && viewForm.request_id) {
-          viewForm.request_id.value = requestId;
-          // Clear any stale error messages from previous loads
-          const viewResult = document.getElementById("viewRequestResult");
-          const offersResult = document.getElementById("viewOffersResult");
-          if (viewResult) viewResult.innerHTML = "";
-          if (offersResult) offersResult.innerHTML = "";
-          // Hide details section until user explicitly loads
-          const detailsSection = document.getElementById("senderRequestDetails");
-          if (detailsSection) detailsSection.classList.add("hidden");
-        }
-
-        // ✅ Show success with next steps
-        if (info) {
-          setResult(info, `
-            <div class="alert success" style="margin-top:10px;">
-              <strong>Request #${safeText(requestId)} created successfully</strong>
-              <div class="muted" style="margin-top:6px;">Your request is now visible to approved drivers. You'll receive offers below.</div>
-              <button class="btn secondary mt-2" id="viewNewRequestBtn">View Request Details</button>
-            </div>
-          `);
-
-          // Wire up view button
-          const viewBtn = document.getElementById("viewNewRequestBtn");
-          if (viewBtn && !viewBtn.__bound) {
-            viewBtn.__bound = true;
-            viewBtn.addEventListener("click", () => {
-              if (viewForm) {
-                viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
-                viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-              }
-            });
-          }
-        }
-
-        // Save sender token if returned
-        if (res.sender_token) {
-          saveSenderTokenForRequest(requestId, res.sender_token);
-        }
-      }
-
-      form.reset();
-      setupCreateAcksGate(); // Re-disable button
-    } else {
-      if (result) setResult(result, alertError(res.error || "Failed to create request"));
-    }
+    reader.onerror = () => reject(new Error("Failed to read image"));
+    reader.readAsDataURL(file);
   });
 }
 
-/* ---------------------------------------------------------
-   View Request - IMPROVED: Update next action banner
---------------------------------------------------------- */
+async function fileToDataUrl(file) {
+  if (!file) throw new Error("No photo selected");
+  if (file.size > MAX_ORIGINAL_BYTES) throw new Error(`Photo too large (${fmtMB(file.size)}). Max 6MB.`);
 
-function setupViewRequest() {
-  const form = document.getElementById("viewRequestForm");
+  const img = await loadImage(file);
+  const scale = Math.min(1, MAX_WIDTH / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
+  const base64 = dataUrl.split(",")[1] || "";
+  const byteSize = Math.ceil((base64.length * 3) / 4);
+  if (byteSize > MAX_FINAL_BYTES) {
+    throw new Error("Photo still too large after compression (max 2MB). Use a smaller image.");
+  }
+  return dataUrl;
+}
+
+/* -----------------------------
+   Registration: cache selected files so submit-time checks never “lose” them
+----------------------------- */
+function setupDriverRegistration() {
+  const form = $("#driverRegForm");
+  const result = $("#driverRegResult");
   if (!form) return;
+
+  const frontInput = form.querySelector("#driver_license_front_file");
+  const backInput = form.querySelector("#driver_license_back_file");
+  const applyBtn = form.querySelector('button[type="submit"]');
+
+  const frontStatus = document.getElementById("dlFrontStatus");
+  const backStatus = document.getElementById("dlBackStatus");
+
+  let selectedFrontFile = null;
+  let selectedBackFile = null;
+
+  function setFileStatus(el, file) {
+    if (!el) return;
+    if (!file) { el.textContent = ""; return; }
+    if (file.size > MAX_ORIGINAL_BYTES) {
+      el.textContent = `Too large (${fmtMB(file.size)}). Max 6MB.`;
+      return;
+    }
+    el.textContent = `Ready ✓ (${fmtMB(file.size)})`;
+  }
+
+  function canEnableApply() {
+    const invite = String(form.invite_code?.value || "").trim();
+    const phone = String(form.phone?.value || "").trim();
+    const lic = String(form.license_number?.value || "").trim();
+    const wof = String(form.wof_expiry?.value || "").trim();
+
+    if (!selectedFrontFile || !selectedBackFile) return false;
+    if (selectedFrontFile.size > MAX_ORIGINAL_BYTES) return false;
+    if (selectedBackFile.size > MAX_ORIGINAL_BYTES) return false;
+
+    return !!(invite && phone && lic && wof);
+  }
+
+  function refreshApplyEnabled() {
+    if (!applyBtn) return;
+    applyBtn.disabled = !canEnableApply();
+  }
+
+  refreshApplyEnabled();
+  form.addEventListener("input", refreshApplyEnabled);
+  form.addEventListener("change", refreshApplyEnabled);
+
+  if (frontInput) {
+    frontInput.addEventListener("change", () => {
+      selectedFrontFile = frontInput.files?.[0] || null;
+      setFileStatus(frontStatus, selectedFrontFile);
+      refreshApplyEnabled();
+    });
+  }
+  if (backInput) {
+    backInput.addEventListener("change", () => {
+      selectedBackFile = backInput.files?.[0] || null;
+      setFileStatus(backStatus, selectedBackFile);
+      refreshApplyEnabled();
+    });
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!applyBtn) return;
 
-    const out = document.getElementById("viewRequestOut");
-    const offersOut = document.getElementById("viewOffersOut");
-    const historyOut = document.getElementById("viewHistoryOut");
-    const result = document.getElementById("viewRequestResult");
-    const offersResult = document.getElementById("viewOffersResult");
-
-    const requestId = form.request_id.value;
-    if (!requestId) {
-      if (result) setResult(result, alertError("Request ID is required"));
+    if (!canEnableApply()) {
+      setResult(result, alertError("Please complete all required fields and upload both driver licence photos (max 6MB each)."));
+      refreshApplyEnabled();
       return;
     }
 
-    // Fetch request, offers, history
-    const [req, offers, hist] = await Promise.all([
-      api(`/requests/${requestId}`, { method: "GET", role: "sender" }),
-      api(`/requests/${requestId}/offers`, { method: "GET", role: "sender" }),
-      api(`/requests/${requestId}/history`, { method: "GET", role: "sender" }),
-    ]);
+    const done = setWorking(applyBtn, "Uploading & applying…");
+    setResult(result, "");
 
-    if (out) out.textContent = JSON.stringify(req, null, 2);
-    if (offersOut) offersOut.textContent = JSON.stringify(offers, null, 2);
-    if (historyOut) historyOut.textContent = JSON.stringify(hist, null, 2);
+    const data = getFormData(form);
 
-    if (req.ok && req.request) {
-      addRecentRequest(requestId);
-      renderRecentRequests();
-      renderRequestSummary(req.request);
-      
-      // ✅ Update next action banner
-      updateNextActionBanner({
-        ...req.request,
-        offers_count: (offers.ok && Array.isArray(offers.offers)) ? offers.offers.length : 0
-      });
+    const frontFile = selectedFrontFile;
+    const backFile = selectedBackFile;
 
-      // ✅ Show the details section
-      const detailsSection = document.getElementById("senderRequestDetails");
-      if (detailsSection) detailsSection.classList.remove("hidden");
-
-      if (result) result.innerHTML = ""; // Clear any previous errors
-    } else {
-      // ✅ Hide details section on error
-      const detailsSection = document.getElementById("senderRequestDetails");
-      if (detailsSection) detailsSection.classList.add("hidden");
-      
-      // ✅ Only show error if user manually clicked "Load Request" (isTrusted = real user click)
-      if (result) {
-        if (e.isTrusted) {
-          setResult(result, alertError(req.error || "Failed to load request"));
-        } else {
-          result.innerHTML = ""; // Silent fail on auto-triggers
-        }
-      }
-      
-      // Clear banner on error
-      updateNextActionBanner(null);
+    if (!frontFile || !backFile) {
+      done(false);
+      setResult(result, alertError("Driver licence photos are required (front + back)."));
+      return;
     }
-
-    renderOffers(offers, req.request);
-    renderHistory(hist, req.request);
-
-    if (offersResult) {
-      // ✅ Only show offers error on manual submit
-      if (e.isTrusted) {
-        setResult(offersResult, offers.ok ? "" : alertError(offers.error || "Failed to load offers"));
-      } else {
-        offersResult.innerHTML = "";
-      }
-    }
-  });
-}
-
-function renderOffers(offers, requestData) {
-  const list = document.getElementById("senderOffersList");
-  if (!list) return;
-  list.innerHTML = "";
-
-  if (!offers || !offers.ok || !Array.isArray(offers.offers)) {
-    list.insertAdjacentHTML("beforeend", alertError(offers?.error || "Failed to load offers"));
-    return;
-  }
-
-  if (offers.offers.length === 0) {
-    list.insertAdjacentHTML("beforeend", `<div class="muted">No offers yet.</div>`);
-    return;
-  }
-
-  // Check if offer has been accepted (status = 'accepted' or later)
-  const status = String(requestData?.status || "").toLowerCase();
-  const isAccepted = ["accepted", "picked_up", "delivered", "cancelled"].includes(status);
-
-  // Wrap in collapsible details, auto-collapsed if accepted
-  const detailsOpen = !isAccepted; // Open if NOT accepted, closed if accepted
-  
-  const detailsWrapper = document.createElement("details");
-  if (detailsOpen) detailsWrapper.setAttribute("open", "");
-  detailsWrapper.style.marginTop = "10px";
-  
-  const summary = document.createElement("summary");
-  summary.style.cursor = "pointer";
-  summary.style.fontWeight = "600";
-  summary.style.marginBottom = "10px";
-  summary.textContent = `${offers.offers.length} offer${offers.offers.length === 1 ? '' : 's'} received ${isAccepted ? '(accepted - click to view)' : ''}`;
-  
-  detailsWrapper.appendChild(summary);
-
-  for (const o of offers.offers) {
-    const price = offerPriceFromOfferObj(o);
-    const requestId = String(o.request_id || "");
-    const offerId = String(o.id || "");
-
-    if (price) {
-      try { saveOfferPriceForRequestOffer(requestId, offerId, price); } catch (_) {}
-    }
-
-    const card = document.createElement("div");
-    card.className = "card compact";
-    card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:600;">${safeText(o.driver_name || "Driver")}</div>
-          <div class="muted">Price: NZD $${safeText(price || "—")}</div>
-          ${o.note ? `<div class="muted" style="margin-top:4px;">${safeText(o.note)}</div>` : ""}
-        </div>
-        <button
-          class="btn senderOfferAcceptBtn"
-          data-request-id="${safeText(requestId)}"
-          data-offer-id="${safeText(offerId)}"
-          data-offer-price="${safeText(price)}"
-        >Accept</button>
-      </div>
-    `;
-    detailsWrapper.appendChild(card);
-  }
-  
-  list.appendChild(detailsWrapper);
-}
-
-function renderHistory(hist, requestData) {
-  const list = document.getElementById("senderHistoryList");
-  if (!list) return;
-  list.innerHTML = "";
-
-  const events = hist && hist.ok && Array.isArray(hist.events) ? hist.events : (hist?.history || []);
-  if (!hist || !hist.ok) {
-    list.insertAdjacentHTML("beforeend", alertError(hist?.error || "Failed to load history"));
-    return;
-  }
-
-  if (events.length === 0) {
-    list.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
-    return;
-  }
-
-  // Check if offer has been accepted
-  const status = String(requestData?.status || "").toLowerCase();
-  const isAccepted = ["accepted", "picked_up", "delivered", "cancelled"].includes(status);
-
-  // Wrap in collapsible details, auto-collapsed if accepted
-  const detailsOpen = !isAccepted;
-  
-  const detailsWrapper = document.createElement("details");
-  if (detailsOpen) detailsWrapper.setAttribute("open", "");
-  detailsWrapper.style.marginTop = "10px";
-  
-  const summary = document.createElement("summary");
-  summary.style.cursor = "pointer";
-  summary.style.fontWeight = "600";
-  summary.style.marginBottom = "10px";
-  summary.textContent = `${events.length} activity event${events.length === 1 ? '' : 's'} ${isAccepted ? '(click to view)' : ''}`;
-  
-  detailsWrapper.appendChild(summary);
-
-  const card = document.createElement("div");
-  card.className = "card compact";
-  card.innerHTML = `
-    <ul style="margin:0; padding-left:18px;">
-      ${events.slice(0, 12).map((ev) => {
-        const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
-        const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
-        return `<li><strong>${safeText(when)}</strong> — ${safeText(note)}</li>`;
-      }).join("")}
-    </ul>
-  `;
-  detailsWrapper.appendChild(card);
-  list.appendChild(detailsWrapper);
-}
-
-/* ---------------------------------------------------------
-   Fund Escrow
---------------------------------------------------------- */
-
-function setupFundEscrow() {
-  const form = document.getElementById("fundEscrowForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const btn = form.querySelector('button[type="submit"]');
-    const out = document.getElementById("fundEscrowOut");
-    const result = document.getElementById("fundEscrowResult");
-
-    if (btn) btn.disabled = true;
-    if (result) setResult(result, "");
-
-    const requestId = form.request_id.value;
-    const amountNzd = form.amount_nzd.value;
-
-    // ✅ Correct endpoint: /requests/:id/escrow/fund
-    const res = await api(`/requests/${encodeURIComponent(requestId)}/escrow/fund`, {
-      method: "POST",
-      role: "sender",
-      body: { amount_nzd: amountNzd },
-    });
-
-    if (btn) btn.disabled = false;
-    if (out) out.textContent = JSON.stringify(res, null, 2);
-
-    if (res.ok && res.checkout_url) {
-      if (result) setResult(result, alertSuccess("Redirecting to Stripe…"));
-      
-      // Save token before redirect (if provided)
-      if (res.sender_token) {
-        saveSenderTokenForRequest(requestId, res.sender_token);
-      }
-
-      setTimeout(() => {
-        window.location.href = res.checkout_url;
-      }, 400);
-    } else {
-      if (result) setResult(result, alertError(res.error || "Failed to create checkout"));
-    }
-  });
-}
-
-/* ---------------------------------------------------------
-   Confirm Release
---------------------------------------------------------- */
-
-function setupConfirmRelease() {
-  const form = document.getElementById("releaseEscrowForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const btn = form.querySelector('button[type="submit"]');
-    const out = document.getElementById("releaseEscrowOut");
-    const result = document.getElementById("releaseEscrowResult");
-
-    if (btn) btn.disabled = true;
-    if (result) setResult(result, "");
-
-    const requestId = form.request_id.value;
-
-    const res = await api(`/requests/${requestId}/escrow/release`, {
-      method: "POST",
-      role: "sender",
-      body: {},
-    });
-
-    if (btn) btn.disabled = false;
-    if (out) out.textContent = JSON.stringify(res, null, 2);
-
-    if (res.ok) {
-      if (result) setResult(result, alertSuccess("Escrow released"));
-      
-      // Refresh view
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm) {
-        viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      }
-    } else {
-      if (result) setResult(result, alertError(res.error || "Failed to release"));
-    }
-  });
-}
-
-/* ---------------------------------------------------------
-   Offer accept - IMPROVED: Auto-scroll to payment
---------------------------------------------------------- */
-
-function setupSenderOffersActions() {
-  document.addEventListener("click", async (e) => {
-    const btn = e.target?.closest?.(".senderOfferAcceptBtn");
-    if (!btn) return;
-
-    const requestId = String(btn.dataset.requestId || "").trim();
-    const offerId = String(btn.dataset.offerId || "").trim();
-    const offerPrice = String(btn.dataset.offerPrice || "").trim();
-
-    if (!requestId || !offerId) return;
-
-    const out = document.getElementById("viewOffersResult");
-    const old = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Accepting…";
 
     try {
-      const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
-      if (p) saveOfferPriceForRequestOffer(requestId, offerId, p);
-    } catch (_) {}
-
-    const res = await api(
-      `/requests/${encodeURIComponent(requestId)}/offers/${encodeURIComponent(offerId)}/accept`,
-      { method: "POST", role: "sender", body: {} }
-    );
-
-    btn.textContent = old;
-
-    if (res.ok) {
-      if (out) setResult(out, alertSuccess("Offer accepted"));
-
-      try {
-        document
-          .querySelectorAll(`.senderOfferAcceptBtn[data-request-id="${CSS.escape(requestId)}"]`)
-          .forEach((b) => {
-            b.disabled = true;
-            if (String(b.dataset.offerId || "") === offerId) b.textContent = "Accepted";
-            else b.textContent = "Not selected";
-          });
-      } catch (_) {}
-
-      const p = offerPrice || loadOfferPriceForRequestOffer(requestId, offerId);
-      if (p) {
-        try { saveAcceptedPriceForRequest(requestId, p); } catch (_) {}
-      }
-
-      // ✅ Auto-scroll to payment form and pre-fill
-      try {
-        const fundForm = document.getElementById("fundEscrowForm");
-        if (fundForm) {
-          if (fundForm.request_id) fundForm.request_id.value = requestId;
-
-          const amt = p || loadAcceptedPriceForRequest(requestId);
-          if (fundForm.amount_nzd && amt) {
-            fundForm.amount_nzd.value = amt;
-            fundForm.amount_nzd.readOnly = true;
-          }
-
-          fundForm.scrollIntoView?.({ behavior: "smooth", block: "start" });
-        }
-      } catch (_) {}
-
-      // Refresh view to update banner
-      try {
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm) viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      } catch (_) {}
-
+      data.driver_license_front_base64 = await fileToDataUrl(frontFile);
+      data.driver_license_back_base64 = await fileToDataUrl(backFile);
+    } catch (err) {
+      done(false);
+      setResult(result, alertError(err?.message || "Failed to process licence photos"));
       return;
     }
 
-    btn.disabled = false;
-    if (out) setResult(out, alertError(res.error || "Failed"));
+    const res = await api("/users/driver/apply", { method: "POST", body: data });
+
+    done(!!res.ok);
+    if (res.ok) {
+      saveUserToken(res.user_token || res.userToken || res.auth_token);
+      markDriverRegistered(res.user);
+      enforceDriverGate();
+      setResult(result, alertSuccess("Submitted"));
+    } else {
+      const msg = res.details
+        ? `${res.error}<br><span class="muted">${escapeHtml(res.details)}</span>`
+        : res.error;
+      setResult(result, alertError(msg || "Failed"));
+    }
   });
 }
 
-/* ---------------------------------------------------------
-   Stripe return auto-refresh - IMPROVED: Better UX
---------------------------------------------------------- */
-
-function getQueryParam(name) {
-  const u = new URL(window.location.href);
-  return u.searchParams.get(name);
-}
-
-function handlePaidRedirectRefresh() {
-  const paid = getQueryParam("paid");
-  const requestId = getQueryParam("request_id");
-  if (paid !== "1" || !requestId) return;
-
-  // Show success message
-  const banner = document.getElementById("senderNextActionBanner");
-  if (banner) {
-    banner.innerHTML = `
-      <div class="alert success">
-        <strong>✓ Payment successful</strong>
-        <div class="muted" style="margin-top:4px;">Loading your request details...</div>
-      </div>
-    `;
-  }
-
-  const form = document.getElementById("viewRequestForm");
+/* -----------------------------
+   Login / Logout
+----------------------------- */
+function setupDriverLogin() {
+  const form = document.getElementById("driverLoginForm");
+  const hint = document.getElementById("driverAuthHint");
   if (!form) return;
 
-  if (form.request_id) form.request_id.value = requestId;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const phone = String(fd.get("phone") || "").trim();
+    const email = String(fd.get("email") || "").trim() || undefined;
 
-  // Auto-load request details after payment
-  setTimeout(() => {
-    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-  }, 800);
+    if (!phone) {
+      if (hint) hint.textContent = "Phone is required";
+      return;
+    }
 
-  setTimeout(() => {
-    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-  }, 3000);
+    if (hint) hint.textContent = "Logging in…";
+
+    // Backend login no longer requires invite_code (invite codes are onboarding only)
+    const res = await api("/users/login", { method: "POST", body: { phone, ...(email && { email }) } });
+
+    if (!res.ok) {
+      if (hint) hint.textContent = res.error || "Login failed";
+      return;
+    }
+
+    saveUserToken(res.user_token);
+    markDriverRegistered(res.user);
+    enforceDriverGate();
+    if (hint) hint.textContent = `Logged in as ${res.user?.phone || phone}`;
+  });
 }
 
-/* ---------------------------------------------------------
-   Login + logout - FIXED: dm_user_token
---------------------------------------------------------- */
+function setupDriverLogout() {
+  const btn = document.getElementById("driverLogoutBtn");
+  const hint = document.getElementById("driverAuthHint");
+  if (!btn) return;
 
-function setupSenderAuth() {
-  // --- Registration form ---
-  const regForm = document.getElementById("senderRegForm");
-  const regResult = document.getElementById("senderRegResult");
+  btn.addEventListener("click", () => {
+    localStorage.removeItem("dm_driver_registered");
+    localStorage.removeItem("dm_user_driver");
+    sessionStorage.removeItem("dm_user_driver");
 
-  if (regForm) {
-    regForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = getFormData(regForm);
-      const phone = String(fd.phone || "").trim();
-      const invite_code = String(fd.invite_code || "").trim();
-      const full_name = String(fd.full_name || "").trim();
-      const email = String(fd.email || "").trim() || undefined;
+    // clear tokens
+    sessionStorage.removeItem("dm_driver_token");
+    sessionStorage.removeItem("dm_user_token");
+    localStorage.removeItem("dm_user_token");
+    localStorage.removeItem("dm_driver_user_token");
 
-      if (!phone) {
-        if (regResult) setResult(regResult, alertError("Phone is required."));
-        return;
-      }
-      if (!invite_code) {
-        if (regResult) setResult(regResult, alertError("Invite code is required."));
-        return;
-      }
+    // Clear BOTH sender and driver user data to prevent cross-contamination
+    localStorage.removeItem("dm_sender_user");
+    localStorage.removeItem("dm_driver_user");
 
-      const btn = regForm.querySelector("button[type=submit]");
-      const done = setWorking(btn, "Registering...");
+    enforceDriverGate();
+    if (hint) hint.textContent = "";
+  });
+}
 
-      const res = await api("/users/register", {
-        method: "POST",
-        role: "sender",
-        body: { phone, invite_code, full_name, ...(email && { email }) },
-      });
-
-      done(!!res.ok);
-
-      if (!res.ok) {
-        if (regResult) setResult(regResult, alertError(res.error || "Registration failed"));
-        return;
-      }
-
-      // Save token and log in automatically
-      sessionStorage.setItem("dm_user_token", res.user_token);
-      localStorage.setItem("dm_user_token", res.user_token);
-      saveUser({ phone, email });
-      setAuthStatus(`Logged in as ${phone}`);
-      setDashboardVisible(true);
-      if (regResult) setResult(regResult, alertSuccess("Registered and logged in!"));
-      renderRecentRequests();
-      setTimeout(() => renderSenderActiveRequests(), 500);
-    });
-  }
-
-  // --- Login form ---
-  const form = document.getElementById("senderLoginForm");
+/* -----------------------------
+   Make Offer
+----------------------------- */
+function setupMakeOffer() {
+  const form = $("#driverOfferForm");
+  const result = $("#driverOfferResult");
   if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const fd = getFormData(form);
-    const phone = String(fd.phone || "").trim();
-    const email = String(fd.email || "").trim() || undefined;
-
-    const out =
-      document.getElementById("senderLoginResult") ||
-      document.getElementById("senderAuthHint");
-
-    if (!phone) {
-      if (out) setResult(out, alertError("Phone is required."));
+    const offerBtn = document.getElementById("driverOfferBtn");
+    if (offerBtn && offerBtn.disabled) {
+      setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
       return;
     }
 
-    const res = await api("/users/login", {
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    setResult(result, "");
+
+    const data = getFormData(form);
+    const requestId = data.request_id;
+    delete data.request_id;
+
+    // ✅ This is what the backend checks
+    Object.assign(data, getDriverAckMeta());
+
+    // Optional convenience fields
+    const u = getSavedDriverUser();
+    if (u?.phone) data.driver_phone = u.phone;
+    if (u?.full_name) data.driver_name = u.full_name;
+
+    const res = await api(`/requests/${requestId}/offers`, {
       method: "POST",
-      role: "sender",
-      body: { phone, ...(email && { email }) }
+      body: data,
+      role: "driver",
     });
 
-    if (!res.ok) {
-      if (out) setResult(out, alertError(res.error || "Login failed"));
-      setAuthStatus("Not logged in");
-      setDashboardVisible(false);
-      return;
+    done(!!res.ok);
+    if (res.ok) setResult(result, alertSuccess("Offer sent"));
+    else setResult(result, alertError(res.error || "Failed"));
+    
+    // NEW: After successful offer, refresh assigned jobs and update banner
+    if (res && res.ok) {
+      try {
+        refreshDriverAssignedJobs();
+        
+        // Show banner for submitted offer
+        updateDriverNextActionBanner({
+          id: requestId,
+          status: "open",
+          driver_name: getSavedDriverUser()?.full_name || "",
+        });
+      } catch (_) {}
     }
-
-    // ✅ Save unified auth token
-    sessionStorage.setItem("dm_user_token", res.user_token);
-    localStorage.setItem("dm_user_token", res.user_token);
-
-    saveUser({ phone });
-    setAuthStatus(`Logged in as ${phone}`);
-    setDashboardVisible(true);
-
-    if (out) setResult(out, alertSuccess("Logged in"));
-    renderRecentRequests();
-    // Fetch profile silently to pre-fill pickup suburb and refresh snapshot if open
-    try { loadSenderProfileSnapshot(); } catch (_) {}
   });
-
-  const logoutBtn = document.getElementById("senderLogoutBtn");
-  if (logoutBtn && !logoutBtn.__bound) {
-    logoutBtn.__bound = true;
-    logoutBtn.addEventListener("click", () => {
-      sessionStorage.removeItem("dm_user_token");
-      localStorage.removeItem("dm_user_token");
-      // Clear BOTH sender and driver user data to prevent cross-contamination
-      localStorage.removeItem("dm_sender_user");
-      localStorage.removeItem("dm_driver_user");
-      setAuthStatus("Not logged in");
-      setDashboardVisible(false);
-    });
-  }
 }
 
-/* ---------------------------------------------------------
-   Quick buttons (scroll helpers)
---------------------------------------------------------- */
-
-function setupQuickButtons() {
-  const payBtn = document.getElementById("senderQuickPayBtn");
-  const relBtn = document.getElementById("senderQuickReleaseBtn");
-  const viewBtn = document.getElementById("senderQuickViewBtn");
-  const copyBtn = document.getElementById("senderQuickCopyBtn");
-
-  if (payBtn && !payBtn.__bound) {
-    payBtn.__bound = true;
-    payBtn.addEventListener("click", () => {
-      const sel = document.getElementById("senderRecentSelect");
-      const id = String(sel?.value || "").trim();
-      const fundForm = document.getElementById("fundEscrowForm");
-      if (fundForm && id) {
-        if (fundForm.request_id) fundForm.request_id.value = id;
-        const price = loadAcceptedPriceForRequest(id);
-        if (fundForm.amount_nzd && price) {
-          fundForm.amount_nzd.value = price;
-          fundForm.amount_nzd.readOnly = true;
-        }
-      }
-      fundForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    });
-  }
-
-  if (relBtn && !relBtn.__bound) {
-    relBtn.__bound = true;
-    relBtn.addEventListener("click", () => {
-      const sel = document.getElementById("senderRecentSelect");
-      const id = String(sel?.value || "").trim();
-      const releaseForm = document.getElementById("releaseEscrowForm");
-      if (releaseForm && id) {
-        if (releaseForm.request_id) releaseForm.request_id.value = id;
-      }
-      releaseForm?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    });
-  }
-
-  if (viewBtn && !viewBtn.__bound) {
-    viewBtn.__bound = true;
-    viewBtn.addEventListener("click", () => {
-      document.getElementById("viewRequestForm")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    });
-  }
-
-  if (copyBtn && !copyBtn.__bound) {
-    copyBtn.__bound = true;
-    copyBtn.addEventListener("click", async () => {
-      const sel = document.getElementById("senderRecentSelect");
-      const id = String(sel?.value || "").trim();
-      if (!id) return;
-      try { await navigator.clipboard.writeText(id); } catch (_) {}
-    });
-  }
-
-  const recentSel = document.getElementById("senderRecentSelect");
-  if (recentSel && !recentSel.__bound) {
-    recentSel.__bound = true;
-    recentSel.addEventListener("change", () => {
-      const id = String(recentSel.value || "").trim();
-      if (!id) return;
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm && viewForm.request_id) {
-        viewForm.request_id.value = id;
-        viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      }
-    });
-  }
-}
-
-/* ---------------------------------------------------------
-   Active Requests - Show requests needing action at top of dashboard
---------------------------------------------------------- */
-
-async function renderSenderActiveRequests() {
-  const listEl = document.getElementById("senderActiveRequestsList");
-  const countEl = document.getElementById("senderActiveRequestsCount");
+/* -----------------------------
+   Active Jobs (jobs that need driver action)
+----------------------------- */
+async function renderDriverActiveJobs() {
+  const listEl = document.getElementById("driverActiveJobsList");
+  const countEl = document.getElementById("driverActiveJobsCount");
+  const resultEl = document.getElementById("driverActiveJobsResult");
+  
   if (!listEl) return;
-
+  
   listEl.innerHTML = `<div class="muted">Loading...</div>`;
-
-  const res = await api("/sender/requests", { method: "GET", role: "sender" });
+  if (countEl) countEl.textContent = "Loading...";
+  
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
   if (!res || !res.ok) {
-    listEl.innerHTML = `<div class="muted">No active requests yet. Create a delivery request below to get started!</div>`;
-    if (countEl) countEl.textContent = "No active requests.";
+    // ✅ Fail silently - token may not be ready yet, don't show scary errors
+    listEl.innerHTML = `<div class="muted">No active jobs. Browse open jobs below to make offers!</div>`;
+    if (countEl) countEl.textContent = "No active jobs.";
+    if (resultEl) resultEl.innerHTML = "";
     return;
   }
-
+  
   const all = Array.isArray(res.requests) ? res.requests : [];
-
-  // Filter to only requests that need action
-  const active = all.filter(r => {
+  
+  // Filter to jobs that need action
+  const needsAction = all.filter(r => {
     const status = String(r?.status || "").toLowerCase();
     const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
-    return !["cancelled", "released", "completed"].includes(status) &&
-           !(status === "delivered" && escrowStatus === "released");
+    
+    // Show if: 
+    // - Offer accepted, escrow funded, ready for pickup
+    // - Picked up, ready for delivery
+    return (status === "accepted" && escrowStatus === "funded") || 
+           (status === "picked_up");
   });
-
-  if (active.length === 0) {
-    listEl.innerHTML = `<div class="muted">No active requests. Create a new delivery request below!</div>`;
-    if (countEl) countEl.textContent = "No active requests.";
+  
+  // Also show offers waiting for acceptance
+  const offersPending = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
+    return (status === "open") || (status === "accepted" && escrowStatus === "none");
+  });
+  
+  const allActive = [...needsAction, ...offersPending];
+  
+  if (allActive.length === 0) {
+    listEl.innerHTML = `<div class="muted">No active jobs. Browse "Open Jobs" below to make offers!</div>`;
+    if (countEl) countEl.textContent = "No active jobs.";
     return;
   }
-
-  // Count needs-action vs waiting
-  const needsAction = active.filter(r => {
-    const status = String(r?.status || "").toLowerCase();
-    const escrowStatus = String(r?.escrow_status || "none").toLowerCase();
-    return (status === "open" && (r.offers_count > 0 || r.has_offers)) ||
-           (status === "accepted" && escrowStatus === "none") ||
-           (status === "delivered" && escrowStatus === "pending_release");
-  });
-
+  
   if (countEl) {
-    if (needsAction.length > 0) {
-      countEl.textContent = `${needsAction.length} request${needsAction.length === 1 ? '' : 's'} need${needsAction.length === 1 ? 's' : ''} your attention!`;
+    const actionCount = needsAction.length;
+    const pendingCount = offersPending.length;
+    
+    if (actionCount > 0 && pendingCount > 0) {
+      countEl.textContent = `${actionCount} job${actionCount === 1 ? '' : 's'} ready for action, ${pendingCount} offer${pendingCount === 1 ? '' : 's'} pending.`;
+    } else if (actionCount > 0) {
+      countEl.textContent = `${actionCount} job${actionCount === 1 ? '' : 's'} ready for action!`;
     } else {
-      countEl.textContent = `${active.length} active request${active.length === 1 ? '' : 's'} in progress.`;
+      countEl.textContent = `${pendingCount} offer${pendingCount === 1 ? '' : 's'} waiting for sender acceptance.`;
     }
   }
+  
+  listEl.innerHTML = "";
+
+  // Count active jobs (accepted/picked_up only — not pending offers)
+  const activeJobCount = allActive.filter(r => {
+    const s = String(r?.status || "").toLowerCase();
+    return s === "accepted" || s === "picked_up";
+  }).length;
 
   const MAX_DISPLAY = 5;
-  const displayed = active.slice(0, MAX_DISPLAY);
-  const remaining = active.length - displayed.length;
-
-  listEl.innerHTML = "";
+  const displayed = allActive.slice(0, MAX_DISPLAY);
+  const remaining = allActive.length - displayed.length;
 
   for (const r of displayed) {
     const id = String(r.id || "");
     const status = String(r.status || "").toLowerCase();
     const escrowStatus = String(r.escrow_status || "none").toLowerCase();
-    const pickup = safeText(r.pickup_suburb || "");
-    const dropoff = safeText(r.dropoff_suburb || "");
-    const offersCount = r.offers_count || r.offers?.length || 0;
-
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const item = escapeHtml((r.item_description || "").slice(0, 60));
+    
     const card = document.createElement("div");
     card.className = "card";
     card.style.margin = "8px 0";
     card.style.padding = "12px";
-
-    // Determine state message, action button, and card colour
+    
+    // Determine status message and action button
     let statusMessage = "";
     let actionButton = "";
     let cardStyle = "";
-
-    // State: Open, no offers yet
-    if (status === "open" && offersCount === 0) {
-      statusMessage = `⏳ <strong>Waiting for driver offers</strong>`;
-      cardStyle = "background: rgba(148,163,184,.08); border-color: rgba(148,163,184,.3);";
-    }
-
-    // State: Open, has offers - needs action!
-    else if (status === "open" && offersCount > 0) {
-      statusMessage = `🙋 <strong>${offersCount} offer${offersCount === 1 ? '' : 's'} received!</strong> — Review and accept`;
-      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.4);";
-      actionButton = `<button class="btn activeReqViewBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%;">Review Offers</button>`;
-    }
-
-    // State: Accepted, needs payment - needs action!
-    else if (status === "accepted" && escrowStatus === "none") {
-      statusMessage = `💳 <strong>Offer accepted!</strong> — Payment required to proceed`;
-      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.4);";
-      actionButton = `<button class="btn activeReqFundBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%; background:#0284c7; border-color:#0284c7;">💳 Pay with Stripe</button>`;
-    }
-
-    // State: Funded, waiting for pickup
-    else if (status === "accepted" && escrowStatus === "funded") {
-      statusMessage = `✓ <strong>Payment confirmed</strong> — Waiting for driver pickup`;
-      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
-    }
-
-    // State: Picked up
-    else if (status === "picked_up") {
-      statusMessage = `🚗 <strong>Item picked up!</strong> — On the way to drop-off`;
-      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
-    }
-
-    // State: Delivered, confirm release - needs action!
-    else if (status === "delivered" && escrowStatus === "pending_release") {
-      statusMessage = `📦 <strong>Item delivered!</strong> — Confirm to release payment`;
-      cardStyle = "background: rgba(34,197,94,.05); border-color: rgba(34,197,94,.4);";
-      actionButton = `<button class="btn activeReqReleaseBtn" data-id="${safeText(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">✓ Confirm Delivery & Release Payment</button>`;
-    }
-
-    // Determine if cancellable and what warning to show
-    let cancelButton = "";
+    
+    // State: Offer pending
     if (status === "open") {
-      const warning = offersCount > 0
-        ? `This will reject ${offersCount} pending offer${offersCount === 1 ? '' : 's'}.`
-        : "";
-      cancelButton = `<button class="btn activeReqCancelBtn" data-id="${safeText(id)}" data-warning="${safeText(warning)}" style="margin-top:8px; width:100%; background:transparent; border-color:#dc2626; color:#dc2626;">✕ Cancel Request</button>`;
-    } else if (status === "accepted" && escrowStatus === "none") {
-      cancelButton = `<button class="btn activeReqCancelBtn" data-id="${safeText(id)}" data-warning="The driver's offer will be cancelled and they will be notified by email." style="margin-top:8px; width:100%; background:transparent; border-color:#dc2626; color:#dc2626;">✕ Cancel Request</button>`;
-    } else if (status === "accepted" && escrowStatus === "funded") {
-      cancelButton = `<div class="muted" style="margin-top:8px; font-size:13px;">⚠️ Payment already made — to cancel please contact support.</div>`;
-    } else if (status === "picked_up") {
-      cancelButton = `<div class="muted" style="margin-top:8px; font-size:13px;">⚠️ Item is in transit — to cancel please contact support.</div>`;
+      statusMessage = `⏳ <strong>Offer pending</strong> — Waiting for sender to accept`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
     }
-
+    
+    // State: Accepted but not funded
+    else if (status === "accepted" && escrowStatus === "none") {
+      statusMessage = `✓ <strong>Offer accepted!</strong> — Waiting for sender to fund escrow`;
+      cardStyle = "background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3);";
+    }
+    
+    // State: Ready for pickup
+    else if (status === "accepted" && escrowStatus === "funded") {
+      statusMessage = `💰 <strong>Payment escrowed</strong> — Ready for pickup`;
+      cardStyle = "background: rgba(34,197,94,.05); border-color: rgba(34,197,94,.3);";
+      actionButton = `<button class="btn activeJobPickupBtn" data-id="${escapeHtml(id)}" style="margin-top:10px; width:100%; background:#16a34a; border-color:#16a34a;">Mark as Picked Up</button>`;
+    }
+    
+    // State: Picked up, in transit
+    else if (status === "picked_up") {
+      statusMessage = `🚗 <strong>In transit</strong> — Ready for delivery`;
+      cardStyle = "background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3);";
+      actionButton = `<button class="btn activeJobDeliverBtn" data-id="${escapeHtml(id)}" style="margin-top:10px; width:100%; background:#0284c7; border-color:#0284c7;">Mark as Delivered</button>`;
+    }
+    
     card.style.cssText += cardStyle;
+    
+    // Sender contact info (available once offer accepted)
+    const senderPhone = r.sender_phone || "";
+    const senderName = r.sender_name || "Sender";
+    const contactHtml = (status !== "open" && senderPhone) ? `
+      <div style="margin-top:10px; padding:8px; background:rgba(255,255,255,.5); border-radius:4px; border:1px solid rgba(0,0,0,.1);">
+        <div style="font-size:12px; font-weight:600; margin-bottom:2px;">📞 Sender Contact</div>
+        <div style="font-size:13px;"><strong>${escapeHtml(senderName)}</strong></div>
+        <div class="muted" style="font-size:12px;">Phone: ${escapeHtml(senderPhone)}</div>
+      </div>
+    ` : "";
+    
     card.innerHTML = `
       <div>
-        <div style="font-weight:700;">Request #${safeText(id)}</div>
-        <div style="margin-top:4px;">${pickup} → ${dropoff}</div>
+        <div style="font-weight:700;">Request #${escapeHtml(id)}</div>
+        <div style="margin-top:4px;"><strong>${pickup} → ${dropoff}</strong></div>
+        <div class="muted" style="margin-top:4px;">${item}</div>
         <div style="margin-top:8px; font-size:14px;">${statusMessage}</div>
+        ${contactHtml}
         ${actionButton}
-        ${cancelButton}
       </div>
     `;
-
+    
     listEl.appendChild(card);
   }
 
@@ -1511,163 +784,828 @@ async function renderSenderActiveRequests() {
     const moreEl = document.createElement("div");
     moreEl.className = "muted";
     moreEl.style.cssText = "text-align:center; padding:8px; font-size:13px;";
-    moreEl.textContent = `+ ${remaining} more request${remaining === 1 ? '' : 's'} — scroll down to "All My Requests" to view`;
+    moreEl.textContent = `+ ${remaining} more job${remaining === 1 ? '' : 's'} — scroll down to "My Assigned Jobs" to view all`;
     listEl.appendChild(moreEl);
   }
 
-  // Warn when approaching the 10-request limit
-  if (active.length >= 8) {
+  // Warn when approaching the 10-active-job limit
+  if (activeJobCount >= 8) {
     const warnEl = document.createElement("div");
     warnEl.style.cssText = "margin-top:8px; padding:10px 12px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:6px; font-size:13px; color:#92400e;";
-    if (active.length >= 10) {
-      warnEl.innerHTML = `⚠️ <strong>Request limit reached (${active.length}/10).</strong> You must complete or cancel a request before creating new ones.`;
+    if (activeJobCount >= 10) {
+      warnEl.innerHTML = `⚠️ <strong>Job limit reached (${activeJobCount}/10).</strong> You cannot submit new offers until you complete an active delivery.`;
     } else {
-      warnEl.innerHTML = `⚠️ You have ${active.length}/10 active requests. Complete or cancel requests to stay under the limit.`;
+      warnEl.innerHTML = `⚠️ You have ${activeJobCount}/10 active jobs. Complete deliveries to stay under the limit.`;
     }
     listEl.appendChild(warnEl);
   }
-  listEl.onclick = async (e) => {
-    const viewBtn = e.target?.closest?.(".activeReqViewBtn");
-    const fundBtn = e.target?.closest?.(".activeReqFundBtn");
-    const releaseBtn = e.target?.closest?.(".activeReqReleaseBtn");
-    const cancelBtn = e.target?.closest?.(".activeReqCancelBtn");
-
-    // Cancel request
-    if (cancelBtn) {
-      const id = cancelBtn.dataset.id;
-      const warning = cancelBtn.dataset.warning;
-
-      const confirmMsg = warning
-        ? `Cancel Request #${id}?\n\n${warning}`
-        : `Cancel Request #${id}? This cannot be undone.`;
-
-      if (!confirm(confirmMsg)) return;
-
-      cancelBtn.disabled = true;
-      cancelBtn.textContent = "Cancelling...";
-
-      const res = await api(`/requests/${id}/status`, {
-        method: "PATCH",
-        role: "sender",
-        body: { status: "cancelled" },
-      });
-
-      if (res.ok) {
-        // Refresh active requests to remove cancelled card
-        renderSenderActiveRequests();
-        // Also refresh view if this request was loaded
-        const viewForm = document.getElementById("viewRequestForm");
-        if (viewForm?.request_id?.value === id) {
-          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        }
-      } else {
-        alert(res.error || "Failed to cancel request");
-        cancelBtn.disabled = false;
-        cancelBtn.textContent = "✕ Cancel Request";
-      }
+  listEl.onclick = (e) => {
+    const pickupBtn = e.target?.closest?.(".activeJobPickupBtn");
+    const deliverBtn = e.target?.closest?.(".activeJobDeliverBtn");
+    
+    if (pickupBtn) {
+      const id = pickupBtn.dataset.id;
+      handleQuickStatusUpdate(id, "picked_up");
     }
-
-    // Review Offers → load the request in View section
-    if (viewBtn) {
-      const id = viewBtn.dataset.id;
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm) {
-        viewForm.request_id.value = id;
-        viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      }
-    }
-
-    // Pay → auto-fill and submit fund form
-    if (fundBtn) {
-      const id = fundBtn.dataset.id;
-      const fundForm = document.getElementById("fundEscrowForm");
-      if (fundForm) {
-        if (fundForm.request_id) fundForm.request_id.value = id;
-        const price = loadAcceptedPriceForRequest(id);
-        if (fundForm.amount_nzd && price) {
-          fundForm.amount_nzd.value = price;
-          fundForm.amount_nzd.readOnly = true;
-        }
-        fundForm.scrollIntoView({ behavior: "smooth", block: "start" });
-        setTimeout(() => {
-          fundForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        }, 300);
-      }
-    }
-
-    // Confirm release → scroll to View Request Details to see full context
-    if (releaseBtn) {
-      const id = releaseBtn.dataset.id;
-      
-      // Load the request in View Request Details section
-      const viewForm = document.getElementById("viewRequestForm");
-      if (viewForm) {
-        viewForm.request_id.value = id;
-        
-        // Scroll to View Request Details section
-        const viewSection = viewForm.closest('section');
-        if (viewSection) {
-          viewSection.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-        
-        // Auto-load the request to show delivery photo, report card, and confirm button
-        setTimeout(() => {
-          viewForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-        }, 300);
-      }
+    
+    if (deliverBtn) {
+      const id = deliverBtn.dataset.id;
+      handleQuickStatusUpdate(id, "delivered");
     }
   };
 }
 
-/* ---------------------------------------------------------
-   Sender Profile section
+async function handleQuickStatusUpdate(requestId, newStatus) {
+  // Check acknowledgements
+  const statusBtn = document.getElementById("driverStatusBtn");
+  if (statusBtn && statusBtn.disabled) {
+    alert("Please confirm driver acknowledgements before updating status.");
+    return;
+  }
+  
+  // For delivered, need photo
+  if (newStatus === "delivered") {
+    // Scroll to status form for photo upload
+    const statusForm = document.getElementById("driverStatusForm");
+    if (statusForm) {
+      statusForm.request_id.value = requestId;
+      document.getElementById("driverStatusSelect").value = "delivered";
+      
+      // Expand the Quick Actions section if collapsed
+      const quickActions = statusForm.closest("details");
+      if (quickActions && !quickActions.open) {
+        quickActions.open = true;
+      }
+      
+      statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      
+      // Focus on photo input
+      setTimeout(() => {
+        const photoInput = document.getElementById("delivered_photo_file");
+        if (photoInput) photoInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 500);
+    }
+    return;
+  }
+  
+  // For picked_up, can submit directly
+  if (!confirm(`Mark Request #${requestId} as picked up?`)) return;
+  
+  const body = { 
+    status: newStatus,
+    ...getDriverAckMeta()
+  };
+  
+  const res = await api(`/requests/${requestId}/status`, { 
+    method: "PATCH", 
+    body, 
+    role: "driver" 
+  });
+  
+  if (res.ok) {
+    // Refresh active jobs list
+    renderDriverActiveJobs();
+    refreshDriverAssignedJobs();
+  } else {
+    alert(res.error || "Failed to update status");
+  }
+}
+
+/* -----------------------------
+   Assigned jobs -> populate existing "Recent jobs" card
+----------------------------- */
+async function refreshDriverAssignedJobs() {
+  const sel = document.getElementById("driverRecentSelect");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">Loading…</option>`;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    // ✅ Fail silently - token may not be ready
+    sel.innerHTML = `<option value="">(No assigned jobs)</option>`;
+    return;
+  }
+
+  const list = Array.isArray(res.requests) ? res.requests : [];
+
+  // Track which requests are assigned to this driver (used to decide Preview vs Full View)
+  dmAssignedJobIds = new Set(list.map(r => String(r?.id ?? "")));
+
+  sel.innerHTML = "";
+
+  if (list.length === 0) {
+    sel.innerHTML = `<option value="">(No assigned jobs)</option>`;
+    return;
+  }
+
+  sel.insertAdjacentHTML("beforeend", `<option value="">Select a job…</option>`);
+
+  for (const r of list) {
+    const id = String(r.id || "");
+    const status = String(r.status || "");
+    const pickup = String(r.pickup_suburb || "");
+    const dropoff = String(r.dropoff_suburb || "");
+    const label = `#${id} · ${pickup} → ${dropoff} · ${status}`;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  }
+}
+
+function setupDriverRecentJobsAssigned() {
+  const sel = document.getElementById("driverRecentSelect");
+  const useBtn = document.getElementById("driverRecentUseBtn");
+  const clearBtn = document.getElementById("driverRecentClearBtn");
+  const viewForm = document.getElementById("driverViewForm");
+  
+  // NEW: Quick action buttons
+  const quickViewBtn = document.getElementById("driverQuickViewBtn");
+  const quickCopyBtn = document.getElementById("driverQuickCopyBtn");
+  const quickUpdateBtn = document.getElementById("driverQuickUpdateBtn");
+  
+  if (!sel || !viewForm) return;
+
+  const loadSelected = () => {
+    const id = String(sel.value || "").trim();
+    if (!id) return;
+
+    // Fill the request id field in the View My Job form
+    viewForm.request_id.value = id;
+
+    // Trigger the existing load logic
+    viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  };
+
+  // Keep the Use button (optional), but also auto-load when selecting
+  if (useBtn) useBtn.addEventListener("click", loadSelected);
+  sel.addEventListener("change", loadSelected);
+
+  // NEW: Quick View button
+  if (quickViewBtn && !quickViewBtn.__bound) {
+    quickViewBtn.__bound = true;
+    quickViewBtn.addEventListener("click", () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      viewForm.request_id.value = id;
+      viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+  }
+
+  // NEW: Quick Copy ID button
+  if (quickCopyBtn && !quickCopyBtn.__bound) {
+    quickCopyBtn.__bound = true;
+    quickCopyBtn.addEventListener("click", async () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      try {
+        await navigator.clipboard.writeText(id);
+      } catch (_) {}
+    });
+  }
+
+  // NEW: Quick Update Status button
+  if (quickUpdateBtn && !quickUpdateBtn.__bound) {
+    quickUpdateBtn.__bound = true;
+    quickUpdateBtn.addEventListener("click", () => {
+      const id = String(sel.value || "").trim();
+      if (!id) return;
+      const statusForm = document.getElementById("driverStatusForm");
+      if (statusForm) {
+        if (statusForm.request_id) statusForm.request_id.value = id;
+        statusForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  // Clear just refreshes the list from server (your existing behaviour)
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      refreshDriverAssignedJobs();
+    });
+  }
+
+  // initial load
+  refreshDriverAssignedJobs();
+}
+
+// Cache for open jobs preview + quick auth gating
+let dmOpenJobsCache = {};          // id -> request summary
+let dmAssignedJobIds = new Set();  // assigned request ids
+
+/* -----------------------------
+   Open jobs (marketplace) list
+----------------------------- */
+function formatOpenJobLine(r) {
+  const id = String(r?.id ?? "");
+  const pickup = String(r?.pickup_suburb ?? "");
+  const dropoff = String(r?.dropoff_suburb ?? "");
+  const item = String(r?.item_description ?? r?.item ?? r?.description ?? "");
+  const status = String(r?.status ?? "");
+  const price = r?.price_nzd ?? r?.sender_price_nzd ?? r?.budget_nzd;
+
+  const bits = [];
+  bits.push(`#${id}`);
+  if (pickup || dropoff) bits.push(`${pickup} → ${dropoff}`);
+  if (item) bits.push(item.length > 60 ? item.slice(0, 60) + "…" : item);
+  if (price != null && price !== "") bits.push(`$${price}`);
+  if (status) bits.push(status);
+
+  return bits.filter(Boolean).join(" · ");
+}
+function renderOpenJobPreview(r) {
+  const jobSummary = document.getElementById("driverJobSummary");
+  const historyList = document.getElementById("driverHistoryList");
+  const statusSummary = document.getElementById("driverStatusSummary");
+  const viewResult = document.getElementById("driverViewResult");
+
+  const id = String(r?.id ?? "");
+  const pickup = String(r?.pickup_suburb ?? "");
+  const dropoff = String(r?.dropoff_suburb ?? "");
+  const item = String(r?.item_description ?? r?.item ?? r?.description ?? "");
+  const price = r?.price_nzd ?? r?.sender_price_nzd ?? r?.budget_nzd;
+  const status = String(r?.status ?? "open");
+
+  const line = formatOpenJobLine(r);
+
+  const previewCard = `
+    <div class="card compact">
+      <div style="font-weight:600;">${escapeHtml(line)}</div>
+      <div class="muted" style="margin-top:8px;">
+        Preview only — full details and history appear after this job is assigned to you.
+      </div>
+      <div style="margin-top:10px;">
+        <div><strong>From:</strong> ${escapeHtml(pickup || "-")}</div>
+        <div><strong>To:</strong> ${escapeHtml(dropoff || "-")}</div>
+        ${item ? `<div style="margin-top:6px;"><strong>Item:</strong> ${escapeHtml(item)}</div>` : ``}
+        ${price != null && price !== "" ? `<div style="margin-top:6px;"><strong>Sender budget:</strong> $${escapeHtml(price)}</div>` : ``}
+        <div style="margin-top:6px;"><strong>Status:</strong> ${escapeHtml(status)}</div>
+      </div>
+    </div>
+  `;
+
+  if (statusSummary) statusSummary.innerHTML = previewCard;
+  if (jobSummary) jobSummary.innerHTML = previewCard;
+
+  if (historyList) {
+    historyList.innerHTML = `<div class="muted">History is available after assignment.</div>`;
+  }
+
+  if (viewResult) {
+    setResult(viewResult, alertSuccess("Preview loaded"));
+  }
+}
+
+async function refreshDriverOpenJobs() {
+  const listEl = document.getElementById("driverOpenJobsList");
+  const resultEl = document.getElementById("driverOpenJobsResult");
+  const countEl = document.getElementById("driverOpenCount"); // ✅ Add this
+  if (!listEl) return;
+
+  listEl.innerHTML = `<div class="muted">Loading…</div>`;
+  if (resultEl) resultEl.innerHTML = "";
+
+  // Pull recent requests; filter open on the client
+  const res = await api("/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    // ✅ Fail silently - token may not be ready
+    listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
+    if (resultEl) resultEl.innerHTML = "";
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+  const open = all.filter(r => String(r?.status || "").toLowerCase() === "open");
+
+  // Cache open jobs for safe preview (avoids calling protected endpoints for unassigned jobs)
+  dmOpenJobsCache = {};
+  for (const r of open) {
+    const id = String(r?.id ?? "");
+    if (id) dmOpenJobsCache[id] = r;
+  }
+
+  if (open.length === 0) {
+    listEl.innerHTML = `<div class="muted">(No open jobs right now)</div>`;
+    if (countEl) countEl.textContent = "No open jobs available.";
+    return;
+  }
+
+  // Update count display
+  if (countEl) {
+    if (open.length > 5) {
+      countEl.textContent = `Showing 5 of ${open.length} open jobs. More coming soon with location-based filtering.`;
+    } else {
+      countEl.textContent = `${open.length} open job${open.length === 1 ? '' : 's'} available.`;
+    }
+  }
+
+  // Render compact rows with Offer/View actions (limit to 5)
+  listEl.innerHTML = "";
+  for (const r of open.slice(0, 5)) { // Show only 5 most recent
+    const id = String(r.id || "");
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.padding = "10px";
+    row.style.margin = "8px 0";
+
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600;">${escapeHtml(formatOpenJobLine(r))}</div>
+        </div>
+        <div class="btn-row" style="flex-wrap:nowrap; gap:8px;">
+          <button class="btn secondary" type="button" data-act="offer" data-id="${escapeHtml(id)}">Offer</button>
+          <button class="btn ghost" type="button" data-act="view" data-id="${escapeHtml(id)}">View</button>
+        </div>
+      </div>
+    `;
+
+    listEl.appendChild(row);
+  }
+
+  // Event delegation
+  listEl.onclick = (e) => {
+    const btn = e.target?.closest?.("button[data-act]");
+    if (!btn) return;
+    const act = btn.getAttribute("data-act");
+    const id = btn.getAttribute("data-id");
+    if (!id) return;
+
+    if (act === "offer") {
+      // NEW: Show inline offer form instead of scrolling
+      const job = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
+      if (job) {
+        showInlineOfferForm(job);
+      } else {
+        // Fallback: scroll to form
+        const offerForm = document.getElementById("driverOfferForm");
+        if (offerForm?.request_id) {
+          offerForm.request_id.value = id;
+          offerForm.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (offerForm.price_nzd) offerForm.price_nzd.focus();
+        }
+      }
+    }
+
+  if (act === "view") {
+  // If this job is assigned to this driver, allow full load (details + history)
+  if (dmAssignedJobIds && dmAssignedJobIds.has(String(id))) {
+    const viewForm = document.getElementById("driverViewForm");
+    if (viewForm?.request_id) {
+      viewForm.request_id.value = id;
+      viewForm.scrollIntoView({ behavior: "smooth", block: "start" });
+      viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    }
+    return;
+  }
+
+  // Otherwise: safe preview using cached marketplace data (no protected endpoints)
+  const r = dmOpenJobsCache ? dmOpenJobsCache[String(id)] : null;
+
+  if (r) {
+    renderOpenJobPreview(r);
+  } else {
+    const viewResult = document.getElementById("driverViewResult");
+    if (viewResult) setResult(viewResult, alertError("Preview unavailable."));
+  }
+
+  // Still fill the View form ID for convenience
+  const viewForm = document.getElementById("driverViewForm");
+  if (viewForm?.request_id) viewForm.request_id.value = id;
+
+  // Scroll to the status card so "Preview" feels responsive
+  const statusSummary = document.getElementById("driverStatusSummary");
+  if (statusSummary) statusSummary.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+  };
+}
+
+function setupDriverOpenJobs() {
+  const btn = document.getElementById("driverOpenJobsRefreshBtn");
+  if (btn) btn.addEventListener("click", refreshDriverOpenJobs);
+
+  // Setup inline offer form
+  setupInlineOfferForm();
+
+  // Load once on init (safe even if card hidden)
+  refreshDriverOpenJobs();
+}
+
+/* -----------------------------
+   Inline Offer Form (Quick Offer from Open Jobs)
+----------------------------- */
+function showInlineOfferForm(job) {
+  const section = document.getElementById("driverInlineOfferSection");
+  const reqIdSpan = document.getElementById("inlineOfferRequestId");
+  const reqIdInput = document.getElementById("inlineOfferRequestIdInput");
+  const jobInfo = document.getElementById("inlineOfferJobInfo");
+  const priceInput = document.getElementById("inlineOfferPrice");
+  
+  if (!section) return;
+  
+  // Populate form
+  if (reqIdSpan) reqIdSpan.textContent = job.id;
+  if (reqIdInput) reqIdInput.value = job.id;
+  if (jobInfo) {
+    const pickup = escapeHtml(job.pickup_suburb || "");
+    const dropoff = escapeHtml(job.dropoff_suburb || "");
+    const item = escapeHtml(job.item_description || "");
+    jobInfo.innerHTML = `<strong>${pickup} → ${dropoff}</strong><br>${item}`;
+  }
+  
+  // Show section and focus price
+  section.classList.remove("hidden");
+  if (priceInput) {
+    setTimeout(() => priceInput.focus(), 100);
+  }
+  
+  // Scroll to it
+  section.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function hideInlineOfferForm() {
+  const section = document.getElementById("driverInlineOfferSection");
+  if (section) section.classList.add("hidden");
+  
+  // Clear form
+  const form = document.getElementById("driverInlineOfferForm");
+  if (form) form.reset();
+  
+  const result = document.getElementById("inlineOfferResult");
+  if (result) result.innerHTML = "";
+}
+
+function setupInlineOfferForm() {
+  const form = document.getElementById("driverInlineOfferForm");
+  const cancelBtn = document.getElementById("inlineOfferCancelBtn");
+  const result = document.getElementById("inlineOfferResult");
+  
+  if (!form) return;
+  
+  // Cancel button
+  if (cancelBtn && !cancelBtn.__bound) {
+    cancelBtn.__bound = true;
+    cancelBtn.addEventListener("click", hideInlineOfferForm);
+  }
+  
+  // Submit
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const offerBtn = document.getElementById("driverOfferBtn");
+    if (offerBtn && offerBtn.disabled) {
+      if (result) setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
+      return;
+    }
+    
+    const submitBtn = document.getElementById("inlineOfferSubmitBtn");
+    const done = setWorking(submitBtn, "Submitting...");
+    if (result) setResult(result, "");
+    
+    const requestId = document.getElementById("inlineOfferRequestIdInput")?.value;
+    const price = document.getElementById("inlineOfferPrice")?.value;
+    const note = document.getElementById("inlineOfferNote")?.value || "";
+    
+    const body = {
+      price_nzd: price,
+      note: note,
+      ...getDriverAckMeta()
+    };
+    
+    // Add optional convenience fields
+    const u = getSavedDriverUser();
+    if (u?.phone) body.driver_phone = u.phone;
+    if (u?.full_name) body.driver_name = u.full_name;
+    
+    const res = await api(`/requests/${requestId}/offers`, {
+      method: "POST",
+      body: body,
+      role: "driver",
+    });
+    
+    done(!!res.ok);
+    
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Offer submitted!"));
+      
+      // Refresh assigned jobs and active jobs
+      try {
+        refreshDriverAssignedJobs();
+        renderDriverActiveJobs(); // Show in active jobs section
+        
+        // Show banner
+        updateDriverNextActionBanner({
+          id: requestId,
+          status: "open",
+          driver_name: getSavedDriverUser()?.full_name || "",
+        });
+      } catch (_) {}
+      
+      // Hide form after 1.5 seconds
+      setTimeout(() => {
+        hideInlineOfferForm();
+      }, 1500);
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to submit offer"));
+    }
+  });
+}
+
+/* -----------------------------
+   View Job
+----------------------------- */
+function setupViewJob() {
+  const form = $("#driverViewForm");
+  if (!form) return;
+
+  const summary = document.getElementById("driverJobSummary");
+  const historyList = document.getElementById("driverHistoryList");
+  const result = document.getElementById("driverViewResult");
+
+  // New: top status card summary (from driver.html change)
+  const statusSummary = document.getElementById("driverStatusSummary");
+  if (statusSummary) {
+    statusSummary.innerHTML = `<div class="muted">Load a job to see its current status.</div>`;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Loading…");
+    if (result) setResult(result, "");
+
+    const requestId = form.request_id.value;
+    const req = await api(`/requests/${requestId}`, { method: "GET", role: "driver" });
+    const hist = await api(`/requests/${requestId}/history`, { method: "GET", role: "driver" });
+
+    renderDriverSummary({ req, hist, summary, historyList });
+
+    // Mirror a compact status summary into the "Current job status" card
+    try {
+      if (statusSummary) {
+        if (!req || !req.ok || !req.request) {
+          statusSummary.innerHTML = req?.error
+            ? alertError(req.error)
+            : `<div class="muted">Unable to load job status.</div>`;
+        } else {
+          const r = req.request;
+          statusSummary.innerHTML = `
+            <div class="card compact">
+              ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
+              ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
+              <div class="next-action" style="margin-top:8px;">
+                <strong>What happens next:</strong>
+                ${nextActionText({ role: "driver", request_status: r.status, escrow_status: r.escrow_status })}
+              </div>
+              <div class="muted" style="margin-top:10px;">
+                Request #${escapeHtml(r.id)} · ${escapeHtml(r.pickup_suburb)} → ${escapeHtml(r.dropoff_suburb)}
+              </div>
+            </div>
+          `;
+        }
+      }
+    } catch (_) {}
+
+    done(!!req.ok);
+    if (result) setResult(result, req.ok ? alertSuccess("Loaded") : alertError(req.error || "Failed"));
+    
+    // NEW: Show/hide details section
+    const detailsSection = document.getElementById("driverJobDetails");
+    if (detailsSection) {
+      if (req && req.ok && req.request) {
+        detailsSection.classList.remove("hidden");
+      } else {
+        detailsSection.classList.add("hidden");
+      }
+    }
+    
+    // NEW: Update next action banner
+    if (req && req.ok && req.request) {
+      try {
+        updateDriverNextActionBanner(req.request);
+      } catch (_) {}
+    }
+  });
+}
+
+function renderDriverSummary({ req, hist, summary, historyList }) {
+  if (!summary || !historyList) return;
+  summary.innerHTML = "";
+  historyList.innerHTML = "";
+
+  if (!req || !req.ok || !req.request) {
+    summary.insertAdjacentHTML("beforeend", alertError(req?.error || "Failed to load job"));
+    return;
+  }
+
+  const r = req.request;
+  summary.insertAdjacentHTML("beforeend", `
+    <div class="card compact">
+      ${statusPill({ request_status: r.status, escrow_status: r.escrow_status, payout_status: r.payout_status })}
+      ${timeline({ request_status: r.status, escrow_status: r.escrow_status })}
+      <div class="next-action"><strong>What happens next:</strong> ${nextActionText({ role: "driver", request_status: r.status, escrow_status: r.escrow_status })}</div>
+      <div class="muted" style="margin-top:10px;">Request #${escapeHtml(r.id)} · ${escapeHtml(r.pickup_suburb)} → ${escapeHtml(r.dropoff_suburb)}</div>
+    </div>
+  `);
+
+  const h = hist && hist.ok && Array.isArray(hist.events) ? hist.events : (hist?.history || []);
+  if (hist && !hist.ok) {
+    historyList.insertAdjacentHTML("beforeend", alertError(hist.error || "Failed to load history"));
+    return;
+  }
+  if (!h || h.length === 0) {
+    historyList.insertAdjacentHTML("beforeend", `<div class="muted">No history yet.</div>`);
+    return;
+  }
+
+  historyList.insertAdjacentHTML("beforeend", `
+    <div class="card compact">
+      <ul style="margin:0; padding-left:18px;">
+        ${h.slice(0, 12).map((ev) => {
+          const when = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
+          const note = ev.note || `${ev.from_status || ""} → ${ev.to_status || ""}`;
+          return `<li><strong>${escapeHtml(when)}</strong> — ${escapeHtml(note)}</li>`;
+        }).join("")}
+      </ul>
+    </div>
+  `);
+}
+
+/* -----------------------------
+   Update Status
+----------------------------- */
+function setupUpdateStatus() {
+  const form = $("#driverStatusForm");
+  const result = document.getElementById("driverStatusResult");
+  if (!form) return;
+
+  const deliveredFileInput = document.getElementById("delivered_photo_file");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const statusBtn = document.getElementById("driverStatusBtn");
+    if (statusBtn && statusBtn.disabled) {
+      if (result) setResult(result, alertError("Please confirm driver acknowledgements before submitting."));
+      return;
+    }
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn);
+    if (result) setResult(result, "");
+
+    const requestId = form.request_id.value;
+    const status = form.status.value;
+
+    const body = { status, ...getDriverAckMeta() };
+
+    if (status === "delivered") {
+      const f = deliveredFileInput?.files?.[0];
+      if (!f) {
+        done(false);
+        if (result) setResult(result, alertError("Delivery photo is required for delivered."));
+        return;
+      }
+      try {
+        body.delivered_photo_base64 = await fileToDataUrl(f);
+      } catch (err) {
+        done(false);
+        if (result) setResult(result, alertError(err?.message || "Failed to process delivery photo"));
+        return;
+      }
+    }
+
+    const res = await api(`/requests/${requestId}/status`, { method: "PATCH", body, role: "driver" });
+
+    done(!!res.ok);
+    if (result) setResult(result, res.ok ? alertSuccess("Updated") : alertError(res.error || "Failed"));
+
+    // ✅ UX: after a successful update, refresh job view + recent jobs list
+    if (res && res.ok) {
+      try {
+        const viewForm = document.getElementById("driverViewForm");
+        if (viewForm && viewForm.request_id && viewForm.request_id.value) {
+          viewForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+        }
+      } catch (_) {}
+      try {
+        refreshDriverAssignedJobs();
+      } catch (_) {}
+    }
+  });
+}
+
+/* -----------------------------
+   Driver Report Issue - submit to backend for logging
+----------------------------- */
+function setupIssueReport_driver() {
+  const form = document.getElementById("driverReportIssueForm");
+  const result = document.getElementById("driverReportIssueResult");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = form.querySelector('button[type="submit"]');
+    const done = setWorking(btn, "Submitting...");
+    if (result) setResult(result, "");
+
+    const requestId = document.getElementById("driverReportRequestId")?.value.trim();
+    const description = document.getElementById("driverReportDescription")?.value.trim();
+
+    if (!description) {
+      done(false);
+      if (result) setResult(result, alertError("Please describe the issue"));
+      return;
+    }
+
+    const res = await api("/drivers/report-issue", {
+      method: "POST",
+      role: "driver",
+      body: {
+        request_id: requestId || null,
+        description: description,
+      },
+    });
+
+    done(!!res.ok);
+
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Issue reported and logged. Admin will review."));
+      form.reset();
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to submit report"));
+    }
+  });
+}
+
+/* -----------------------------
+   Refresh driver_status from server after login
+   so the re-approval banner reflects the real backend state,
+   not just the locally cached value.
+----------------------------- */
+async function refreshDriverStatusFromServer() {
+  try {
+    const res = await api("/users/me", { method: "GET", role: "driver" });
+    if (res && res.ok && res.user) {
+      const u = getSavedDriverUser() || {};
+      u.driver_status = res.user.driver_status;
+      u.full_name = res.user.full_name || u.full_name;
+      u.email = res.user.email || u.email;
+      markDriverRegistered(u);
+      updateReapprovalBanner();
+    }
+  } catch (_) {}
+}
+
+/* -----------------------------
+   Profile section
    - Loads current profile from GET /users/me on open
-   - senderBasicProfileForm → PATCH /users/me (name + email only)
-   Senders cannot change phone (identity) and have no vehicle/licence fields.
---------------------------------------------------------- */
+   - driverBasicProfileForm  → PATCH /users/me (name + email, no re-approval)
+   - driverVehicleProfileForm → PATCH /drivers/profile (vehicle/WOF/photos, triggers re-approval)
+----------------------------- */
+async function loadDriverProfileSnapshot() {
+  const snapshot = document.getElementById("driverProfileSnapshot");
+  if (!snapshot) return;
 
-async function loadSenderProfileSnapshot() {
-  const snapshot = document.getElementById("senderProfileSnapshot");
-  if (!snapshot) {
-    console.warn('[Profile] Snapshot element not found in DOM');
-    return;
-  }
-
-  // Show spinner while loading
-  snapshot.innerHTML = `<span class="muted">Loading profile…</span>`;
-
-  // Guard: don't call if no user token available
-  const tok = getUserToken();
-  if (!tok) {
-    console.warn('[Profile] No user token available');
-    snapshot.innerHTML = `<span class="muted">Sign in to view your profile.</span>`;
-    return;
-  }
-
-  console.log('[Profile] Fetching from GET /users/me...');
-  const res = await api("/users/me", { method: "GET", role: "sender" });
-  console.log('[Profile] Response:', res);
-
+  const res = await api("/users/me", { method: "GET", role: "driver" });
   if (!res || !res.ok || !res.user) {
-    const errorMsg = res && res.error ? escapeHtml(res.error) : 'Unknown error';
-    console.error('[Profile] Failed to load:', errorMsg, res);
-    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile: ${errorMsg}. Check browser console for details.</span>`;
+    snapshot.innerHTML = `<span style="color:#dc2626;">Unable to load profile.</span>`;
     return;
   }
 
   const u = res.user;
 
-  // Pre-fill form fields
-  const nameInput = document.getElementById("senderProfileName");
-  const emailInput = document.getElementById("senderProfileEmail");
-  const addressInput = document.getElementById("senderProfileAddress");
+  // Pre-fill basic form
+  const nameInput = document.getElementById("driverProfileName");
+  const emailInput = document.getElementById("driverProfileEmail");
+  const addressInput = document.getElementById("driverProfileAddress");
   if (nameInput && u.full_name) nameInput.value = u.full_name;
   if (emailInput && u.email) emailInput.value = u.email;
   if (addressInput && u.default_address) addressInput.value = u.default_address;
 
-  // Pre-fill pickup suburb if address is saved and field is currently empty
-  prefillPickupSuburb(u.default_address);
+  // Pre-fill vehicle form
+  const plateInput = document.getElementById("driverProfilePlate");
+  const wofInput = document.getElementById("driverProfileWof");
+  if (plateInput && u.vehicle_plate) plateInput.value = u.vehicle_plate;
+  if (wofInput && u.wof_expiry) wofInput.value = u.wof_expiry.split("T")[0];
+
+  // Status badge
+  const dsRaw = String(u.driver_status || "none").toLowerCase();
+  const statusBadge = {
+    approved:       `<span style="color:#16a34a; font-weight:700;">✅ Approved</span>`,
+    pending_review: `<span style="color:#92400e; font-weight:700;">⏳ Pending Review</span>`,
+    disabled:       `<span style="color:#dc2626; font-weight:700;">🚫 Disabled</span>`,
+    none:           `<span class="muted">Not registered as driver</span>`,
+  }[dsRaw] || `<span class="muted">${escapeHtml(u.driver_status)}</span>`;
+
+  const wofDisplay = u.wof_expiry ? new Date(u.wof_expiry).toLocaleDateString("en-NZ", { day:"numeric", month:"short", year:"numeric" }) : "—";
+  const payoutDisplay = u.payout_account_last4
+    ? `Bank account ending ···${escapeHtml(u.payout_account_last4)}`
+    : `<span class="muted">No bank details saved</span>`;
 
   snapshot.innerHTML = `
     <div style="display:grid; gap:6px; font-size:14px; padding:12px; background:rgba(0,0,0,.03); border-radius:8px; border:1px solid rgba(0,0,0,.06);">
@@ -1675,481 +1613,882 @@ async function loadSenderProfileSnapshot() {
       <div><strong>Phone:</strong> ${escapeHtml(u.phone || "—")}</div>
       <div><strong>Email:</strong> ${escapeHtml(u.email || "—")}</div>
       <div><strong>Default address:</strong> ${escapeHtml(u.default_address || "—")}</div>
+      <div><strong>Driver status:</strong> ${statusBadge}</div>
+      <div><strong>Vehicle plate:</strong> ${escapeHtml(u.vehicle_plate || "—")}</div>
+      <div><strong>WOF expiry:</strong> ${escapeHtml(wofDisplay)}</div>
+      <div><strong>Payout:</strong> ${payoutDisplay}</div>
     </div>
   `;
 }
 
-/* -------------------------------------------------------------
-   Extract suburb from a full address and pre-fill the pickup
-   suburb field if it is currently empty.
-   Strategy: take the last comma-separated segment that looks
-   like a suburb (not a postcode, not "New Zealand").
-   e.g. "123 Queen St, Ponsonby, Auckland" → "Ponsonby"
-        "45 Main Rd, Tauranga" → "Tauranga"
-        "Ponsonby" → "Ponsonby"
-------------------------------------------------------------- */
-function extractSuburb(address) {
-  if (!address) return "";
-  const parts = address.split(",").map(s => s.trim()).filter(Boolean);
-  if (parts.length === 0) return "";
-  // Walk from the end, skip postcodes (all digits) and country names
-  const skip = new Set(["new zealand", "nz"]);
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const p = parts[i];
-    if (/^\d+$/.test(p)) continue;          // postcode
-    if (skip.has(p.toLowerCase())) continue; // country
-    if (i === 0 && parts.length > 1) continue; // likely street number+name
-    return p;
-  }
-  // Fallback: return last non-empty part
-  return parts[parts.length - 1];
-}
-
-function prefillPickupSuburb(defaultAddress) {
-  const field = document.getElementById("createPickupSuburb");
-  const hint = document.getElementById("pickupSuburbHint");
-  if (!field) return;
-  // Only pre-fill if field is currently empty — never overwrite what the sender typed
-  if (field.value && field.value.trim()) return;
-  const suburb = extractSuburb(defaultAddress);
-  if (!suburb) return;
-  field.value = suburb;
-  if (hint) hint.style.display = "block";
-}
-
-function setupSenderProfile() {
+function setupDriverProfile() {
   // Load profile when the collapsible section is opened
-  const details = document.getElementById("senderProfileDetails");
+  const details = document.getElementById("driverProfileDetails");
   if (details) {
     details.addEventListener("toggle", () => {
-      if (details.open) {
-        loadSenderProfileSnapshot();
-        checkSenderDriverStatus(); // Check if already applied
+      if (details.open) loadDriverProfileSnapshot();
+    });
+  }
+
+  // ── Basic details form (name + email — no re-approval)
+  const basicForm = document.getElementById("driverBasicProfileForm");
+  const basicResult = document.getElementById("driverBasicProfileResult");
+  if (basicForm) {
+    basicForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = basicForm.querySelector("button[type=submit]");
+      const done = setWorking(btn, "Saving…");
+      if (basicResult) setResult(basicResult, "");
+
+      const fd = new FormData(basicForm);
+      const full_name = String(fd.get("full_name") || "").trim();
+      const email = String(fd.get("email") || "").trim();
+      const default_address = String(fd.get("default_address") || "").trim();
+
+      if (!full_name && !email && !default_address) {
+        done(false);
+        if (basicResult) setResult(basicResult, alertError("Please enter at least one field to update."));
+        return;
       }
-    });
-  }
 
-  // Basic profile form (name + email)
-  const form = document.getElementById("senderBasicProfileForm");
-  const result = document.getElementById("senderBasicProfileResult");
-  if (!form) return;
+      const body = {};
+      if (full_name) body.full_name = full_name;
+      if (email) body.email = email;
+      if (fd.get("default_address") !== null) body.default_address = default_address || null;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector("button[type=submit]");
-    const done = setWorking(btn, "Saving…");
-    if (result) setResult(result, "");
-
-    const fd = new FormData(form);
-    const full_name = String(fd.get("full_name") || "").trim();
-    const email = String(fd.get("email") || "").trim();
-    const default_address = String(fd.get("default_address") || "").trim();
-
-    if (!full_name && !email && !default_address) {
-      done(false);
-      if (result) setResult(result, alertError("Please enter at least one field to update."));
-      return;
-    }
-
-    const body = {};
-    if (full_name) body.full_name = full_name;
-    if (email) body.email = email;
-    // Always send default_address if the field exists — allows clearing it
-    body.default_address = default_address || null;
-
-    const res = await api("/users/me", {
-      method: "PATCH",
-      role: "sender",
-      body,
-    });
-
-    done(!!res.ok);
-    if (res.ok) {
-      if (result) setResult(result, alertSuccess("Contact details saved."));
-      const u = getSavedUser() || {};
-      if (full_name) u.full_name = full_name;
-      if (email) u.email = email;
-      saveUser(u);
-      // Re-run pre-fill in case address changed
-      if (default_address) prefillPickupSuburb(default_address);
-      loadSenderProfileSnapshot();
-    } else {
-      if (result) setResult(result, alertError(res.error || "Failed to save."));
-    }
-  });
-
-  // Apply to be driver form
-  setupSenderDriverApplication();
-}
-
-/* ---------------------------------------------------------
-   Sender → Driver Application
---------------------------------------------------------- */
-async function checkSenderDriverStatus() {
-  const statusEl = document.getElementById("senderDriverAppStatus");
-  if (!statusEl) return;
-
-  const res = await api("/users/me", { method: "GET", role: "sender" });
-  if (!res.ok || !res.user) return;
-
-  const driverStatus = String(res.user.driver_status || "").toLowerCase();
-  
-  if (driverStatus === "approved") {
-    statusEl.innerHTML = `
-      <div style="padding:12px; background:rgba(34,197,94,.1); border-radius:6px; border:1px solid rgba(34,197,94,.3);">
-        <div style="font-weight:700; color:#166534;">✓ You're approved as a driver!</div>
-        <div class="muted" style="margin-top:4px;">Visit the <a href="/driver.html">Driver Dashboard</a> to browse jobs and make offers.</div>
-      </div>
-    `;
-    // Hide the application form
-    const form = document.getElementById("senderApplyDriverForm");
-    if (form) form.style.display = "none";
-  } else if (driverStatus === "pending" || driverStatus === "pending_review") {
-    statusEl.innerHTML = `
-      <div style="padding:12px; background:rgba(245,158,11,.1); border-radius:6px; border:1px solid rgba(245,158,11,.3);">
-        <div style="font-weight:700; color:#92400e;">⏳ Application pending</div>
-        <div class="muted" style="margin-top:4px;">Your driver application is under review. You'll be notified when approved (usually within 24 hours).</div>
-      </div>
-    `;
-    // Hide the application form
-    const form = document.getElementById("senderApplyDriverForm");
-    if (form) form.style.display = "none";
-  } else if (driverStatus === "disabled") {
-    statusEl.innerHTML = `
-      <div style="padding:12px; background:rgba(239,68,68,.1); border-radius:6px; border:1px solid rgba(239,68,68,.3);">
-        <div style="font-weight:700; color:#991b1b;">⚠️ Driver account disabled</div>
-        <div class="muted" style="margin-top:4px;">Please contact admin@deliverymate.nz for more information.</div>
-      </div>
-    `;
-    const form = document.getElementById("senderApplyDriverForm");
-    if (form) form.style.display = "none";
-  }
-}
-
-function setupSenderDriverApplication() {
-  const form = document.getElementById("senderApplyDriverForm");
-  const result = document.getElementById("senderApplyDriverResult");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const btn = document.getElementById("senderApplyDriverBtn");
-    const consent = document.getElementById("senderDriverConsent");
-    
-    if (!consent || !consent.checked) {
-      if (result) setResult(result, alertError("Please confirm the consent checkbox."));
-      return;
-    }
-
-    const done = setWorking(btn, "Submitting…");
-    if (result) setResult(result, "");
-
-    // Get form data
-    const vehiclePlate = document.getElementById("senderDriverVehiclePlate")?.value.trim();
-    const licenseNumber = document.getElementById("senderDriverLicenseNumber")?.value.trim();
-    const wofExpiry = document.getElementById("senderDriverWofExpiry")?.value;
-    const licenseFrontFile = document.getElementById("senderDriverLicenseFront")?.files?.[0];
-    const licenseBackFile = document.getElementById("senderDriverLicenseBack")?.files?.[0];
-
-    // Validation
-    if (!vehiclePlate || !licenseNumber || !wofExpiry) {
-      done(false);
-      if (result) setResult(result, alertError("Please fill in all required fields."));
-      return;
-    }
-
-    if (!licenseFrontFile || !licenseBackFile) {
-      done(false);
-      if (result) setResult(result, alertError("Please upload both driver licence photos."));
-      return;
-    }
-
-    try {
-      // Convert images to base64
-      const frontBase64 = await fileToDataUrl(licenseFrontFile);
-      const backBase64 = await fileToDataUrl(licenseBackFile);
-
-      // Submit application
       const res = await api("/users/me", {
         method: "PATCH",
-        role: "sender",
-        body: {
-          vehicle_plate: vehiclePlate,
-          license_number: licenseNumber,
-          wof_expiry: wofExpiry,
-          driver_license_front_base64: frontBase64,
-          driver_license_back_base64: backBase64,
-          apply_as_driver: true, // Signal to backend to set driver_status = pending
-        },
+        role: "driver",
+        body,
       });
 
       done(!!res.ok);
-
       if (res.ok) {
-        if (result) setResult(result, alertSuccess("Driver application submitted! Admin will review within 24 hours."));
-        // Refresh status
-        setTimeout(() => {
-          checkSenderDriverStatus();
-        }, 1500);
+        if (basicResult) setResult(basicResult, alertSuccess("Contact details saved."));
+        const u = getSavedDriverUser() || {};
+        if (full_name) u.full_name = full_name;
+        if (email) u.email = email;
+        markDriverRegistered(u);
+        loadDriverProfileSnapshot();
       } else {
-        if (result) setResult(result, alertError(res.error || "Failed to submit application."));
+        if (basicResult) setResult(basicResult, alertError(res.error || "Failed to save."));
       }
-    } catch (err) {
-      done(false);
-      if (result) setResult(result, alertError(err?.message || "Failed to process images."));
-    }
-  });
-}
-
-/* ---------------------------------------------------------
-   Init - FIXED: Check dm_user_token
---------------------------------------------------------- */
-
-export function initSenderPage() {
-  //
-  // 1. Restore tokens BEFORE anything else
-  //
-  try {
-    // Restore login token
-    const s = sessionStorage.getItem("dm_user_token");
-    const l = localStorage.getItem("dm_user_token");
-    if (!s && l) sessionStorage.setItem("dm_user_token", l);
-  } catch (_) {}
-
-  try {
-    // Restore per-request sender token (Stripe return)
-    const reqId = new URL(window.location.href).searchParams.get("request_id");
-    if (reqId) {
-      const saved = loadSenderTokenForRequest(reqId);
-      if (saved) sessionStorage.setItem("dm_sender_token", saved);
-    }
-  } catch (_) {}
-
-  // NEW: Auto-sync between driver and sender user data for seamless cross-login
-  // This allows drivers to create requests without logging in again
-  try {
-    const senderUser = getSavedUser();
-    const driverUserData = localStorage.getItem("dm_driver_user");
-    
-    if (driverUserData) {
-      const driverUser = JSON.parse(driverUserData);
-      
-      // If no sender user, OR sender user has different phone, sync from driver
-      if (!senderUser || senderUser.phone !== driverUser.phone) {
-        // Copy driver user to sender storage (same person, different role)
-        saveUser({
-          phone: driverUser.phone,
-          full_name: driverUser.full_name || driverUser.name,
-          email: driverUser.email,
-        });
-        console.log('[Sender] Auto-synced user from driver session:', driverUser.phone);
-      }
-    }
-  } catch (_) {}
-
-  //
-  // 2. Update UI immediately based on restored token
-  // ✅ FIX: Check dm_user_token (not dm_sender_token)
-  //
-  const tok = getUserToken();
-  const u = getSavedUser();
-
-  if (tok) {
-    setAuthStatus(u?.phone ? `Logged in as ${u.phone}` : "Logged in");
-    setDashboardVisible(true);
-  } else {
-    setAuthStatus("Not logged in");
-    setDashboardVisible(false);
+    });
   }
 
-  //
-  // 3. Load all functional modules
-  //
-  setupCreateAcksGate();
-  setupCreateRequest();
-  setupViewRequest();
-  setupFundEscrow();
-  setupConfirmRelease();
-  setupSenderOffersActions();
-  setupQuickButtons();
-  setupSenderProfile();         // ← NEW: profile section
-  setupReportIssueForm();       // ← Report issue functionality
+  // ── Vehicle & licence form (triggers re-approval)
+  const vehicleForm = document.getElementById("driverVehicleProfileForm");
+  const vehicleResult = document.getElementById("driverVehicleProfileResult");
 
-  // Stripe return auto-refresh
-  handlePaidRedirectRefresh();
+  const frontFileInput = document.getElementById("driverProfileFrontFile");
+  const backFileInput = document.getElementById("driverProfileBackFile");
+  const frontStatus = document.getElementById("driverProfileFrontStatus");
+  const backStatus = document.getElementById("driverProfileBackStatus");
 
-  //
-  // 4. Auth LAST — so it cannot override restored login state
-  //
-  setupSenderAuth();
+  let selectedFrontFile = null;
+  let selectedBackFile = null;
 
-  //
-  // 5. Render recent requests + active requests
-  //
-  renderRecentRequests();
-  
-  // Pre-fill From address from saved address + load profile snapshot
-  // Small delay so token is fully ready before first API call
+  if (frontFileInput) {
+    frontFileInput.addEventListener("change", () => {
+      selectedFrontFile = frontFileInput.files?.[0] || null;
+      if (frontStatus) frontStatus.textContent = selectedFrontFile ? `Ready ✓ (${fmtMB(selectedFrontFile.size)})` : "";
+    });
+  }
+  if (backFileInput) {
+    backFileInput.addEventListener("change", () => {
+      selectedBackFile = backFileInput.files?.[0] || null;
+      if (backStatus) backStatus.textContent = selectedBackFile ? `Ready ✓ (${fmtMB(selectedBackFile.size)})` : "";
+    });
+  }
+
+  if (vehicleForm) {
+    vehicleForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("driverVehicleProfileBtn");
+      const done = setWorking(btn, "Saving…");
+      if (vehicleResult) setResult(vehicleResult, "");
+
+      const fd = new FormData(vehicleForm);
+      const vehicle_plate = String(fd.get("vehicle_plate") || "").trim();
+      const wof_expiry = String(fd.get("wof_expiry") || "").trim();
+
+      const body = {};
+      if (vehicle_plate) body.vehicle_plate = vehicle_plate;
+      if (wof_expiry) body.wof_expiry = wof_expiry;
+
+      // Encode licence photos if selected
+      if (selectedFrontFile) {
+        try {
+          body.driver_license_front_base64 = await fileToDataUrl(selectedFrontFile);
+        } catch (err) {
+          done(false);
+          if (vehicleResult) setResult(vehicleResult, alertError(err?.message || "Failed to process front photo."));
+          return;
+        }
+      }
+      if (selectedBackFile) {
+        try {
+          body.driver_license_back_base64 = await fileToDataUrl(selectedBackFile);
+        } catch (err) {
+          done(false);
+          if (vehicleResult) setResult(vehicleResult, alertError(err?.message || "Failed to process back photo."));
+          return;
+        }
+      }
+
+      if (!Object.keys(body).length) {
+        done(false);
+        if (vehicleResult) setResult(vehicleResult, alertError("Please enter at least one field to update."));
+        return;
+      }
+
+      const res = await api("/drivers/profile", {
+        method: "PATCH",
+        role: "driver",
+        body,
+      });
+
+      done(!!res.ok);
+      if (res.ok) {
+        const msg = res.requires_reapproval
+          ? alertSuccess("Updated. Your account is now <strong>pending admin review</strong> and you cannot accept jobs until re-approved.")
+          : alertSuccess("Profile updated.");
+        if (vehicleResult) setResult(vehicleResult, msg);
+
+        // Update locally stored driver_status if re-approval was triggered
+        if (res.requires_reapproval) {
+          const u = getSavedDriverUser() || {};
+          u.driver_status = "pending_review";
+          markDriverRegistered(u);
+          updateReapprovalBanner();
+        }
+
+        // Clear file selections
+        selectedFrontFile = null;
+        selectedBackFile = null;
+        if (frontFileInput) frontFileInput.value = "";
+        if (backFileInput) backFileInput.value = "";
+        if (frontStatus) frontStatus.textContent = "";
+        if (backStatus) backStatus.textContent = "";
+
+        loadDriverProfileSnapshot();
+      } else {
+        if (vehicleResult) setResult(vehicleResult, alertError(res.error || "Failed to update."));
+      }
+    });
+  }
+}
+
+/* -----------------------------
+   Init
+----------------------------- */
+export function initDriverPage() {
+  setupDriverRegistration();
+  setupDriverLogin();
+  setupDriverLogout();
+
+  enforceDriverGate();
+
+  // Dashboard features (safe to init even when hidden)
+  setupDriverAckGate();
+  setupMakeOffer();
+  setupViewJob();
+  setupDriverRecentJobsAssigned();
+  setupDriverOpenJobs();
+  setupUpdateStatus();
+  setupIssueReport_driver();
+  setupDriverProfile();         // ← NEW: profile section
+
+  // Small delay so token is fully ready before first API calls
   setTimeout(() => {
-    renderSenderActiveRequests();
-    try { loadSenderProfileSnapshot(); } catch (_) {}
+    renderDriverActiveJobs();
+    refreshDriverOpenJobs();
+    refreshDriverAssignedJobs();
+    // Refresh driver_status from server so re-approval banner is accurate
+    refreshDriverStatusFromServer();
   }, 500);
-  
+
+  // Auto-refresh active jobs every 30 seconds
   setInterval(() => {
-    try { renderSenderActiveRequests(); } catch (_) {}
+    try { renderDriverActiveJobs(); } catch (_) {}
   }, 30000);
 
+  // Real-time polling for status updates
+  try {
+    startPolling({
+      apiRole: "driver",
+      getRequestId: () => {
+        const form = document.getElementById("driverViewForm");
+        return form?.request_id?.value || null;
+      },
+      onUpdate: (request) => {
+        try {
+          const statusSummary = document.getElementById("driverStatusSummary");
+          if (statusSummary && request) {
+            statusSummary.innerHTML = `
+              <div class="card compact">
+                ${statusPill({ request_status: request.status, escrow_status: request.escrow_status, payout_status: request.payout_status })}
+                ${timeline({ request_status: request.status, escrow_status: request.escrow_status })}
+                <div class="next-action" style="margin-top:8px;">
+                  <strong>What happens next:</strong>
+                  ${nextActionText({ role: "driver", request_status: request.status, escrow_status: request.escrow_status })}
+                </div>
+                <div class="muted" style="margin-top:10px;">
+                  Request #${escapeHtml(request.id)} · ${escapeHtml(request.pickup_suburb)} → ${escapeHtml(request.dropoff_suburb)}
+                </div>
+              </div>
+            `;
+          }
+          updateDriverNextActionBanner(request);
+        } catch (err) {
+          console.error("Polling update error:", err);
+        }
+      },
+      interval: 30000,
+    });
+  } catch (err) {
+    console.error("Failed to start polling:", err);
+  }
+
+  // Payout section
+  setupDriverPayoutMethod();
+  setTimeout(() => {
+    renderDriverPayoutJobs();
+    renderDriverPayoutHistory();
+  }, 600);
+
   //
-  // 6. Cross-tab logout detection
-  // If user logs out from driver page (or another tab), detect it here
+  // Cross-tab logout detection
+  // If user logs out from sender page (or another tab), detect it here
   //
   window.addEventListener('storage', (e) => {
     if (e.key === 'dm_user_token' && !e.newValue) {
       // Token was removed (logout happened in another tab)
-      console.log('[Sender] Detected logout in another tab, logging out...');
+      console.log('[Driver] Detected logout in another tab, logging out...');
       sessionStorage.removeItem('dm_user_token');
-      setAuthStatus('Not logged in');
-      setDashboardVisible(false);
+      localStorage.removeItem('dm_driver_user');
+      localStorage.removeItem('dm_sender_user');
+      enforceDriverGate();
     }
   });
 }
 
-/* -------------------------------------------------------------
-   Google Maps Places Autocomplete
-   Using new PlaceAutocompleteElement (recommended by Google)
-------------------------------------------------------------- */
-let autocompleteRetries = 0;
-const MAX_AUTOCOMPLETE_RETRIES = 20; // 10 seconds max
+/* ---------------------------------------------------------
+   Payout - Bank details form + jobs ready for payout
+--------------------------------------------------------- */
 
-window.setupGoogleMapsAutocomplete = function() {
-  console.log('[Google Maps] Initializing autocomplete... (attempt ' + (autocompleteRetries + 1) + ')');
-  
-  if (autocompleteRetries >= MAX_AUTOCOMPLETE_RETRIES) {
-    console.error('[Google Maps] Failed to initialize after ' + MAX_AUTOCOMPLETE_RETRIES + ' attempts. Autocomplete disabled.');
-    return;
-  }
-  
-  const pickupInput = document.getElementById('createPickupSuburb');
-  const dropoffInput = document.getElementById('createDropoffSuburb');
-  
-  if (!pickupInput || !dropoffInput) {
-    console.warn('[Google Maps] Form inputs not found yet, retrying in 500ms...');
-    autocompleteRetries++;
-    setTimeout(window.setupGoogleMapsAutocomplete, 500);
-    return;
-  }
+async function setupDriverPayoutMethod() {
+  const form = document.getElementById("driverPayoutMethodForm");
+  const result = document.getElementById("driverPayoutMethodResult");
+  const statusMsg = document.getElementById("driverBankStatusMsg");
+  if (!form) return;
 
-  // Check if inputs are visible (important for Safari)
-  if (pickupInput.offsetParent === null || dropoffInput.offsetParent === null) {
-    console.warn('[Google Maps] Form inputs not visible yet, retrying in 500ms...');
-    autocompleteRetries++;
-    setTimeout(window.setupGoogleMapsAutocomplete, 500);
-    return;
-  }
-
-  // Check if google.maps.places is loaded
-  if (!window.google || !window.google.maps || !window.google.maps.places) {
-    console.warn('[Google Maps] Places library not loaded yet, retrying...');
-    autocompleteRetries++;
-    setTimeout(window.setupGoogleMapsAutocomplete, 500);
-    return;
-  }
-  
-  // Restrict to New Zealand only
-  const options = {
-    componentRestrictions: { country: 'nz' },
-    fields: ['address_components', 'geometry', 'formatted_address', 'name'],
-  };
-  
+  // Load existing payout details from profile
   try {
-    // Use the recommended class (still works the same way)
-    const pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, options);
-    const dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, options);
-    
-    // When user selects a place from pickup dropdown
-    pickupAutocomplete.addListener('place_changed', () => {
-      const place = pickupAutocomplete.getPlace();
-      if (!place || !place.geometry) {
-        console.warn('[Google Maps] No geometry for pickup place');
-        return;
+    const profile = await api("/users/me", { method: "GET", role: "driver" });
+    if (profile.ok && profile.user) {
+      const u = profile.user;
+      if (u.payout_account_name && form.account_name) form.account_name.value = u.payout_account_name;
+      if (u.payout_bank_name && form.bank_name) form.bank_name.value = u.payout_bank_name;
+      if (u.payout_account_last4 && statusMsg) {
+        statusMsg.innerHTML = `✅ Bank details saved (account ending ···${escapeHtml(u.payout_account_last4)}). Update below if needed.`;
+        const details = document.getElementById("driverBankDetailsSection");
+        if (details) details.open = false;
+      } else if (statusMsg) {
+        statusMsg.innerHTML = `⚠️ No bank details saved yet. Add them below to receive payouts.`;
       }
-      
-      handlePlaceSelection(place, 'pickup');
+    }
+  } catch (_) {}
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button[type=submit]");
+    const done = setWorking(btn, "Saving...");
+
+    const fd = new FormData(form);
+    const account_name = String(fd.get("account_name") || "").trim();
+    const bank_name = String(fd.get("bank_name") || "").trim();
+    const bank_account = String(fd.get("bank_account") || "").trim();
+
+    if (!account_name) {
+      if (result) setResult(result, alertError("Full name is required."));
+      done(false);
+      return;
+    }
+
+    const res = await api("/drivers/payout-method", {
+      method: "POST",
+      role: "driver",
+      body: { method: "bank", account_name, bank_name, bank_account },
     });
-    
-    // When user selects a place from dropoff dropdown
-    dropoffAutocomplete.addListener('place_changed', () => {
-      const place = dropoffAutocomplete.getPlace();
-      if (!place || !place.geometry) {
-        console.warn('[Google Maps] No geometry for dropoff place');
-        return;
-      }
-      
-      handlePlaceSelection(place, 'dropoff');
-    });
-    
-    console.log('[Google Maps] Autocomplete initialized ✓');
-    autocompleteRetries = 0; // Reset counter on success
-  } catch (error) {
-    console.error('[Google Maps] Failed to initialize autocomplete:', error);
-    console.warn('[Google Maps] Retrying in 1 second...');
-    autocompleteRetries++;
-    setTimeout(window.setupGoogleMapsAutocomplete, 1000);
+
+    done(!!res.ok);
+
+    if (res.ok) {
+      if (result) setResult(result, alertSuccess("Bank details saved!"));
+      if (statusMsg) statusMsg.innerHTML = `✅ Bank details saved${res.payout_account_last4 ? ` (account ending ···${escapeHtml(String(res.payout_account_last4))})` : ""}.`;
+      const details = document.getElementById("driverBankDetailsSection");
+      if (details) details.open = false;
+    } else {
+      if (result) setResult(result, alertError(res.error || "Failed to save bank details"));
+    }
+  });
+}
+
+async function renderDriverPayoutJobs() {
+  const listEl = document.getElementById("driverPayoutJobsList");
+  const countEl = document.getElementById("driverPayoutJobsCount");
+  if (!listEl) return;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    listEl.innerHTML = `<div class="muted">Unable to load jobs.</div>`;
+    return;
   }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+
+  // Jobs ready for payout: delivered + escrow released
+  const readyJobs = all.filter(r => {
+    const status = String(r?.status || "").toLowerCase();
+    const escrow = String(r?.escrow_status || "none").toLowerCase();
+    const payout = String(r?.payout_status || "none").toLowerCase();
+    return status === "delivered" && escrow === "released";
+  });
+
+  if (readyJobs.length === 0) {
+    listEl.innerHTML = `<div class="muted">No jobs ready for payout yet. Completed deliveries will appear here once the sender confirms and escrow is released.</div>`;
+    if (countEl) countEl.textContent = "";
+    return;
+  }
+
+  const pending = readyJobs.filter(r => String(r?.payout_status || "none").toLowerCase() === "pending_manual");
+  const paid = readyJobs.filter(r => String(r?.payout_status || "none").toLowerCase() === "paid");
+
+  if (countEl) {
+    if (pending.length > 0) {
+      countEl.textContent = `${pending.length} job${pending.length === 1 ? '' : 's'} awaiting payout · ${paid.length} paid`;
+    } else {
+      countEl.textContent = `All ${paid.length} job${paid.length === 1 ? '' : 's'} paid ✅`;
+    }
+  }
+
+  listEl.innerHTML = "";
+
+  for (const r of readyJobs) {
+    const id = String(r.id || "");
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const amount = r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : "Amount TBC";
+    const payoutStatus = String(r.payout_status || "none").toLowerCase();
+    const isPaid = payoutStatus === "paid";
+
+    const card = document.createElement("div");
+    card.style.cssText = `
+      padding:12px; border-radius:8px; margin:8px 0;
+      border:1px solid ${isPaid ? "rgba(34,197,94,.3)" : "rgba(245,158,11,.3)"};
+      background:${isPaid ? "rgba(34,197,94,.04)" : "rgba(245,158,11,.04)"};
+    `;
+
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;">Request #${escapeHtml(id)}</div>
+          <div class="muted" style="font-size:13px;">${pickup} → ${dropoff}</div>
+        </div>
+        <div style="font-weight:700; font-size:15px; color:${isPaid ? "#16a34a" : "#92400e"};">${amount}</div>
+      </div>
+      <div style="margin-top:8px; font-size:13px;">
+        ${isPaid
+          ? `<span style="color:#16a34a;">✅ Paid</span>`
+          : `<span style="color:#92400e;">⏳ Payout pending</span>
+             <div class="muted" style="margin-top:4px; font-size:12px;">We will transfer to your saved bank account. Allow 1–3 business days.</div>`
+        }
+      </div>
+    `;
+
+    listEl.appendChild(card);
+  }
+
+  // Show total pending amount
+  const totalPending = readyJobs
+    .filter(r => String(r?.payout_status || "none").toLowerCase() === "pending_manual")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+
+  if (totalPending > 0) {
+    const totalEl = document.createElement("div");
+    totalEl.style.cssText = "margin-top:12px; padding:10px 14px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.2); border-radius:6px; font-size:14px;";
+    totalEl.innerHTML = `<strong>Total pending payout: NZD $${totalPending.toFixed(2)}</strong><div class="muted" style="font-size:12px; margin-top:2px;">Make sure your bank details above are correct.</div>`;
+    listEl.appendChild(totalEl);
+  }
+}
+
+async function renderDriverPayoutHistory() {
+  const histEl = document.getElementById("driverPayoutHistoryList");
+  if (!histEl) return;
+
+  const res = await api("/driver/requests", { method: "GET", role: "driver" });
+  if (!res || !res.ok) {
+    histEl.innerHTML = `<div class="muted">Unable to load history.</div>`;
+    return;
+  }
+
+  const all = Array.isArray(res.requests) ? res.requests : [];
+
+  // All delivered jobs (complete history)
+  const history = all.filter(r => String(r?.status || "").toLowerCase() === "delivered");
+
+  if (history.length === 0) {
+    histEl.innerHTML = `<div class="muted">No completed deliveries yet.</div>`;
+    return;
+  }
+
+  const rows = history.map(r => {
+    const id = String(r.id || "");
+    const pickup = escapeHtml(r.pickup_suburb || "");
+    const dropoff = escapeHtml(r.dropoff_suburb || "");
+    const amount = r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : "—";
+    const payoutStatus = String(r.payout_status || "none").toLowerCase();
+    const escrowStatus = String(r.escrow_status || "none").toLowerCase();
+    const deliveredAt = r.delivered_at ? new Date(r.delivered_at).toLocaleDateString("en-NZ", { day:"numeric", month:"short", year:"numeric" }) : "—";
+
+    let badge = "";
+    if (payoutStatus === "paid") {
+      badge = `<span style="color:#16a34a; font-weight:600;">✅ Paid</span>`;
+    } else if (escrowStatus === "released") {
+      badge = `<span style="color:#92400e; font-weight:600;">⏳ Pending payout</span>`;
+    } else if (escrowStatus === "pending_release" || escrowStatus === "funded") {
+      badge = `<span style="color:#0284c7;">⏳ Awaiting sender confirmation</span>`;
+    } else {
+      badge = `<span class="muted">—</span>`;
+    }
+
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(0,0,0,.06); gap:8px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:600; font-size:13px;">Request #${escapeHtml(id)} · ${pickup} → ${dropoff}</div>
+          <div class="muted" style="font-size:12px;">Delivered ${deliveredAt}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:700;">${amount}</div>
+          <div style="font-size:12px; margin-top:2px;">${badge}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // Summary totals
+  const totalEarned = history
+    .filter(r => String(r?.payout_status || "").toLowerCase() === "paid")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+  const totalPending = history
+    .filter(r => String(r?.escrow_status || "").toLowerCase() === "released" && String(r?.payout_status || "").toLowerCase() !== "paid")
+    .reduce((sum, r) => sum + Number(r.payout_amount_nzd || 0), 0);
+
+  histEl.innerHTML = `
+    <div style="display:flex; gap:16px; margin-bottom:12px; flex-wrap:wrap;">
+      <div style="padding:10px 14px; background:rgba(34,197,94,.06); border:1px solid rgba(34,197,94,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Total Paid</div>
+        <div style="font-weight:700; font-size:16px; color:#16a34a;">NZD $${totalEarned.toFixed(2)}</div>
+      </div>
+      <div style="padding:10px 14px; background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Pending Payout</div>
+        <div style="font-weight:700; font-size:16px; color:#92400e;">NZD $${totalPending.toFixed(2)}</div>
+      </div>
+      <div style="padding:10px 14px; background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.2); border-radius:6px; flex:1; min-width:120px;">
+        <div class="muted" style="font-size:12px;">Deliveries</div>
+        <div style="font-weight:700; font-size:16px;">${history.length}</div>
+      </div>
+    </div>
+    ${rows}
+  `;
+}
+/* =============================================================
+   DRIVER OPEN JOBS — Text List + Optional Map View
+   Default: fast-loading text list
+   Optional: toggle to map view for spatial navigation
+============================================================= */
+
+let currentView = 'list'; // 'list' or 'map'
+let openJobsData = [];
+
+// Load and render open jobs (called on page load and refresh)
+async function loadAndRenderOpenJobs() {
+  console.log('[Open Jobs] Fetching...');
+  const countEl = document.getElementById('driverOpenCount');
+  if (countEl) countEl.textContent = 'Loading jobs...';
+
+  const res = await api('/driver/requests/available', { method: 'GET', role: 'driver' });
+  
+  if (!res || !res.ok || !res.requests) {
+    console.error('[Open Jobs] Failed to load:', res);
+    if (countEl) countEl.textContent = 'Failed to load jobs';
+    return;
+  }
+
+  const jobs = res.requests.filter(r => r.status === 'open');
+  openJobsData = jobs;
+
+  if (countEl) {
+    countEl.textContent = jobs.length === 0 
+      ? 'No open jobs available at the moment'
+      : `${jobs.length} job${jobs.length === 1 ? '' : 's'} available`;
+  }
+
+  console.log(`[Open Jobs] Found ${jobs.length} jobs`);
+
+  // Render current view
+  if (currentView === 'list') {
+    renderJobsList(jobs);
+  } else {
+    loadJobsOntoMap();
+  }
+}
+
+// Render jobs as text list
+function renderJobsList(jobs) {
+  const listEl = document.getElementById('driverOpenJobsList');
+  if (!listEl) return;
+
+  if (jobs.length === 0) {
+    listEl.innerHTML = '<div class="muted" style="padding:20px; text-align:center;">No open jobs right now. Check back soon!</div>';
+    return;
+  }
+
+  // Show max 5 by default
+  const MAX_DISPLAY = 5;
+  const displayJobs = window._showAllJobs ? jobs : jobs.slice(0, MAX_DISPLAY);
+  const remaining = jobs.length - displayJobs.length;
+
+  const jobCards = displayJobs.map(job => {
+    const pickup = escapeHtml(job.pickup_suburb || '—');
+    const dropoff = escapeHtml(job.dropoff_suburb || '—');
+    const item = escapeHtml(job.item_description || '—');
+    const suggested = job.suggested_price_nzd 
+      ? `NZD $${Number(job.suggested_price_nzd).toFixed(2)}`
+      : 'Not specified';
+    const weight = job.weight_kg ? `${job.weight_kg}kg` : '';
+    
+    return `
+      <div class="card" style="margin-bottom:12px; border-left:3px solid #3b82f6;">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:15px;">Request #${escapeHtml(job.id)}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">${pickup} → ${dropoff}</div>
+            <div style="margin-top:6px;">${item}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">
+              <span>Suggested: ${suggested}</span>
+              ${weight ? ` · ${weight}` : ''}
+            </div>
+          </div>
+          <button class="btn" onclick="showInlineOfferForm(${job.id})" style="white-space:nowrap;">Make Offer</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Add "Show More" button if there are hidden jobs
+  const showMoreBtn = remaining > 0 ? `
+    <div style="text-align:center; margin-top:12px;">
+      <button class="btn ghost" onclick="window._showAllJobs=true; renderJobsList(openJobsData);">
+        Show ${remaining} more job${remaining === 1 ? '' : 's'}
+      </button>
+    </div>
+  ` : '';
+
+  listEl.innerHTML = jobCards + showMoreBtn;
+}
+
+// Toggle between list and map view
+function toggleJobView() {
+  const toggleBtn = document.getElementById('driverToggleMapBtn');
+  const listEl = document.getElementById('driverOpenJobsList');
+  const mapContainer = document.getElementById('driverJobMapContainer');
+  
+  if (currentView === 'list') {
+    // Switch to map
+    currentView = 'map';
+    if (toggleBtn) toggleBtn.textContent = '📋 View List';
+    if (listEl) listEl.classList.add('hidden');
+    if (mapContainer) mapContainer.classList.remove('hidden');
+    
+    // Initialize map if not already done
+    if (!jobMap) {
+      initializeJobMap();
+    } else {
+      loadJobsOntoMap();
+    }
+  } else {
+    // Switch to list
+    currentView = 'list';
+    if (toggleBtn) toggleBtn.textContent = '🗺️ View Map';
+    if (listEl) listEl.classList.remove('hidden');
+    if (mapContainer) mapContainer.classList.add('hidden');
+    
+    renderJobsList(openJobsData);
+  }
+}
+
+// Show inline offer form (called from both list and map views)
+window.showInlineOfferForm = function(requestId) {
+  // Convert to number for comparison (job.id is number, requestId might be string)
+  const id = Number(requestId);
+  const job = openJobsData.find(j => Number(j.id) === id);
+  
+  if (!job) {
+    console.error('[Open Jobs] Job not found:', requestId, 'Available jobs:', openJobsData.length);
+    alert('Job not found. Please refresh and try again.');
+    return;
+  }
+
+  const pickup = job.pickup_address_full || job.pickup_suburb || '—';
+  const dropoff = job.dropoff_address_full || job.dropoff_suburb || '—';
+  const item = escapeHtml(job.item_description || '—');
+
+  document.getElementById('inlineOfferRequestId').textContent = requestId;
+  document.getElementById('inlineOfferRequestIdInput').value = requestId;
+  document.getElementById('inlineOfferJobInfo').innerHTML = `
+    <div><strong>From:</strong> ${escapeHtml(pickup)}</div>
+    <div><strong>To:</strong> ${escapeHtml(dropoff)}</div>
+    <div><strong>Item:</strong> ${item}</div>
+  `;
+
+  document.getElementById('driverInlineOfferSection').classList.remove('hidden');
+  document.getElementById('inlineOfferPrice').focus();
+  document.getElementById('driverInlineOfferSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 
-function handlePlaceSelection(place, type) {
-  const prefix = type; // 'pickup' or 'dropoff'
-  
-  // Extract suburb from address_components
-  // In NZ: usually "locality" or "sublocality" or "administrative_area_level_2"
-  let suburb = '';
-  const components = place.address_components || [];
-  
-  for (const comp of components) {
-    if (comp.types.includes('locality')) {
-      suburb = comp.long_name;
-      break;
-    }
-    if (comp.types.includes('sublocality')) {
-      suburb = comp.long_name;
-      break;
-    }
-    if (comp.types.includes('administrative_area_level_2')) {
-      suburb = comp.long_name;
-      break;
-    }
+/* =============================================================
+   DRIVER JOB MAP — Interactive map (optional view)
+============================================================= */
+
+let jobMap = null;
+let jobMarkers = [];
+let mapInitRetries = 0;
+const MAX_MAP_INIT_RETRIES = 20; // 10 seconds max
+
+window.setupDriverJobMap = function() {
+  console.log('[Job Map] Google Maps loaded, ready for initialization');
+  // Don't initialize immediately - wait for user to click "View Map"
+};
+
+function initializeJobMap() {
+  if (mapInitRetries >= MAX_MAP_INIT_RETRIES) {
+    console.error('[Job Map] Failed to initialize after ' + MAX_MAP_INIT_RETRIES + ' attempts. Map disabled.');
+    const countEl = document.getElementById('driverOpenCount');
+    if (countEl) countEl.textContent = 'Map failed to load. Please refresh the page.';
+    return;
   }
   
-  // Fallback: use the first part of formatted_address
-  if (!suburb && place.formatted_address) {
-    suburb = place.formatted_address.split(',')[0].trim();
+  const mapContainer = document.getElementById('driverJobMap');
+  
+  if (!mapContainer) {
+    console.warn('[Job Map] Map container not found in DOM, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
+    setTimeout(initializeJobMap, 500);
+    return;
   }
   
-  // Show FULL ADDRESS in visible field (what sender sees)
-  const visibleInput = document.getElementById(
-    type === 'pickup' ? 'createPickupSuburb' : 'createDropoffSuburb'
-  );
-  if (visibleInput && place.formatted_address) {
-    visibleInput.value = place.formatted_address;
+  // Check if container is actually visible
+  if (mapContainer.offsetParent === null) {
+    console.warn('[Job Map] Map container exists but not visible yet, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
+    setTimeout(initializeJobMap, 500);
+    return;
+  }
+
+  // Check if already initialized
+  if (jobMap) {
+    console.log('[Job Map] Already initialized');
+    return;
   }
   
-  // Store suburb (for public job listings), full address + coordinates in hidden fields
-  const suburbInput = document.getElementById(`${prefix}SuburbOnly`);
-  const fullAddrInput = document.getElementById(`${prefix}AddressFull`);
-  const latInput = document.getElementById(`${prefix}Lat`);
-  const lngInput = document.getElementById(`${prefix}Lng`);
-  
-  if (suburbInput) suburbInput.value = suburb || '';
-  if (fullAddrInput) fullAddrInput.value = place.formatted_address || '';
-  if (latInput) latInput.value = place.geometry.location.lat();
-  if (lngInput) lngInput.value = place.geometry.location.lng();
-  
-  console.log(`[Google Maps] ${type} selected:`, {
-    suburb,
-    fullAddress: place.formatted_address,
-    lat: place.geometry.location.lat(),
-    lng: place.geometry.location.lng(),
-  });
+  // Check if google.maps is loaded
+  if (!window.google || !window.google.maps) {
+    console.warn('[Job Map] Google Maps not loaded yet, retrying in 500ms... (attempt ' + (mapInitRetries + 1) + ')');
+    mapInitRetries++;
+    setTimeout(initializeJobMap, 500);
+    return;
+  }
+
+  console.log('[Job Map] Initializing map on visible container...');
+
+  try {
+    // Center on New Zealand
+    jobMap = new google.maps.Map(mapContainer, {
+      zoom: 6,
+      center: { lat: -40.9006, lng: 174.886 }, // Center of NZ
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    });
+
+    console.log('[Job Map] Map initialized ✓');
+    mapInitRetries = 0; // Reset counter on success
+    
+    // Load jobs once map is ready
+    loadJobsOntoMap();
+  } catch (error) {
+    console.error('[Job Map] Error creating map:', error);
+    mapInitRetries++;
+    setTimeout(initializeJobMap, 1000);
+  }
 }
+
+async function loadJobsOntoMap() {
+  if (!jobMap) {
+    console.warn('[Job Map] Map not initialized yet');
+    return;
+  }
+
+  console.log('[Job Map] Rendering jobs on map...');
+  
+  // Use already-loaded data
+  const openJobs = openJobsData.filter(r => r.status === 'open');
+
+  // Clear existing markers
+  jobMarkers.forEach(m => m.setMap(null));
+  jobMarkers = [];
+
+  // Group jobs by location (lat/lng rounded to 2 decimals for clustering)
+  const locationGroups = {};
+  
+  openJobs.forEach(job => {
+    // Only show jobs with coordinates on map
+    if (!job.pickup_lat || !job.pickup_lng) return;
+    
+    // Convert to numbers (they come as strings from database)
+    const lat = Number(job.pickup_lat);
+    const lng = Number(job.pickup_lng);
+    
+    if (isNaN(lat) || isNaN(lng)) return; // Skip invalid coordinates
+    
+    // Round to ~1km precision for clustering
+    const clusterKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    
+    if (!locationGroups[clusterKey]) {
+      locationGroups[clusterKey] = {
+        lat: lat,
+        lng: lng,
+        suburb: job.pickup_suburb || 'Unknown',
+        jobs: [],
+      };
+    }
+    
+    locationGroups[clusterKey].jobs.push(job);
+  });
+
+  // Create markers for each location cluster
+  Object.values(locationGroups).forEach(group => {
+    const marker = new google.maps.Marker({
+      position: { lat: group.lat, lng: group.lng },
+      map: jobMap,
+      title: `${group.jobs.length} job${group.jobs.length === 1 ? '' : 's'} in ${group.suburb}`,
+      label: {
+        text: String(group.jobs.length),
+        color: '#ffffff',
+        fontSize: '14px',
+        fontWeight: 'bold',
+      },
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 20,
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
+    });
+
+    // Click marker to show jobs in that area
+    marker.addListener('click', () => {
+      showJobsInArea(group);
+      
+      // Center map on clicked location
+      jobMap.panTo({ lat: group.lat, lng: group.lng });
+      jobMap.setZoom(12);
+    });
+
+    jobMarkers.push(marker);
+  });
+
+  // If there are jobs, fit map to show all markers
+  if (jobMarkers.length > 0) {
+    const bounds = new google.maps.LatLngBounds();
+    jobMarkers.forEach(m => bounds.extend(m.getPosition()));
+    jobMap.fitBounds(bounds);
+    
+    // Don't zoom in too close if there's only one cluster
+    google.maps.event.addListenerOnce(jobMap, 'bounds_changed', () => {
+      if (jobMap.getZoom() > 10) jobMap.setZoom(10);
+    });
+  }
+
+  console.log(`[Job Map] Created ${jobMarkers.length} location markers`);
+}
+
+function showJobsInArea(group) {
+  const listEl = document.getElementById('driverJobMapList');
+  if (!listEl) return;
+
+  listEl.style.display = 'block';
+  
+  const jobCards = group.jobs.map(job => {
+    const pickup = escapeHtml(job.pickup_suburb || '—');
+    const dropoff = escapeHtml(job.dropoff_suburb || '—');
+    const item = escapeHtml(job.item_description || '—');
+    const suggested = job.suggested_price_nzd 
+      ? `NZD $${Number(job.suggested_price_nzd).toFixed(2)}`
+      : 'Not specified';
+    
+    return `
+      <div class="card" style="margin-bottom:12px; border-left:3px solid #3b82f6;">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:15px;">Request #${escapeHtml(job.id)}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">${pickup} → ${dropoff}</div>
+            <div style="margin-top:6px;">${item}</div>
+            <div class="muted" style="margin-top:4px; font-size:13px;">Suggested: ${suggested}</div>
+          </div>
+          <button class="btn" onclick="showInlineOfferForm(${job.id})" style="white-space:nowrap;">Make Offer</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <h3 style="margin:0 0 4px 0;">${group.jobs.length} job${group.jobs.length === 1 ? '' : 's'} in ${escapeHtml(group.suburb)}</h3>
+      <button class="btn ghost" onclick="closeJobList()" style="font-size:13px; padding:4px 8px;">Close</button>
+    </div>
+    ${jobCards}
+  `;
+}
+
+window.closeJobList = function() {
+  const listEl = document.getElementById('driverJobMapList');
+  if (listEl) listEl.style.display = 'none';
+};
+
+// Wire up buttons
+document.addEventListener('DOMContentLoaded', () => {
+  // Toggle between list and map view
+  const toggleBtn = document.getElementById('driverToggleMapBtn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', toggleJobView);
+  }
+  
+  // Refresh button
+  const refreshBtn = document.getElementById('driverOpenJobsRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      closeJobList();
+      loadAndRenderOpenJobs();
+    });
+  }
+  
+  // Load jobs on page load
+  setTimeout(() => {
+    loadAndRenderOpenJobs();
+  }, 1000);
+});
