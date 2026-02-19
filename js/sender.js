@@ -653,9 +653,32 @@ function setupCreateRequest() {
 
     // ✅ Auto-include sender_phone from logged-in user
     const u = getSavedUser();
+    console.log('[Create Request] Saved user:', u);
     const sender_phone = String(u?.phone || "").trim();
+    console.log('[Create Request] Sender phone:', sender_phone);
+    
     if (!sender_phone) {
       if (btn) btn.disabled = false;
+      
+      // Try one more time to sync from driver
+      try {
+        const driverData = localStorage.getItem("dm_user_driver") || sessionStorage.getItem("dm_user_driver");
+        if (driverData) {
+          const driver = JSON.parse(driverData);
+          console.log('[Create Request] Emergency sync from driver:', driver);
+          if (driver.phone) {
+            saveUser({
+              phone: driver.phone,
+              full_name: driver.full_name || driver.name,
+              email: driver.email,
+            });
+            // Retry with new data
+            window.location.reload();
+            return;
+          }
+        }
+      } catch (_) {}
+      
       if (result) setResult(result, alertError("Your login session is missing a phone number. Please log out and log in again."));
       return;
     }
@@ -1930,21 +1953,35 @@ export function initSenderPage() {
   // This allows drivers to create requests without logging in again
   try {
     const senderUser = getSavedUser();
-    const driverUserData = localStorage.getItem("dm_user_driver"); // FIXED: correct key
+    
+    // Try both localStorage and sessionStorage for driver data
+    let driverUserData = localStorage.getItem("dm_user_driver");
+    if (!driverUserData) {
+      driverUserData = sessionStorage.getItem("dm_user_driver");
+    }
+    
+    console.log('[Sender] Driver user data found:', !!driverUserData);
     
     if (driverUserData) {
       const driverUser = JSON.parse(driverUserData);
+      console.log('[Sender] Driver user object:', driverUser);
       
       // If no sender user, OR sender user has different phone, sync from driver
       if (!senderUser || senderUser.phone !== driverUser.phone) {
         // Copy driver user to sender storage (same person, different role)
-        saveUser({
+        const userData = {
           phone: driverUser.phone,
-          full_name: driverUser.full_name || driverUser.name,
+          full_name: driverUser.full_name || driverUser.name || driverUser.full_name,
           email: driverUser.email,
-        });
+        };
+        console.log('[Sender] Saving user data:', userData);
+        saveUser(userData);
         console.log('[Sender] Auto-synced user from driver session:', driverUser.phone);
+      } else {
+        console.log('[Sender] Sender user already exists with same phone:', senderUser.phone);
       }
+    } else {
+      console.log('[Sender] No driver user data found to sync');
     }
   } catch (e) {
     console.error('[Sender] Auto-sync error:', e);
