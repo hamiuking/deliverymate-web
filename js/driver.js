@@ -605,7 +605,7 @@ function setupDriverLogout() {
 
     // Clear BOTH sender and driver user data to prevent cross-contamination
     localStorage.removeItem("dm_sender_user");
-    localStorage.removeItem("dm_driver_user");
+    localStorage.removeItem("dm_user_driver"); // Correct driver user key
 
     enforceDriverGate();
     if (hint) hint.textContent = "";
@@ -1958,7 +1958,7 @@ export function initDriverPage() {
       // Token was removed (logout happened in another tab)
       console.log('[Driver] Detected logout in another tab, logging out...');
       sessionStorage.removeItem('dm_user_token');
-      localStorage.removeItem('dm_driver_user');
+      localStorage.removeItem('dm_user_driver'); // FIXED: correct key
       localStorage.removeItem('dm_sender_user');
       enforceDriverGate();
     }
