@@ -149,12 +149,27 @@
       <!-- ── SMART NEXT-ACTION BANNER ──────────────────────── -->
       <div id="driverNextActionBanner" style="margin-bottom:16px;"></div>
 
-      <!-- ── DRIVER ACKNOWLEDGEMENTS ───────────────────────── -->
-      <section class="card requires-driver">
-        <details id="driverAckDetails" open>
-          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Driver Acknowledgements</summary>
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 1: MY ACTIVE JOBS (Top Priority)
+      ══════════════════════════════════════════════════════ -->
+      <section class="card requires-driver" style="border-top:3px solid #0ea5e9;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <div style="width:4px; height:24px; background:#0ea5e9; border-radius:2px;"></div>
+          <h2 style="margin:0;">My Active Jobs</h2>
+        </div>
+        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
+        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
+        <div class="result" id="driverActiveJobsResult"></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 2: DRIVER ACKNOWLEDGEMENTS (Must Confirm First)
+      ══════════════════════════════════════════════════════ -->
+      <section class="card requires-driver" style="border-left:4px solid #f59e0b; background:rgba(245,158,11,.03); margin-top:20px;">
+        <details id="driverAckDetails">
+          <summary style="cursor:pointer; font-weight:600; font-size:18px; color:#92400e;">⚠️ Driver Acknowledgements (Confirm First to Make Offer)</summary>
           <div style="margin-top:12px;">
-            <p class="muted">Confirm the following before submitting offers or updating status:</p>
+            <p class="muted">You must confirm all items below before making offers or updating delivery status:</p>
 
             <label style="font-weight:600;">
               <input type="checkbox" id="dAck1" />
@@ -189,35 +204,17 @@
         </details>
       </section>
 
-      <!-- ── MY ACTIVE JOBS ─────────────────────────────────
-           Top priority — jobs that need driver action right now.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>My Active Jobs</h2>
-        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
-        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
-        <div class="result" id="driverActiveJobsResult"></div>
-      </section>
-
-      <!-- ── ALSO A SENDER? ─────────────────────────────────
-           Remind drivers they can create requests too
-      ──────────────────────────────────────────────────────── -->
-      <div class="card" style="background:rgba(59,130,246,.05); border-left:3px solid rgba(59,130,246,.5); margin-bottom:16px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-          <div style="flex:1;">
-            <div style="font-weight:600; font-size:15px;">📦 Need to send something?</div>
-            <div class="muted" style="margin-top:4px; font-size:14px;">You can also create delivery requests as a sender.</div>
-          </div>
-          <a href="/sender.html" class="btn" style="white-space:nowrap;">Create Request</a>
-        </div>
-      </div>
-
-      <!-- ── OPEN JOBS (MARKETPLACE) ────────────────────────
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 3: AVAILABLE JOBS (Browse Open Deliveries)
+      ══════════════════════════════════════════════════════ -->
            Browse available jobs. Toggle between list and map view.
       ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
+      <section class="card requires-driver" style="margin-top:20px; border-top:3px solid #10b981;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-          <h2 style="margin:0;">Available Jobs</h2>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:4px; height:24px; background:#10b981; border-radius:2px;"></div>
+            <h2 style="margin:0;">Available Jobs</h2>
+          </div>
           <div style="display:flex; gap:8px;">
             <button class="btn ghost" id="driverToggleMapBtn" type="button">🗺️ View Map</button>
             <button class="btn ghost" id="driverOpenJobsRefreshBtn" type="button">Refresh</button>
@@ -236,10 +233,15 @@
           <div id="driverJobMapList" style="margin-top:12px; display:none;"></div>
         </div>
 
-        <!-- Inline Offer Form (slides in when clicking Make Offer) -->
-        <div id="driverInlineOfferSection" class="hidden" style="margin-top:16px;">
-          <div class="card" style="background:rgba(59,130,246,.05); border-color:rgba(59,130,246,.3);">
-            <h3 style="margin-top:0;">Quick Offer — Request #<span id="inlineOfferRequestId"></span></h3>
+        <!-- ══════════════════════════════════════════════════════
+             SECTION 4: QUICK OFFER (Inline Form)
+        ══════════════════════════════════════════════════════ -->
+        <div id="driverInlineOfferSection" class="hidden" style="margin-top:20px;">
+          <div class="card" style="background:rgba(59,130,246,.08); border-left:4px solid #3b82f6;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <div style="width:4px; height:24px; background:#3b82f6; border-radius:2px;"></div>
+              <h3 style="margin:0;">Quick Offer — Request #<span id="inlineOfferRequestId"></span></h3>
+            </div>
             <div class="muted" id="inlineOfferJobInfo" style="margin-bottom:12px;"></div>
 
             <form id="driverInlineOfferForm" onsubmit="return false">
@@ -265,7 +267,10 @@
            Primary action for active jobs: mark picked up or delivered.
       ──────────────────────────────────────────────────────── -->
       <section class="card requires-driver">
-        <h2>Update Job Status</h2>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <div style="width:4px; height:24px; background:#6366f1; border-radius:2px;"></div>
+          <h2 style="margin:0;">Update Job Status</h2>
+        </div>
         <p class="muted">Use the buttons in My Active Jobs above, or enter a Request ID manually here.</p>
 
         <form id="driverStatusForm">
@@ -291,6 +296,19 @@
 
         <div class="result" id="driverStatusResult"></div>
       </section>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 6: CREATE REQUEST (Driver as Sender)
+      ══════════════════════════════════════════════════════ -->
+      <div class="card" style="background:linear-gradient(135deg, rgba(147,51,234,.08) 0%, rgba(168,85,247,.08) 100%); border-left:4px solid #9333ea; margin-top:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:17px; color:#581c87; margin-bottom:4px;">📦 Need to Send Something?</div>
+            <div class="muted" style="font-size:14px;">Drivers can also create delivery requests as senders. Switch roles seamlessly!</div>
+          </div>
+          <a href="/sender.html" class="btn" style="white-space:nowrap; background:#9333ea; border-color:#9333ea; color:white;">Create Request</a>
+        </div>
+      </div>
 
       <!-- ── VIEW JOB DETAILS ───────────────────────────────── -->
       <section class="card requires-driver">
