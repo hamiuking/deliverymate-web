@@ -151,38 +151,52 @@
 
       <!-- ── DRIVER ACKNOWLEDGEMENTS ───────────────────────── -->
       <section class="card requires-driver">
-        <h2>Driver Acknowledgements</h2>
-        <p class="muted">Confirm the following before submitting offers or updating status:</p>
+        <details id="driverAckDetails" open>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">Driver Acknowledgements</summary>
+          <div style="margin-top:12px;">
+            <p class="muted">Confirm the following before submitting offers or updating status:</p>
 
-        <label style="font-weight:600;">
-          <input type="checkbox" id="dAck1" />
-          I am fully responsible for my own driving, including compliance with NZ road rules, vehicle safety, and insurance. The Platform is not responsible for accidents, infringements, damage, or injury.
-        </label>
+            <label style="font-weight:600;">
+              <input type="checkbox" id="dAck1" />
+              I am fully responsible for my own driving, including compliance with NZ road rules, vehicle safety, and insurance. The Platform is not responsible for accidents, infringements, damage, or injury.
+            </label>
 
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck2" />
-          My vehicle is roadworthy, holds a current WOF and registration, and I maintain appropriate insurance cover.
-        </label>
+            <label style="font-weight:600; margin-top:10px; display:block;">
+              <input type="checkbox" id="dAck2" />
+              My vehicle is roadworthy, holds a current WOF and registration, and I maintain appropriate insurance cover.
+            </label>
 
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck3" />
-          The Platform does not insure items I carry and is not liable for loss, theft, or damage to goods.
-        </label>
+            <label style="font-weight:600; margin-top:10px; display:block;">
+              <input type="checkbox" id="dAck3" />
+              The Platform does not insure items I carry and is not liable for loss, theft, or damage to goods.
+            </label>
 
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck4" />
-          The Platform is a facilitator only. We do not provide dispute resolution, mediation, or intervention in delivery issues.
-        </label>
+            <label style="font-weight:600; margin-top:10px; display:block;">
+              <input type="checkbox" id="dAck4" />
+              The Platform is a facilitator only. We do not provide dispute resolution, mediation, or intervention in delivery issues.
+            </label>
 
-        <label style="font-weight:600; margin-top:10px; display:block;">
-          <input type="checkbox" id="dAck5" />
-          I understand the Platform charges a 5% commission fee, deducted from each payout I receive.
-        </label>
+            <label style="font-weight:600; margin-top:10px; display:block;">
+              <input type="checkbox" id="dAck5" />
+              I understand the Platform charges a 5% commission fee, deducted from each payout I receive.
+            </label>
 
-        <div class="muted" style="margin-top:10px;">
-          Full terms: <a href="/terms/driver-terms.html" target="_blank" rel="noopener">Driver Agreement</a>
-          <span style="margin-left:10px;" id="driverAckLast"></span>
-        </div>
+            <div class="muted" style="margin-top:10px;">
+              Full terms: <a href="/terms/driver-terms.html" target="_blank" rel="noopener">Driver Agreement</a>
+              <span style="margin-left:10px;" id="driverAckLast"></span>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ── MY ACTIVE JOBS ─────────────────────────────────
+           Top priority — jobs that need driver action right now.
+      ──────────────────────────────────────────────────────── -->
+      <section class="card requires-driver">
+        <h2>My Active Jobs</h2>
+        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
+        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
+        <div class="result" id="driverActiveJobsResult"></div>
       </section>
 
       <!-- ── ALSO A SENDER? ─────────────────────────────────
@@ -197,16 +211,6 @@
           <a href="/sender.html" class="btn" style="white-space:nowrap;">Create Request</a>
         </div>
       </div>
-
-      <!-- ── MY ACTIVE JOBS ─────────────────────────────────
-           Top priority — jobs that need driver action right now.
-      ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
-        <h2>My Active Jobs</h2>
-        <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
-        <div id="driverActiveJobsList" style="margin-top:10px;"></div>
-        <div class="result" id="driverActiveJobsResult"></div>
-      </section>
 
       <!-- ── OPEN JOBS (MARKETPLACE) ────────────────────────
            Browse available jobs. Toggle between list and map view.
