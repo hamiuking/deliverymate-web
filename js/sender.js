@@ -604,7 +604,7 @@ function setupCreateAcksGate() {
   const btn = document.getElementById("createRequestBtn");
   if (!btn) return;
 
-  const ids = ["sAck1", "sAck2", "sAck3", "sAck4", "sAck5"];
+  const ids = ["sAck1", "sAck2", "sAck3", "sAck4", "sAck5", "sAck6"];
   const boxes = ids.map((id) => document.getElementById(id)).filter(Boolean);
 
   const refresh = () => {
