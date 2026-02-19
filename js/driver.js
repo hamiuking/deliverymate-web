@@ -359,9 +359,9 @@ function setupDriverAckGate() {
     lastEl.textContent = `· Last agreed on this device: ${d.toLocaleString()}`;
   };
 
-  // Pre-tick if previously agreed on this device
-  const prev = localStorage.getItem(DRIVER_ACK_KEY);
-  if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true; a5.checked = true; }
+  // DO NOT pre-tick - driver must manually check each time for clarity
+  // const prev = localStorage.getItem(DRIVER_ACK_KEY);
+  // if (prev) { a1.checked = true; a2.checked = true; a3.checked = true; a4.checked = true; a5.checked = true; }
 
   const refresh = () => {
     const ok = a1.checked && a2.checked && a3.checked && a4.checked && a5.checked;
@@ -371,13 +371,6 @@ function setupDriverAckGate() {
     // Only set timestamp when all are checked
     if (ok) {
       localStorage.setItem(DRIVER_ACK_KEY, new Date().toISOString());
-      // Auto-collapse after first complete agreement
-      const details = document.getElementById('driverAckDetails');
-      if (details && details.open) {
-        setTimeout(() => {
-          details.open = false;
-        }, 500);
-      }
     }
     renderLast();
   };
