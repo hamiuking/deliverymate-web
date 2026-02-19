@@ -608,7 +608,7 @@ function setupCreateAcksGate() {
   const boxes = ids.map((id) => document.getElementById(id)).filter(Boolean);
 
   const refresh = () => {
-    const ok = boxes.length === 4 && boxes.every((b) => b.checked);
+    const ok = boxes.length === 6 && boxes.every((b) => b.checked);
     btn.disabled = !ok;
   };
 
