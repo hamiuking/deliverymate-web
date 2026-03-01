@@ -52,6 +52,9 @@
           <p class="muted">Apply to become a driver. Admin approval required (usually within 24 hours).</p>
 
           <form id="driverRegForm">
+            <label>Invite code</label>
+            <input name="invite_code" required />
+
             <label>Full name</label>
             <input name="full_name" />
 
@@ -95,6 +98,7 @@
             <input name="phone" placeholder="e.g. 021..." required />
             <label>Email <span class="muted">(add or update to receive notifications)</span></label>
             <input name="email" type="email" placeholder="e.g. you@example.com" />
+            <div class="muted">First time here? Register with your invite code.</div>
 
             <div class="btn-row mt-2">
               <button class="btn" type="submit" id="driverLoginBtn">Log in</button>
@@ -106,14 +110,39 @@
       </div>
 
       <section class="card">
-        <h2>How it works (Driver)</h2>
-        <ol>
-          <li><strong>Apply</strong> — Admin approval required (usually within 24 hours).</li>
-          <li><strong>Browse open jobs</strong> — Submit offers with your price.</li>
-          <li><strong>If selected</strong> — Pickup item and update status.</li>
-          <li><strong>Deliver &amp; photo</strong> — Upload proof of delivery.</li>
-          <li><strong>Get paid</strong> — Payment releases after delivery confirmation.</li>
-        </ol>
+        <h2 style="text-align:center; margin-bottom:24px;">Driver Journey</h2>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+
+          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">📋</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">① Apply</div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Submit your licence photos and vehicle details. Admin approves you usually within 24 hours.</p>
+          </div>
+
+          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">🗺️</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">② Browse &amp; offer</div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Browse open delivery jobs on the map or list. Submit your price — sender picks the best offer.</p>
+          </div>
+
+          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">🚚</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">③ Pick up &amp; deliver</div>
+            <div style="background:#0ea5e9; color:white; border-radius:6px; padding:4px 10px; display:inline-block; font-size:12px; font-weight:600; margin-bottom:6px;">Mark Picked Up</div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Once the sender pays escrow, pick up the item. When delivered, upload a proof photo to complete the job.</p>
+          </div>
+
+          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">💰</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">④ Get paid</div>
+            <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px; flex-wrap:wrap;">
+              <div style="background:#16a34a; color:white; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600;">Funds Released</div>
+              <div style="font-size:12px; color:#64748b; display:flex; align-items:center; gap:4px;"><span>⏱️</span> 24H Auto</div>
+            </div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Sender confirms delivery and releases payment to your bank account.</p>
+          </div>
+
+        </div>
       </section>
     </div>
 
