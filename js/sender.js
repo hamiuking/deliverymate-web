@@ -197,6 +197,18 @@ function setDashboardVisible(isAuthed) {
   const auth = document.getElementById("senderAuthArea") || document.getElementById("senderAuthCard");
   if (dash) dash.classList.toggle("hidden", !isAuthed);
   if (auth) auth.classList.toggle("hidden", !!isAuthed);
+
+  // Re-initialize Google Maps autocomplete when dashboard becomes visible
+  // (it may have given up retrying if the form was hidden during initial load)
+  if (isAuthed) {
+    setTimeout(function() {
+      if (window.setupGoogleMapsAutocomplete) {
+        // Reset retry counter so it tries again fresh
+        window.autocompleteRetries = 0;
+        window.setupGoogleMapsAutocomplete();
+      }
+    }, 200);
+  }
 }
 
 /* ---------------------------------------------------------
@@ -2059,9 +2071,12 @@ export function initSenderPage() {
    Using new PlaceAutocompleteElement (recommended by Google)
 ------------------------------------------------------------- */
 let autocompleteRetries = 0;
+window.autocompleteRetries = 0; // expose for reset
 const MAX_AUTOCOMPLETE_RETRIES = 20; // 10 seconds max
 
 window.setupGoogleMapsAutocomplete = function() {
+  // Sync reset from external caller (e.g. setDashboardVisible)
+  if (window.autocompleteRetries === 0) autocompleteRetries = 0;
   console.log('[Google Maps] Initializing autocomplete... (attempt ' + (autocompleteRetries + 1) + ')');
   
   if (autocompleteRetries >= MAX_AUTOCOMPLETE_RETRIES) {
