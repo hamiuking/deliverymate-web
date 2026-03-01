@@ -21,25 +21,111 @@
     </nav>
   </header>
 
- <main class="container">
-  <h1>About DeliveryMate</h1>
-  <p class="muted">
-  🚗  Driving anyway?
-    That empty boot could help deliver a parcel — and earn you a little extra. </p>
-    <p class="muted"> DeliveryMate connects senders with independent drivers for local deliveries in New Zealand.
-    This is an invite‑only pilot for testing and feedback. </p>
-    <p class="muted">📨 Email <strong><a href="mailto:admin@deliverymate.nz">admin@deliverymate.nz</a></strong> with the subject 'Driver Invite Code' or 'Sender Invite Code' to get started.
-  </p>
-</main>
-  <!-- Add this just before </body> on every page -->
+  <main class="container">
+    <h1>About DeliveryMate</h1>
 
-<footer class="topbar" style="margin-top: auto; padding: 16px 0; text-align: center; font-size: 13px;">
-  <span class="muted">© 2026 Small Bridge Ltd</span>
-  <span class="muted" style="margin: 0 8px;">·</span>
-  <a href="/terms/privacy-policy.html" class="muted">Privacy Policy</a>
-  <span class="muted" style="margin: 0 8px;">·</span>
-  <a href="/terms/cookie-policy.html" class="muted">Cookie Policy</a>
-</footer>
+    <!-- Hero tagline -->
+    <div class="card" style="text-align:center; padding:36px 24px; margin-bottom:24px; background:linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%); border:1px solid #e2e8f0;">
+      <div style="font-size:56px; margin-bottom:16px;">🚗 📦</div>
+      <h2 style="margin:0 0 12px; font-size:22px; color:#1e293b;">Driving anyway? Make it count.</h2>
+      <p style="margin:0; color:#64748b; font-size:15px; max-width:480px; margin:0 auto;">
+        DeliveryMate connects people who need things delivered with drivers already heading that way — turning empty boots into earning opportunities.
+      </p>
+    </div>
+
+    <!-- What we do -->
+    <div class="card" style="margin-bottom:24px;">
+      <h2 style="margin-bottom:20px;">What is DeliveryMate?</h2>
+      <p style="color:#475569; line-height:1.7;">
+        DeliveryMate is a peer-to-peer delivery platform for New Zealand. It's simple: senders post delivery jobs, approved drivers make offers, and payment is held securely in escrow until delivery is confirmed.
+      </p>
+      <p style="color:#475569; line-height:1.7; margin-bottom:0;">
+        We're not a courier company. We're a marketplace that makes it easy for independent drivers and everyday senders to connect, transact safely, and get things moving.
+      </p>
+    </div>
+
+    <!-- Two sides -->
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px;">
+
+      <div class="card" style="flex:1; min-width:220px; border-top:3px solid #2563eb;">
+        <div style="font-size:36px; margin-bottom:12px;">📬</div>
+        <h3 style="margin:0 0 8px; color:#1e293b;">For Senders</h3>
+        <p style="margin:0; color:#64748b; font-size:14px; line-height:1.6;">
+          Need something delivered locally? Post your job, review offers from vetted drivers, pay securely via Stripe, and track your delivery from pickup to drop-off.
+        </p>
+        <a href="/sender.html" class="btn" style="display:inline-block; margin-top:16px;">Post a delivery</a>
+      </div>
+
+      <div class="card" style="flex:1; min-width:220px; border-top:3px solid #16a34a;">
+        <div style="font-size:36px; margin-bottom:12px;">🚗</div>
+        <h3 style="margin:0 0 8px; color:#1e293b;">For Drivers</h3>
+        <p style="margin:0; color:#64748b; font-size:14px; line-height:1.6;">
+          Already on the road? Browse open delivery jobs along your route, set your own price, and get paid once the job is done. No shifts, no boss — just you and the road.
+        </p>
+        <a href="/driver.html" class="btn" style="display:inline-block; margin-top:16px;">Start earning</a>
+      </div>
+
+    </div>
+
+    <!-- Trust & Safety -->
+    <div class="card" style="margin-bottom:24px;">
+      <h2 style="margin-bottom:20px;">Trust &amp; Safety</h2>
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+
+        <div style="flex:1; min-width:180px; display:flex; gap:12px; align-items:flex-start;">
+          <div style="font-size:28px;">🛡️</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px; color:#1e293b;">Stripe Escrow</div>
+            <div style="font-size:13px; color:#64748b;">Payment is held securely until delivery is confirmed — drivers get paid, senders get peace of mind.</div>
+          </div>
+        </div>
+
+        <div style="flex:1; min-width:180px; display:flex; gap:12px; align-items:flex-start;">
+          <div style="font-size:28px;">✅</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px; color:#1e293b;">Vetted Drivers</div>
+            <div style="font-size:13px; color:#64748b;">Every driver is manually reviewed and approved by our admin team before they can accept jobs.</div>
+          </div>
+        </div>
+
+        <div style="flex:1; min-width:180px; display:flex; gap:12px; align-items:flex-start;">
+          <div style="font-size:28px;">📸</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px; color:#1e293b;">Proof of Delivery</div>
+            <div style="font-size:13px; color:#64748b;">Drivers upload a photo at delivery. Senders can confirm or wait for the 24-hour auto-release.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="card" style="margin-bottom:24px; text-align:center;">
+      <div style="font-size:36px; margin-bottom:12px;">📨</div>
+      <h2 style="margin:0 0 8px;">Get in touch</h2>
+      <p style="color:#64748b; margin-bottom:16px;">Questions, feedback, or just want to say hi?</p>
+      <a href="mailto:admin@deliverymate.nz" class="btn">admin@deliverymate.nz</a>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="card" style="background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.3); margin-bottom:24px;">
+      <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="font-size:22px;">⚠️</div>
+        <div style="font-size:13px; color:#64748b; line-height:1.6;">
+          DeliveryMate is a facilitator only — we are not a courier, employer, or agent. We do not provide dispute resolution, insurance, or guarantees. All deliveries are between independent parties at their own risk.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="topbar" style="margin-top: auto; padding: 16px 0; text-align: center; font-size: 13px;">
+    <span class="muted">© 2026 Small Bridge Ltd</span>
+    <span class="muted" style="margin: 0 8px;">·</span>
+    <a href="/terms/privacy-policy.html" class="muted">Privacy Policy</a>
+    <span class="muted" style="margin: 0 8px;">·</span>
+    <a href="/terms/cookie-policy.html" class="muted">Cookie Policy</a>
+  </footer>
 
 </body>
 </html>
