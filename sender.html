@@ -52,9 +52,6 @@
           <p class="muted">Register to create delivery requests. You can apply to become a driver later from your profile.</p>
 
           <form id="senderRegForm" onsubmit="return false">
-            <label>Invite code</label>
-            <input name="invite_code" required />
-
             <label>Full name</label>
             <input name="full_name" />
 
@@ -78,7 +75,6 @@
             <label>Email <span class="muted">(add or update to receive notifications)</span></label>
             <input name="email" type="email" placeholder="e.g. you@example.com" />
 
-            <div class="muted">First time here? Register with your invite code.</div>
 
             <div class="btn-row mt-2">
               <button class="btn" type="submit" id="senderLoginBtn">Log in</button>
@@ -90,14 +86,33 @@
       </div>
 
       <section class="card">
-        <h2>How it works (Sender)</h2>
-        <ol>
-          <li><strong>Create a request</strong> — Describe what you need delivered.</li>
-          <li><strong>Review offers</strong> — Approved drivers submit their price.</li>
-          <li><strong>Accept &amp; pay</strong> — Choose a driver and fund escrow (Stripe).</li>
-          <li><strong>Track delivery</strong> — Your driver updates you at pickup and delivery.</li>
-          <li><strong>Confirm delivery</strong> — Release payment immediately, or it auto-releases after 24 hours.</li>
-        </ol>
+        <h2 style="text-align:center; margin-bottom:24px;">Sender Journey</h2>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+
+          <div style="flex:1; min-width:180px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">📱</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">① Request created</div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Post your job with pickup address, dropoff, and item details. Drivers near you will see it.</p>
+          </div>
+
+          <div style="flex:1; min-width:180px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">💳</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">② Accept offer &amp; fund escrow</div>
+            <div style="background:#7c3aed; color:white; border-radius:6px; padding:4px 12px; display:inline-block; font-size:13px; font-weight:600; margin-bottom:6px;">STRIPE</div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Choose a driver and pay securely. Funds are held safely until delivery is confirmed.</p>
+          </div>
+
+          <div style="flex:1; min-width:180px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
+            <div style="font-size:40px; margin-bottom:10px;">✅</div>
+            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">③ After delivery</div>
+            <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px; flex-wrap:wrap;">
+              <div style="background:#16a34a; color:white; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600;">RELEASE FUNDS</div>
+              <div style="font-size:12px; color:#64748b; display:flex; align-items:center; gap:4px;"><span>⏱️</span> 24H Auto-Release</div>
+            </div>
+            <p style="margin:0; color:#64748b; font-size:13px;">Confirm delivery to release payment immediately, or it auto-releases after 24 hours.</p>
+          </div>
+
+        </div>
       </section>
     </div>
 
