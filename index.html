@@ -37,15 +37,40 @@
         </div>
       </div>
     </div>
-    <div class="card">
-      <h2>How it works</h2>
-      <ul>
-        <li>Create a request and receive offers from approved drivers.</li>
-        <li>Accept an offer and fund escrow (Stripe).</li>
-        <li>After delivery: confirm to release immediately, or auto‑release after 24 hours.</li>
-      </ul>
+    <div class="card" style="margin-bottom:24px;">
+      <h2 style="text-align:center; margin-bottom:24px;">How it works</h2>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
+        
+        <div style="flex:1; min-width:200px; background:#f8fafc; border-radius:12px; padding:24px; text-align:center; border:1px solid #e2e8f0;">
+          <div style="font-size:48px; margin-bottom:12px;">📦</div>
+          <div style="background:#1e293b; color:white; border-radius:8px; padding:8px 16px; display:inline-block; margin-bottom:12px; font-weight:600;">① Delivery Request</div>
+          <p style="margin:0; color:#64748b; font-size:14px;">Post your delivery job with pickup and dropoff details. Approved drivers will send you offers.</p>
+        </div>
 
-      <div class="btn-row">
+        <div style="flex:1; min-width:200px; background:#f8fafc; border-radius:12px; padding:24px; text-align:center; border:1px solid #e2e8f0;">
+          <div style="font-size:48px; margin-bottom:12px;">💬</div>
+          <div style="background:#16a34a; color:white; border-radius:8px; padding:8px 16px; display:inline-block; margin-bottom:8px; font-weight:600;">Offer Accepted</div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:8px;">
+            <span style="font-size:20px;">🛡️</span>
+            <span style="font-size:13px; color:#64748b; font-weight:600;">STRIPE ESCROW FUNDED</span>
+          </div>
+          <p style="margin:8px 0 0; color:#64748b; font-size:14px;">Accept an offer and pay securely via Stripe. Funds are held in escrow until delivery.</p>
+        </div>
+
+        <div style="flex:1; min-width:200px; background:#f8fafc; border-radius:12px; padding:24px; text-align:center; border:1px solid #e2e8f0;">
+          <div style="font-size:48px; margin-bottom:12px;">🚚</div>
+          <div style="background:#2563eb; color:white; border-radius:8px; padding:8px 16px; display:inline-block; margin-bottom:8px; font-weight:600;">Delivered</div>
+          <div style="background:#16a34a; color:white; border-radius:8px; padding:6px 16px; display:inline-block; margin-bottom:8px; font-weight:600; font-size:13px;">RELEASE FUNDS</div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span style="font-size:20px;">⏱️</span>
+            <span style="font-size:13px; color:#64748b; font-weight:600;">24H Auto-Release</span>
+          </div>
+          <p style="margin:8px 0 0; color:#64748b; font-size:14px;">Confirm delivery to release funds, or they auto-release after 24 hours.</p>
+        </div>
+
+      </div>
+
+      <div class="btn-row" style="margin-top:24px;">
         <a class="btn" href="/sender.html">Create a request</a>
         <a class="btn" href="/driver.html">Become a driver</a>
       </div>
