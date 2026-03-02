@@ -465,7 +465,6 @@ function setupDriverRegistration() {
   }
 
   function canEnableApply() {
-    const invite = String(form.invite_code?.value || "").trim();
     const phone = String(form.phone?.value || "").trim();
     const lic = String(form.license_number?.value || "").trim();
     const wof = String(form.wof_expiry?.value || "").trim();
@@ -474,7 +473,7 @@ function setupDriverRegistration() {
     if (selectedFrontFile.size > MAX_ORIGINAL_BYTES) return false;
     if (selectedBackFile.size > MAX_ORIGINAL_BYTES) return false;
 
-    return !!(invite && phone && lic && wof);
+    return !!(phone && lic && wof);
   }
 
   function refreshApplyEnabled() {
