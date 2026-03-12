@@ -3,1314 +3,858 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DeliveryMate — Admin</title>
+  <title>Going Anyway — Spare Boot Board | DeliveryMate NZ</title>
   <link rel="stylesheet" href="/css/main.css" />
   <link rel="stylesheet" href="/css/components.css" />
   <link rel="stylesheet" href="/css/layout.css" />
   <style>
-    /* ── Admin-specific styles ── */
-    .admin-gate   { max-width: 420px; margin: 60px auto; }
-    .tab-bar      { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab-btn      { padding: 8px 18px; border: 1px solid rgba(0,0,0,.15); border-radius: 6px;
-                    background: transparent; cursor: pointer; font-size: 14px; font-weight: 600;
-                    transition: background .15s, border-color .15s; }
-    .tab-btn.active { background: #0284c7; color: #fff; border-color: #0284c7; }
-    .tab-btn:hover:not(.active) { background: rgba(2,132,199,.07); border-color: #0284c7; }
+    .ga-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      color: white;
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .ga-hero h1 { margin: 0 0 8px; font-size: 2rem; }
+    .ga-hero p { margin: 0; color: #94a3b8; font-size: 1rem; max-width: 520px; margin: 8px auto 0; }
+    .ga-hero .tagline { color: #38bdf8; font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; }
 
-    .driver-card  { border: 1px solid rgba(0,0,0,.1); border-radius: 10px; padding: 16px;
-                    margin: 10px 0; background: #fff; }
-    .driver-card.pending { border-left: 4px solid #f59e0b; }
-    .driver-card.approved { border-left: 4px solid #22c55e; }
-    .driver-card.disabled { border-left: 4px solid #ef4444; opacity: .75; }
+    .trip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .trip-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+    }
+    .trip-card:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .trip-route {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .trip-date {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+    .trip-detail { font-size: 14px; color: #475569; margin-bottom: 4px; }
+    .trip-contact {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .trip-contact a { color: #2563eb; text-decoration: none; }
+    .verified-badge {
+      background: #dcfce7;
+      color: #16a34a;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .poster-name {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
 
-    .badge        { display: inline-block; padding: 2px 8px; border-radius: 999px;
-                    font-size: 12px; font-weight: 700; }
-    .badge-pending  { background: rgba(245,158,11,.15); color: #92400e; }
-    .badge-approved { background: rgba(34,197,94,.15);  color: #166534; }
-    .badge-disabled { background: rgba(239,68,68,.15);  color: #991b1b; }
+    /* Post form */
+    .post-form { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 32px; }
+    .post-form h2 { margin: 0 0 20px; font-size: 1.2rem; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-row .form-group { flex: 1; min-width: 160px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; box-sizing: border-box;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 9px 12px; font-size: 14px; font-family: inherit;
+      outline: none; transition: border .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .form-group .hint { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+    .optional-tag { font-weight: 400; color: #94a3b8; font-size: 11px; }
 
-    .stat-grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 10px; margin: 12px 0; }
-    .stat-box     { padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(0,0,0,.08); background: rgba(0,0,0,.02); }
-    .stat-label   { font-size: 12px; color: #64748b; margin-bottom: 4px; }
-    .stat-value   { font-size: 22px; font-weight: 800; }
+    .cta-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .cta-box h3 { margin: 0 0 8px; color: #15803d; }
+    .cta-box p { margin: 0 0 16px; color: #166534; font-size: 14px; }
 
-    .action-item  { padding: 10px 14px; border-radius: 8px; margin: 6px 0;
-                    background: rgba(239,68,68,.05); border: 1px solid rgba(239,68,68,.2); }
-    .action-item.warn { background: rgba(245,158,11,.05); border-color: rgba(245,158,11,.3); }
+    .empty-state { text-align: center; padding: 48px 24px; color: #94a3b8; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
 
-    .req-table    { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
-    .req-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid rgba(0,0,0,.08);
-                    font-size: 11px; text-transform: uppercase; color: #64748b; }
-    .req-table td { padding: 7px 8px; border-bottom: 1px solid rgba(0,0,0,.05); vertical-align: middle; }
-    .req-table tr:last-child td { border-bottom: none; }
-    .req-table tr:hover td { background: rgba(2,132,199,.03); }
+    /* Manage panel */
+    #managePanel { display: none; }
+    .manage-card {
+      background: #fefce8;
+      border: 2px solid #fde047;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
 
-    .section-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
-    .divider       { border: none; border-top: 1px solid rgba(0,0,0,.08); margin: 20px 0; }
-    .pill          { display: inline-block; padding: 1px 7px; border-radius: 999px;
-                     font-size: 11px; font-weight: 600; }
-    .pill-open     { background: rgba(59,130,246,.12); color: #1e40af; }
-    .pill-accepted { background: rgba(245,158,11,.12); color: #78350f; }
-    .pill-pickedup { background: rgba(99,102,241,.12); color: #312e81; }
-    .pill-delivered{ background: rgba(34,197,94,.12);  color: #14532d; }
-    .pill-cancelled{ background: rgba(239,68,68,.12);  color: #7f1d1d; }
-    .pill-funded   { background: rgba(34,197,94,.12);  color: #14532d; }
-    .pill-released { background: rgba(16,185,129,.12); color: #064e3b; }
-    .pill-none     { background: rgba(0,0,0,.05);      color: #475569; }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .filter-row input, .filter-row select {
+      border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 7px 12px; font-size: 14px; font-family: inherit;
+      outline: none;
+    }
+    .filter-row input:focus, .filter-row select:focus { border-color: #2563eb; }
 
-    .empty-state  { color: #94a3b8; font-size: 14px; padding: 16px 0; }
-    .spinner      { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.15);
-                    border-top-color: #0284c7; border-radius: 50%; animation: spin .6s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    pre.admin-pre { background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.08);
-                    border-radius: 6px; padding: 12px; font-size: 12px;
-                    white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+    /* Map */
+    #routeMapWrap {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    #routeMapHeader {
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    #routeMapHeader h3 { margin: 0; font-size: 1rem; color: #0f172a; }
+    #routeMapHeader span { font-size: 13px; color: #94a3b8; }
+    #routeMap { width: 100%; height: 420px; }
+    #mapLoading {
+      display: flex; align-items: center; justify-content: center;
+      height: 420px; color: #94a3b8; font-size: 14px; gap: 8px;
+    }
+    .map-legend {
+      padding: 10px 20px;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
   </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&loading=async&callback=initTripMap"></script>
 </head>
 
-<body data-page="admin">
+<body>
   <header class="topbar">
     <nav class="nav">
       <a href="/index.html">Home</a>
       <a href="/sender.html">Sender</a>
       <a href="/driver.html">Driver</a>
       <a href="/about.html">About</a>
-      <a href="/admin.html" class="active">Admin</a>
+      <a href="/going-anyway.html" class="active">Going Anyway</a>
+      <a href="/admin.html" id="navAdmin">Admin</a>
     </nav>
   </header>
 
   <main class="container">
-    <h1>Admin Dashboard</h1>
 
-    <!-- ── AUTH GATE ──────────────────────────────────────── -->
-    <div id="adminGate" class="admin-gate">
-      <div class="card">
-        <h2 style="margin-top:0;">Admin Sign In</h2>
-        <p class="muted">Enter your admin token to access the dashboard.</p>
-        <label>Admin Token</label>
-        <input type="password" id="adminTokenInput" placeholder="Paste admin token…" autocomplete="off" />
-        <button class="btn mt-2" id="adminSignInBtn" style="width:100%;">Sign In</button>
-        <div class="result mt-2" id="adminSignInResult"></div>
+    <!-- Hero -->
+    <div class="ga-hero">
+      <div style="font-size:48px; margin-bottom:12px;">🚗</div>
+      <div class="tagline">Going Anyway</div>
+      <h1>Spare Boot Board</h1>
+      <p>Travelling across New Zealand and have empty boot space? Post your route — you might help someone ship something along the way. A community notice board for Kiwi drivers.</p>
+    </div>
+
+    <!-- Manage panel (shown when ?manage=token in URL) -->
+    <div id="managePanel">
+      <div class="manage-card">
+        <div style="font-size:32px; margin-bottom:8px;">⚙️</div>
+        <h2 style="margin:0 0 8px;" id="manageTitle">Manage your post</h2>
+        <p id="manageDesc" style="color:#713f12; margin-bottom:16px;"></p>
+        <button class="btn" id="btnDeletePost" style="background:#dc2626;" onclick="deleteMyPost()">🗑️ Delete my post</button>
+        <p style="font-size:12px; color:#92400e; margin-top:12px;">This will permanently remove your trip from the board.</p>
       </div>
     </div>
 
-    <!-- ── MAIN DASHBOARD ──────────────────────────────────
-         Hidden until admin token is validated.
-    ──────────────────────────────────────────────────────── -->
-    <div id="adminDashboard" class="hidden">
-
-      <!-- Top bar -->
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-        <div class="muted" id="adminWelcome"></div>
-        <button class="btn ghost" id="adminSignOutBtn">Sign out</button>
+    <!-- Post a trip -->
+    <div class="post-form" id="postForm">
+      <h2>📍 Post your route</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>From city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="fromCity" placeholder="e.g. Auckland" maxlength="100" />
+        </div>
+        <div class="form-group">
+          <label>To city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="toCity" placeholder="e.g. Wellington" maxlength="100" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Travel date <span style="color:#dc2626">*</span></label>
+          <input type="date" id="travelDate" />
+        </div>
+        <div class="form-group">
+          <label>Vehicle type <span class="optional-tag">optional</span></label>
+          <select id="vehicleType">
+            <option value="">— select —</option>
+            <option>Sedan</option>
+            <option>SUV / Wagon</option>
+            <option>Ute / Pickup</option>
+            <option>Van</option>
+            <option>Tesla / EV</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Boot space available <span class="optional-tag">optional</span></label>
+        <input type="text" id="bootSpace" placeholder="e.g. Half a boot, can fit a suitcase and a box" maxlength="200" />
+      </div>
+      <div class="form-group">
+        <label>Your name / nickname <span style="color:#dc2626">*</span></label>
+        <input type="text" id="posterName" placeholder="e.g. Alex" maxlength="80" />
       </div>
 
-      <!-- ══════════════════════════════════════════════════
-           SECTION 1: DRIVER QUEUE
-           Primary feature — review and approve/disable drivers.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-          <div class="section-title">Driver Queue</div>
-          <button class="btn ghost" id="driversRefreshBtn">↺ Refresh</button>
-        </div>
-
-        <!-- Status tabs -->
-        <div class="tab-bar" id="driverTabBar">
-          <button class="tab-btn active" data-status="pending_review">⏳ Pending Review</button>
-          <button class="tab-btn" data-status="approved">✅ Approved</button>
-          <button class="tab-btn" data-status="disabled">🚫 Disabled</button>
-        </div>
-
-        <div id="driverQueueCount" class="muted" style="margin-bottom:10px;"></div>
-        <div id="driverQueueList"></div>
-      </section>
-
-      <!-- ══════════════════════════════════════════════════
-           SECTION 2: SENDER MANAGEMENT
-           Search by phone, suspend or reinstate.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="margin-bottom:16px;">
-          <div class="section-title">Sender Management</div>
-          <div class="muted" style="margin-top:4px;">Search a sender by phone number to view their status or suspend their account.</div>
-        </div>
-
-        <!-- Search -->
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-          <div style="flex:1; min-width:200px;">
-            <label>Phone number</label>
-            <input id="senderSearchPhone" type="tel" placeholder="e.g. 0211234567" />
+      <div style="background:#f8fafc; border-radius:8px; padding:16px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:10px;">Contact info <span class="optional-tag" style="font-size:12px;">— all optional, provide at least one so people can reach you</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone <span class="optional-tag">optional</span></label>
+            <input type="tel" id="contactPhone" placeholder="e.g. 021 123 4567" maxlength="40" />
           </div>
-          <button class="btn secondary" id="senderSearchBtn">Search</button>
-        </div>
-        <div class="result mt-2" id="senderSearchResult"></div>
-
-        <!-- Sender card (hidden until found) -->
-        <div id="senderCard" class="hidden" style="margin-top:16px;">
-          <div class="driver-card" id="senderCardInner"></div>
-        </div>
-      </section>
-
-      <!-- ══════════════════════════════════════════════════
-           SECTION 3: DRIVER PAYOUTS
-           Pending payout run — view, copy, mark paid.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <div>
-            <div class="section-title">Driver Payouts</div>
-            <div class="muted" style="margin-top:4px;" id="payoutSummaryLine">Loading pending payouts…</div>
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn ghost" id="payoutsRefreshBtn">↺ Refresh</button>
-            <button class="btn secondary" id="payoutsCopyBtn">📋 Copy Payout List</button>
+          <div class="form-group">
+            <label>Other contact <span class="optional-tag">optional</span></label>
+            <input type="text" id="contactWechat" placeholder="e.g. WeChat: kiwi_alex, LINE: alex123" maxlength="80" />
           </div>
         </div>
-        <div id="payoutsList"></div>
-      </section>
-
-      <!-- ══════════════════════════════════════════════════
-           SECTION 4: PLATFORM SUMMARY
-           Counts and recent requests at a glance.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <div class="section-title">Platform Summary</div>
-          <button class="btn ghost" id="summaryRefreshBtn">↺ Refresh</button>
+        <div class="form-group">
+          <label>Email <span class="optional-tag">optional — used to send you a manage link</span></label>
+          <input type="email" id="contactEmail" placeholder="e.g. alex@email.com" maxlength="120" />
+          <div class="hint">We'll email you a private link to delete your post. Not shown publicly.</div>
         </div>
-        <div id="summaryContent"><div class="muted">Loading…</div></div>
-      </section>
+      </div>
 
-      <!-- ══════════════════════════════════════════════════
-           SECTION 5: ACTION ITEMS
-           Things that need admin attention now.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <div class="section-title">Action Items</div>
-          <button class="btn ghost" id="actionItemsRefreshBtn">↺ Refresh</button>
+      <div id="postError" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; color:#dc2626; font-size:14px; margin-bottom:12px;"></div>
+      <div id="postSuccess" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; color:#15803d; font-size:14px; margin-bottom:12px;"></div>
+
+      <button class="btn" id="btnPost" onclick="submitTrip()">🚗 Post my route</button>
+      <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Your post will automatically disappear after your travel date. No account needed.</p>
+    </div>
+
+    <!-- Route Map -->
+    <div id="routeMapWrap">
+      <div id="routeMapHeader">
+        <h3>🗺️ Live route map</h3>
+        <span id="mapRouteCount">Loading…</span>
+      </div>
+      <div id="mapLoading">⏳ &nbsp;Loading map…</div>
+      <div id="routeMap" style="display:none;"></div>
+      <div class="map-legend" id="mapLegend" style="display:none;">
+        <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> Active routes</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> Verified driver</div>
+        <div style="color:#94a3b8; margin-left:auto; font-size:11px;">Click a line to see trip details</div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div style="background:white; border:2px solid #2563eb; border-radius:12px; padding:20px; margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:700; color:#2563eb; margin-bottom:12px; text-transform:uppercase; letter-spacing:.05em;">🔍 Find a route</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">From</label>
+          <input type="text" id="searchFrom" placeholder="e.g. Auckland" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
         </div>
-        <div id="actionItemsContent"><div class="muted">Loading…</div></div>
-      </section>
-
-      <!-- ══════════════════════════════════════════════════
-           SECTION 6: REQUEST TOOLS
-           Ledger viewer + mark payout paid.
-      ══════════════════════════════════════════════════════ -->
-      <section class="card" style="margin-bottom:20px;">
-        <details>
-          <summary style="cursor:pointer; font-weight:700; font-size:18px;">Request Tools</summary>
-          <div style="margin-top:16px;">
-
-            <!-- Ledger viewer -->
-            <div class="section-title" style="font-size:15px; margin-bottom:4px;">View Ledger</div>
-            <p class="muted">View all money events for a specific request.</p>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-              <div style="flex:1; min-width:160px;">
-                <label>Request ID</label>
-                <input id="ledgerRequestId" type="number" placeholder="e.g. 42" />
-              </div>
-              <button class="btn secondary" id="ledgerViewBtn">View Ledger</button>
-            </div>
-            <div class="result mt-2" id="ledgerResult"></div>
-            <pre class="admin-pre mt-2" id="ledgerOut" style="display:none;"></pre>
-
-            <hr class="divider" />
-
-            <!-- Mark payout paid -->
-            <div class="section-title" style="font-size:15px; margin-bottom:4px;">Mark Payout as Paid</div>
-            <p class="muted">Use after manually transferring to a driver's bank account.</p>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-              <div style="flex:1; min-width:160px;">
-                <label>Request ID</label>
-                <input id="payoutRequestId" type="number" placeholder="e.g. 42" />
-              </div>
-              <div style="flex:2; min-width:200px;">
-                <label>Payment reference <span class="muted">(optional)</span></label>
-                <input id="payoutReference" placeholder="e.g. ANZ-20240217" />
-              </div>
-              <button class="btn" id="payoutMarkPaidBtn" style="background:#16a34a; border-color:#16a34a;">Mark as Paid</button>
-            </div>
-            <div class="result mt-2" id="payoutMarkResult"></div>
-
-            <hr class="divider" />
-
-            <!-- Cron tick -->
-            <div class="section-title" style="font-size:15px; margin-bottom:4px;">Manual Cron Tick</div>
-            <p class="muted">Trigger the auto-release cron manually. Processes any overdue pending-release requests.</p>
-            <button class="btn secondary" id="cronTickBtn">Run Cron Tick</button>
-            <div class="result mt-2" id="cronResult"></div>
-            <pre class="admin-pre mt-2" id="cronOut" style="display:none;"></pre>
-          </div>
-        </details>
-      </section>
-
-      <!-- Going Anyway — Trip Board Moderation -->
-      <section class="card" style="margin-bottom:20px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-          <div class="section-title">🚗 Going Anyway — Trip Board</div>
-          <button class="btn ghost" onclick="loadTrips()">↺ Refresh</button>
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">To</label>
+          <input type="text" id="searchTo" placeholder="e.g. Wellington" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
         </div>
-        <div class="muted" style="margin-bottom:14px;">All active (non-expired) trip posts. You can delete any post.</div>
-        <div id="tripBoardCount" class="muted" style="margin-bottom:10px;"></div>
-        <div id="tripBoardList"></div>
-      </section>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="searchRoutes()" style="white-space:nowrap;">Search</button>
+          <button onclick="clearSearch()" style="background:none; border:1px solid #e2e8f0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; color:#64748b; white-space:nowrap;">Clear</button>
+        </div>
+      </div>
+      <div id="searchResult" style="display:none; margin-top:12px; font-size:13px; color:#64748b;"></div>
+    </div>
 
-    </div><!-- /adminDashboard -->
+    <!-- Trip listings -->
+    <div class="section-title">🚗 Upcoming routes</div>
+
+    <div class="filter-row">
+      <input type="text" id="filterFrom" placeholder="Filter by from..." style="max-width:160px;" oninput="renderTrips()" />
+      <input type="text" id="filterTo" placeholder="Filter by to..." style="max-width:160px;" oninput="renderTrips()" />
+      <span style="font-size:13px; color:#94a3b8;" id="tripCount"></span>
+    </div>
+
+    <div id="tripGrid" class="trip-grid">
+      <div class="empty-state"><div class="icon">⏳</div><p>Loading routes…</p></div>
+    </div>
+
+    <!-- CTA box -->
+    <div class="cta-box">
+      <h3>Need a guaranteed delivery?</h3>
+      <p>Going Anyway is a casual community board. For a reliable, insured delivery with Stripe payment protection, post a formal delivery request on DeliveryMate.</p>
+      <a class="btn" href="/sender.html">Post a delivery request</a>
+      &nbsp;
+      <a class="btn" href="/driver.html" style="background:#f8fafc; color:#0f172a; border:1px solid #e2e8f0;">Register as a driver</a>
+    </div>
+
   </main>
 
+  <footer class="topbar" style="margin-top:auto; padding:16px 0; text-align:center; font-size:13px;">
+    <span class="muted">© 2026 Small Bridge Ltd</span>
+    <span class="muted" style="margin:0 8px;">·</span>
+    <a href="/terms/privacy-policy.html" class="muted">Privacy Policy</a>
+    <span class="muted" style="margin:0 8px;">·</span>
+    <a href="/terms/cookie-policy.html" class="muted">Cookie Policy</a>
+  </footer>
+
   <script>
-  /* ==========================================================
-     Admin Dashboard — All logic inline, no external deps.
-     Uses X-Admin-Token header for all API calls.
-  ========================================================== */
+    const API = 'https://deliverymate.onrender.com';
+    let allTrips = [];
+    let manageToken = null;
+    let manageTripId = null;
 
-  /* ----------------------------------------------------------
-     API base URL.
-     admin.html is served from deliverymate.nz (static host)
-     but the backend lives on Render. We detect this at runtime
-     so the file works from either host without changes.
-  ---------------------------------------------------------- */
-  const RENDER_BACKEND = 'https://deliverymate.onrender.com';
-  const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? ''                    // local dev — relative paths hit the local server
-    : window.location.hostname.includes('onrender.com')
-      ? ''                  // served directly from Render — relative paths work
-      : RENDER_BACKEND;     // deliverymate.nz or any other static host — use full Render URL
+    // Set min date for travel date input
+    document.getElementById('travelDate').min = new Date().toISOString().split('T')[0];
 
-  const SESSION_KEY = 'dm_admin_token';
-  let adminToken = '';
-  let currentDriverStatus = 'pending_review';
+    // Check for manage token in URL
+    (function checkManage() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('manage');
+      if (!token) return;
+      manageToken = token;
+      document.getElementById('managePanel').style.display = 'block';
 
-  // ── Helpers ──────────────────────────────────────────────
+      fetch(`${API}/trips/manage?token=${encodeURIComponent(token)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) {
+            document.getElementById('manageTitle').textContent = 'Post not found';
+            document.getElementById('manageDesc').textContent = data.error || 'This post may have already been deleted or expired.';
+            document.getElementById('btnDeletePost').style.display = 'none';
+            return;
+          }
+          const t = data.trip;
+          manageTripId = t.id;
+          document.getElementById('manageTitle').textContent = `Your trip: ${t.from_city} → ${t.to_city}`;
+          document.getElementById('manageDesc').textContent = `Travel date: ${formatDate(t.travel_date)} · Posted by: ${t.poster_name}`;
+        })
+        .catch(() => {
+          document.getElementById('manageDesc').textContent = 'Could not load trip details.';
+        });
+    })();
 
-  function esc(str) {
-    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  function setResult(el, html) {
-    if (el) el.innerHTML = html;
-  }
-
-  function alertOk(msg) {
-    return `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:6px; padding:10px 14px;">${msg}</div>`;
-  }
-
-  function alertErr(msg) {
-    return `<div style="color:#991b1b; background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.25); border-radius:6px; padding:10px 14px;">${msg}</div>`;
-  }
-
-  function setLoading(el, on) {
-    if (!el) return;
-    if (on) {
-      el.dataset.origText = el.textContent;
-      el.disabled = true;
-      el.innerHTML = `<span class="spinner"></span> ${el.dataset.origText || '…'}`;
-    } else {
-      el.disabled = false;
-      el.textContent = el.dataset.origText || el.textContent;
-    }
-  }
-
-  async function apiFetch(path, { method = 'GET', body } = {}) {
-    const opts = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Token': adminToken,
-      },
-    };
-    if (body !== undefined) opts.body = JSON.stringify(body);
-    try {
-      const res = await fetch(API_BASE + path, opts);
-      const json = await res.json();
-      return { ok: res.ok, status: res.status, ...json };
-    } catch (e) {
-      return { ok: false, error: e && e.message ? e.message : 'Network error' };
-    }
-  }
-
-  function statusPill(status) {
-    const map = {
-      open:       ['pill-open',      'Open'],
-      accepted:   ['pill-accepted',  'Accepted'],
-      picked_up:  ['pill-pickedup',  'Picked up'],
-      delivered:  ['pill-delivered', 'Delivered'],
-      cancelled:  ['pill-cancelled', 'Cancelled'],
-    };
-    const [cls, label] = map[status] || ['pill-none', status || '—'];
-    return `<span class="pill ${cls}">${esc(label)}</span>`;
-  }
-
-  function escrowPill(status) {
-    const map = {
-      none:            ['pill-none',      'None'],
-      funded:          ['pill-funded',    'Funded'],
-      pending_release: ['pill-accepted',  'Pending release'],
-      released:        ['pill-released',  'Released'],
-    };
-    const [cls, label] = map[status] || ['pill-none', status || '—'];
-    return `<span class="pill ${cls}">${esc(label)}</span>`;
-  }
-
-  function fmtDate(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-NZ', { day:'numeric', month:'short', year:'numeric' });
-  }
-
-  function fmtDateTime(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-NZ', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-  }
-
-  // ── Auth ─────────────────────────────────────────────────
-
-  function showDashboard() {
-    document.getElementById('adminGate').classList.add('hidden');
-    document.getElementById('adminDashboard').classList.remove('hidden');
-    document.getElementById('adminWelcome').textContent = 'Signed in as admin';
-    loadAll();
-  }
-
-  function hideDashboard() {
-    document.getElementById('adminGate').classList.remove('hidden');
-    document.getElementById('adminDashboard').classList.add('hidden');
-    adminToken = '';
-    try { sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
-  }
-
-  async function trySignIn(token) {
-    // Validate token by calling a lightweight admin endpoint
-    const res = await apiFetch('/admin/drivers?status=pending_review', { method: 'GET' });
-    if (res.ok) {
-      adminToken = token;
-      try { sessionStorage.setItem(SESSION_KEY, token); } catch (_) {}
-      return { ok: true };
-    }
-    // Return a meaningful reason so the UI can show a clear message
-    return { ok: false, status: res.status, error: res.error };
-  }
-
-  document.getElementById('adminSignInBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('adminSignInBtn');
-    const input = document.getElementById('adminTokenInput');
-    const result = document.getElementById('adminSignInResult');
-    const token = (input.value || '').trim();
-    if (!token) { setResult(result, alertErr('Please enter your admin token.')); return; }
-
-    setLoading(btn, true);
-    setResult(result, '');
-    adminToken = token; // set temporarily for trySignIn
-
-    const res = await trySignIn(token);
-    setLoading(btn, false);
-
-    if (res.ok) {
-      input.value = '';
-      showDashboard();
-    } else {
-      adminToken = '';
-      let msg;
-      if (res.status === 404) {
-        msg = `404 — Admin route not found. Sending requests to: <code>${API_BASE || '(relative)'}</code>. Check that <code>RENDER_BACKEND</code> in admin.html matches your actual Render URL.`;
-      } else if (res.status === 401 || res.status === 403) {
-        msg = 'Invalid admin token. Please check the token in your Render environment variables.';
-      } else if (!res.status) {
-        msg = 'Network error — could not reach the server. Check your connection or try again.';
-      } else {
-        msg = `Server returned ${res.status}. ${res.error || 'Please try again.'}`;
+    async function deleteMyPost() {
+      if (!manageTripId || !manageToken) return;
+      if (!confirm('Are you sure you want to delete your trip post?')) return;
+      const btn = document.getElementById('btnDeletePost');
+      btn.disabled = true; btn.textContent = 'Deleting…';
+      try {
+        const r = await fetch(`${API}/trips/${manageTripId}/manage?token=${encodeURIComponent(manageToken)}`, { method: 'DELETE' });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('managePanel').innerHTML = `
+            <div class="manage-card" style="background:#f0fdf4; border-color:#86efac;">
+              <div style="font-size:32px;">✅</div>
+              <h2 style="color:#15803d;">Post deleted</h2>
+              <p style="color:#166534;">Your trip has been removed from the board.</p>
+            </div>`;
+          loadTrips();
+        } else {
+          btn.disabled = false; btn.textContent = '🗑️ Delete my post';
+          alert(data.error || 'Could not delete post.');
+        }
+      } catch {
+        btn.disabled = false; btn.textContent = '🗑️ Delete my post';
+        alert('Network error. Please try again.');
       }
-      setResult(result, alertErr(msg));
-    }
-  });
-
-  document.getElementById('adminTokenInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('adminSignInBtn').click();
-  });
-
-  document.getElementById('adminSignOutBtn').addEventListener('click', hideDashboard);
-
-  // Restore session if token saved
-  (function() {
-    try {
-      const saved = sessionStorage.getItem(SESSION_KEY);
-      if (saved) { adminToken = saved; showDashboard(); }
-    } catch (_) {}
-  })();
-
-  // ── Driver Queue ─────────────────────────────────────────
-
-  async function loadDriverQueue(status) {
-    const list = document.getElementById('driverQueueList');
-    const count = document.getElementById('driverQueueCount');
-    list.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
-    if (count) count.textContent = '';
-
-    const res = await apiFetch(`/admin/drivers?status=${encodeURIComponent(status)}`);
-    if (!res.ok) {
-      list.innerHTML = alertErr(res.error || 'Failed to load drivers');
-      return;
     }
 
-    const drivers = Array.isArray(res.drivers) ? res.drivers : [];
+    async function submitTrip() {
+      const btn = document.getElementById('btnPost');
+      const errEl = document.getElementById('postError');
+      const sucEl = document.getElementById('postSuccess');
+      errEl.style.display = 'none';
+      sucEl.style.display = 'none';
 
-    if (count) {
-      count.textContent = drivers.length
-        ? `${drivers.length} driver${drivers.length === 1 ? '' : 's'}`
-        : 'No drivers in this category.';
+      const fromCity = document.getElementById('fromCity').value.trim();
+      const toCity = document.getElementById('toCity').value.trim();
+      const travelDate = document.getElementById('travelDate').value;
+      const posterName = document.getElementById('posterName').value.trim();
+
+      if (!fromCity) return showErr('Please enter a departure city.');
+      if (!toCity) return showErr('Please enter a destination city.');
+      if (!travelDate) return showErr('Please select a travel date.');
+      if (!posterName) return showErr('Please enter your name or nickname.');
+
+      btn.disabled = true; btn.textContent = 'Posting…';
+
+      try {
+        const r = await fetch(`${API}/trips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from_city: fromCity,
+            to_city: toCity,
+            travel_date: travelDate,
+            vehicle_type: document.getElementById('vehicleType').value,
+            boot_space: document.getElementById('bootSpace').value.trim(),
+            contact_phone: document.getElementById('contactPhone').value.trim(),
+            contact_wechat: document.getElementById('contactWechat').value.trim(),
+            contact_email: document.getElementById('contactEmail').value.trim(),
+            poster_name: posterName,
+          }),
+        });
+        const data = await r.json();
+        if (data.ok) {
+          sucEl.innerHTML = `✅ Your route has been posted! ${data.is_verified ? '<strong>Verified driver badge</strong> has been added to your post.' : ''} ${document.getElementById('contactEmail').value.trim() ? 'Check your email for a link to manage your post.' : ''}`;
+          sucEl.style.display = 'block';
+          // Clear form
+          ['fromCity','toCity','travelDate','bootSpace','posterName','contactPhone','contactWechat','contactEmail'].forEach(id => document.getElementById(id).value = '');
+          document.getElementById('vehicleType').value = '';
+          loadTrips();
+        } else {
+          showErr(data.error || 'Could not post trip. Please try again.');
+        }
+      } catch {
+        showErr('Network error. Please check your connection and try again.');
+      } finally {
+        btn.disabled = false; btn.textContent = '🚗 Post my route';
+      }
+
+      function showErr(msg) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '🚗 Post my route';
+      }
     }
 
-    if (drivers.length === 0) {
-      list.innerHTML = `<div class="empty-state">No drivers with status "${esc(status)}".</div>`;
-      return;
+    async function loadTrips() {
+      try {
+        const r = await fetch(`${API}/trips`);
+        const data = await r.json();
+        allTrips = data.ok ? data.trips : [];
+        renderTrips();
+        const countEl = document.getElementById('mapRouteCount');
+        if (map) {
+          drawRoutes(allTrips);
+        } else {
+          // Map not ready yet — update count now, drawRoutes will be called from initTripMap
+          countEl.textContent = allTrips.length === 0 ? 'No routes yet' : `${allTrips.length} active route${allTrips.length !== 1 ? 's' : ''}`;
+        }
+      } catch {
+        document.getElementById('tripGrid').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load trips. Please refresh.</p></div>`;
+        document.getElementById('mapRouteCount').textContent = 'Could not load';
+      }
     }
 
-    list.innerHTML = '';
-    for (const d of drivers) {
-      list.appendChild(renderDriverCard(d, status));
-    }
-  }
+    function renderTrips() {
+      if (searchActive) return; // don't override search results
+      const fromF = document.getElementById('filterFrom').value.trim().toLowerCase();
+      const toF = document.getElementById('filterTo').value.trim().toLowerCase();
 
-  function renderDriverCard(d, status) {
-    const card = document.createElement('div');
-    const statusClass = status === 'pending_review' ? 'pending' : status === 'approved' ? 'approved' : 'disabled';
-    card.className = `driver-card ${statusClass}`;
-
-    const badgeClass = status === 'pending_review' ? 'badge-pending' : status === 'approved' ? 'badge-approved' : 'badge-disabled';
-    const badgeLabel = status === 'pending_review' ? '⏳ Pending Review' : status === 'approved' ? '✅ Approved' : '🚫 Disabled';
-
-    const wofFormatted = d.wof_expiry ? fmtDate(d.wof_expiry) : '—';
-    const appliedFormatted = d.driver_applied_at ? fmtDateTime(d.driver_applied_at) : '—';
-    const approvedFormatted = d.driver_approved_at ? fmtDateTime(d.driver_approved_at) : '—';
-    const hasBank = d.payout_account_last4 ? `···${esc(d.payout_account_last4)}` : 'Not saved';
-    const uid = esc(String(d.id));
-
-    card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
-            <div style="font-weight:700; font-size:16px;">${esc(d.full_name || '—')}</div>
-            <span class="badge ${badgeClass}">${badgeLabel}</span>
-          </div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:4px 16px; font-size:13px;">
-            <div><span class="muted">Phone:</span> ${esc(d.phone || '—')}</div>
-            <div><span class="muted">Email:</span> ${esc(d.email || '—')}</div>
-            <div><span class="muted">Vehicle plate:</span> ${esc(d.vehicle_plate || '—')}</div>
-            <div><span class="muted">WOF expiry:</span> ${esc(wofFormatted)}</div>
-            <div><span class="muted">Applied:</span> ${esc(appliedFormatted)}</div>
-            <div><span class="muted">Approved:</span> ${esc(approvedFormatted)}</div>
-            <div><span class="muted">Bank account:</span> ${hasBank}</div>
-            <div><span class="muted">User ID:</span> #${uid}</div>
-          </div>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
-          ${status !== 'approved'
-            ? `<button class="btn driverApproveBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
-                 style="background:#16a34a; border-color:#16a34a;">✅ Approve</button>`
-            : ''}
-          ${status !== 'disabled'
-            ? `<button class="btn ghost driverDisableBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
-                 style="border-color:#dc2626; color:#dc2626;">🚫 Disable</button>`
-            : ''}
-          ${status === 'disabled'
-            ? `<button class="btn driverApproveBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
-                 style="background:#16a34a; border-color:#16a34a;">✅ Re-approve</button>`
-            : ''}
-          <button class="btn ghost driverLicenceBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
-                  style="border-color:#6366f1; color:#6366f1;">🪪 View Licence</button>
-        </div>
-      </div>
-
-      <!-- Disable reason panel (hidden until Disable clicked) -->
-      <div id="driverDisableReason-${uid}" class="hidden"
-           style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(0,0,0,.08);">
-        <label>Reason for disabling <span class="muted">(optional — logged in audit trail)</span></label>
-        <input class="driverDisableReasonInput" data-id="${uid}"
-               placeholder="e.g. Fraudulent activity reported" />
-        <div class="btn-row" style="margin-top:10px; gap:8px;">
-          <button class="btn driverDisableConfirmBtn" data-id="${uid}" data-name="${esc(d.full_name || '')}"
-            style="background:#dc2626; border-color:#dc2626;">Confirm Disable</button>
-          <button class="btn ghost driverDisableCancelBtn" data-id="${uid}">Cancel</button>
-        </div>
-      </div>
-
-      <!-- Licence photo panel (hidden until View Licence clicked) -->
-      <div id="driverLicencePanel-${uid}" class="hidden"
-           style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(0,0,0,.08);">
-        <div style="font-weight:600; margin-bottom:10px;">🪪 Licence Photos</div>
-        <div id="driverLicencePhotos-${uid}" class="muted">Loading…</div>
-      </div>
-
-      <div class="result mt-2" id="driverCardResult-${uid}"></div>
-    `;
-    return card;
-  }
-
-  // Event delegation for approve / disable / reason-flow buttons
-  document.getElementById('driverQueueList').addEventListener('click', async (e) => {
-    const approveBtn  = e.target.closest('.driverApproveBtn');
-    const disableBtn  = e.target.closest('.driverDisableBtn');
-    const confirmBtn  = e.target.closest('.driverDisableConfirmBtn');
-    const cancelBtn   = e.target.closest('.driverDisableCancelBtn');
-
-    // ── Show reason panel when Disable clicked
-    if (disableBtn) {
-      const id = disableBtn.dataset.id;
-      const reasonPanel = document.getElementById(`driverDisableReason-${id}`);
-      if (reasonPanel) reasonPanel.classList.remove('hidden');
-      disableBtn.disabled = true;
-      return;
-    }
-
-    // ── Cancel — hide reason panel and re-enable Disable button
-    if (cancelBtn) {
-      const id = cancelBtn.dataset.id;
-      const reasonPanel = document.getElementById(`driverDisableReason-${id}`);
-      if (reasonPanel) reasonPanel.classList.add('hidden');
-      // Re-enable the disable button
-      const disableBtnEl = e.target.closest('.driver-card')?.querySelector('.driverDisableBtn');
-      if (disableBtnEl) disableBtnEl.disabled = false;
-      return;
-    }
-
-    // ── Confirm disable (with reason)
-    if (confirmBtn) {
-      const id = confirmBtn.dataset.id;
-      const name = confirmBtn.dataset.name || `Driver #${id}`;
-      const reasonInput = document.querySelector(`.driverDisableReasonInput[data-id="${CSS.escape(id)}"]`);
-      const reason = (reasonInput?.value || '').trim() || null;
-      const resultEl = document.getElementById(`driverCardResult-${id}`);
-
-      if (!confirm(`Disable "${name}" (ID #${id})? They will no longer be able to submit offers.`)) return;
-
-      setLoading(confirmBtn, true);
-      if (resultEl) setResult(resultEl, '');
-
-      const res = await apiFetch(`/admin/drivers/${id}/disable`, {
-        method: 'POST',
-        body: { reason },
+      let filtered = allTrips.filter(t => {
+        if (fromF && !t.from_city.toLowerCase().includes(fromF)) return false;
+        if (toF && !t.to_city.toLowerCase().includes(toF)) return false;
+        return true;
       });
-      setLoading(confirmBtn, false);
 
-      if (res.ok) {
-        if (resultEl) setResult(resultEl, alertOk(`Disabled successfully.${reason ? ` Reason logged: "${reason}"` : ''}`));
-        setTimeout(() => loadDriverQueue(currentDriverStatus), 1200);
-      } else {
-        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to disable driver'));
-      }
-      return;
+      renderTripList(filtered);
     }
 
-    // ── View Licence Photos
-    const licenceBtn = e.target.closest('.driverLicenceBtn');
-    if (licenceBtn) {
-      const id = licenceBtn.dataset.id;
-      const panel = document.getElementById(`driverLicencePanel-${id}`);
-      const photosEl = document.getElementById(`driverLicencePhotos-${id}`);
+    function renderTripList(trips) {
+      document.getElementById('tripCount').textContent = trips.length === 0 ? 'No routes found' : `${trips.length} route${trips.length !== 1 ? 's' : ''}`;
 
-      // Toggle panel
-      if (!panel.classList.contains('hidden')) {
-        panel.classList.add('hidden');
-        licenceBtn.textContent = '🪪 View Licence';
+      if (trips.length === 0) {
+        document.getElementById('tripGrid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🗺️</div>
+            <p>No upcoming routes yet — be the first to post!</p>
+          </div>`;
         return;
       }
 
-      panel.classList.remove('hidden');
-      licenceBtn.textContent = '🔒 Hide Licence';
-      photosEl.innerHTML = '<span class="muted"><span class="spinner"></span> Loading photos…</span>';
-
-      const res = await apiFetch(`/admin/drivers/${id}/license-photos`, { method: 'GET' });
-
-      if (!res.ok) {
-        photosEl.innerHTML = alertErr(res.error || 'Could not load licence photos');
-        return;
-      }
-
-      if (!res.front_url && !res.back_url) {
-        photosEl.innerHTML = alertErr('No licence photos uploaded for this driver.');
-        return;
-      }
-
-      photosEl.innerHTML = `
-        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:4px;">
-          ${res.front_url ? `
-            <div>
-              <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Front</div>
-              <a href="${res.front_url}" target="_blank" rel="noopener">
-                <img src="${res.front_url}" alt="Licence front"
-                     style="max-width:280px; max-height:180px; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer;" />
-              </a>
-            </div>` : '<div class="muted">No front photo uploaded</div>'}
-          ${res.back_url ? `
-            <div>
-              <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Back</div>
-              <a href="${res.back_url}" target="_blank" rel="noopener">
-                <img src="${res.back_url}" alt="Licence back"
-                     style="max-width:280px; max-height:180px; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer;" />
-              </a>
-            </div>` : '<div class="muted">No back photo uploaded</div>'}
-        </div>
-        <div style="font-size:11px; color:#9ca3af; margin-top:8px;">⏱ Photos expire in 5 minutes. Reload if they stop working.</div>
-      `;
-      return;
-    }
-
-    // ── Approve / Re-approve
-    if (approveBtn) {
-      const id = approveBtn.dataset.id;
-      const name = approveBtn.dataset.name || `Driver #${id}`;
-      const resultEl = document.getElementById(`driverCardResult-${id}`);
-
-      if (!confirm(`Approve "${name}" (ID #${id})? They will be able to submit offers immediately.`)) return;
-
-      setLoading(approveBtn, true);
-      if (resultEl) setResult(resultEl, '');
-
-      const res = await apiFetch(`/admin/drivers/${id}/approve`, { method: 'POST' });
-      setLoading(approveBtn, false);
-
-      if (res.ok) {
-        if (resultEl) setResult(resultEl, alertOk('Approved successfully.'));
-        setTimeout(() => loadDriverQueue(currentDriverStatus), 1200);
-      } else {
-        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to approve driver'));
-      }
-    }
-  });
-
-  // Tab switching
-  document.getElementById('driverTabBar').addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab-btn');
-    if (!btn) return;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentDriverStatus = btn.dataset.status;
-    loadDriverQueue(currentDriverStatus);
-  });
-
-  document.getElementById('driversRefreshBtn').addEventListener('click', () => {
-    loadDriverQueue(currentDriverStatus);
-  });
-
-  // ── Platform Summary ─────────────────────────────────────
-
-  async function loadSummary() {
-    const el = document.getElementById('summaryContent');
-    el.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
-
-    const res = await apiFetch('/admin/trial/summary');
-    if (!res.ok) {
-      el.innerHTML = alertErr(res.error || 'Failed to load summary');
-      return;
-    }
-
-    // Request status counts
-    const reqCounts = Array.isArray(res.by_request_status) ? res.by_request_status : [];
-    const escCounts = Array.isArray(res.by_escrow_status) ? res.by_escrow_status : [];
-    const payCounts = Array.isArray(res.by_payout_status) ? res.by_payout_status : [];
-    const recent    = Array.isArray(res.recent_requests)   ? res.recent_requests  : [];
-
-    const buildStatGrid = (items, labelKey, valueKey) => {
-      if (!items.length) return `<div class="empty-state">No data.</div>`;
-      return `<div class="stat-grid">${items.map(r => `
-        <div class="stat-box">
-          <div class="stat-label">${esc(r[labelKey] || '—')}</div>
-          <div class="stat-value">${esc(String(r[valueKey] ?? 0))}</div>
-        </div>`).join('')}
-      </div>`;
-    };
-
-    const buildRecentTable = (rows) => {
-      if (!rows.length) return `<div class="empty-state">No recent requests.</div>`;
-      return `
-        <div style="overflow-x:auto;">
-          <table class="req-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Status</th>
-                <th>Escrow</th>
-                <th>Payout</th>
-                <th>Amount</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td style="font-weight:600;">${esc(String(r.id))}</td>
-                  <td>${statusPill(r.status)}</td>
-                  <td>${escrowPill(r.escrow_status)}</td>
-                  <td><span class="pill pill-none">${esc(r.payout_status || 'none')}</span></td>
-                  <td>${r.escrow_amount_nzd ? `NZD $${Number(r.escrow_amount_nzd).toFixed(2)}` : '—'}</td>
-                  <td class="muted">${esc(fmtDateTime(r.created_at))}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`;
-    };
-
-    el.innerHTML = `
-      <div style="margin-bottom:6px; color:#64748b; font-size:12px;">Server time: ${esc(res.now || '—')}</div>
-
-      <div style="font-weight:700; margin-bottom:6px;">Requests by Status</div>
-      ${buildStatGrid(reqCounts, 'status', 'count')}
-
-      <div style="font-weight:700; margin:16px 0 6px;">Escrow by Status</div>
-      ${buildStatGrid(escCounts, 'escrow_status', 'count')}
-
-      <div style="font-weight:700; margin:16px 0 6px;">Payouts by Status</div>
-      ${buildStatGrid(payCounts, 'payout_status', 'count')}
-
-      <div style="font-weight:700; margin:16px 0 6px;">Recent Requests (last 20)</div>
-      ${buildRecentTable(recent)}
-    `;
-  }
-
-  document.getElementById('summaryRefreshBtn').addEventListener('click', loadSummary);
-
-  // ── Action Items ─────────────────────────────────────────
-
-  async function loadActionItems() {
-    const el = document.getElementById('actionItemsContent');
-    el.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
-
-    const res = await apiFetch('/admin/trial/action-items');
-    if (!res.ok) {
-      el.innerHTML = alertErr(res.error || 'Failed to load action items');
-      return;
-    }
-
-    const overdueRelease  = Array.isArray(res.overdue_release)     ? res.overdue_release     : [];
-    const pendingOld      = Array.isArray(res.payouts_pending_old)  ? res.payouts_pending_old  : [];
-    const failedPayouts   = Array.isArray(res.payouts_failed)       ? res.payouts_failed       : [];
-    const total = overdueRelease.length + pendingOld.length + failedPayouts.length;
-
-    if (total === 0) {
-      el.innerHTML = `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:8px; padding:14px;">✅ No action items. Everything looks good.</div>`;
-      return;
-    }
-
-    const sections = [];
-
-    if (overdueRelease.length) {
-      sections.push(`
-        <div style="font-weight:700; color:#dc2626; margin-bottom:8px;">🚨 Overdue Escrow Release (${overdueRelease.length})</div>
-        <p class="muted" style="margin-bottom:8px;">These requests were delivered but the 24h window has passed and escrow has not auto-released. Run Cron Tick below or check manually.</p>
-        ${overdueRelease.map(r => `
-          <div class="action-item">
-            <strong>Request #${esc(String(r.id))}</strong>
-            <span class="muted" style="margin-left:8px;">Deadline: ${esc(fmtDateTime(r.escrow_dispute_deadline_at))}</span>
-          </div>`).join('')}
-      `);
-    }
-
-    if (pendingOld.length) {
-      sections.push(`
-        <div style="font-weight:700; color:#92400e; margin-bottom:8px; margin-top:${overdueRelease.length ? '16px' : '0'};">⏳ Payouts Pending &gt;2 Hours (${pendingOld.length})</div>
-        <p class="muted" style="margin-bottom:8px;">These payouts have been pending for over 2 hours. Check that bank transfers have been made and mark as paid below.</p>
-        ${pendingOld.map(r => `
-          <div class="action-item warn">
-            <strong>Request #${esc(String(r.id))}</strong>
-            <span class="muted" style="margin-left:8px;">
-              ${r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : '—'}
-              · Pending since: ${esc(fmtDateTime(r.payout_created_at))}
-            </span>
-          </div>`).join('')}
-      `);
-    }
-
-    if (failedPayouts.length) {
-      sections.push(`
-        <div style="font-weight:700; color:#dc2626; margin-bottom:8px; margin-top:${overdueRelease.length || pendingOld.length ? '16px' : '0'};">❌ Failed Payouts (${failedPayouts.length})</div>
-        <p class="muted" style="margin-bottom:8px;">These payouts failed. Investigate and retry or mark paid manually.</p>
-        ${failedPayouts.map(r => `
-          <div class="action-item">
-            <strong>Request #${esc(String(r.id))}</strong>
-            <span class="muted" style="margin-left:8px;">
-              ${r.payout_amount_nzd ? `NZD $${Number(r.payout_amount_nzd).toFixed(2)}` : '—'}
-              · Reason: ${esc(r.payout_fail_reason || '—')}
-            </span>
-          </div>`).join('')}
-      `);
-    }
-
-    el.innerHTML = sections.join('');
-  }
-
-  document.getElementById('actionItemsRefreshBtn').addEventListener('click', loadActionItems);
-
-  // ── Request Tools ─────────────────────────────────────────
-
-  document.getElementById('ledgerViewBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('ledgerViewBtn');
-    const requestId = (document.getElementById('ledgerRequestId').value || '').trim();
-    const resultEl = document.getElementById('ledgerResult');
-    const outEl = document.getElementById('ledgerOut');
-
-    if (!requestId) { setResult(resultEl, alertErr('Please enter a Request ID.')); return; }
-
-    setLoading(btn, true);
-    setResult(resultEl, '');
-    if (outEl) outEl.style.display = 'none';
-
-    const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/ledger`);
-    setLoading(btn, false);
-
-    if (res.ok) {
-      setResult(resultEl, alertOk(`Loaded ${Array.isArray(res.ledger) ? res.ledger.length : 0} ledger entries.`));
-      if (outEl) {
-        outEl.textContent = JSON.stringify(res.ledger, null, 2);
-        outEl.style.display = 'block';
-      }
-    } else {
-      setResult(resultEl, alertErr(res.error || 'Failed to load ledger'));
-    }
-  });
-
-  document.getElementById('payoutMarkPaidBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('payoutMarkPaidBtn');
-    const requestId = (document.getElementById('payoutRequestId').value || '').trim();
-    const reference = (document.getElementById('payoutReference').value || '').trim();
-    const resultEl = document.getElementById('payoutMarkResult');
-
-    if (!requestId) { setResult(resultEl, alertErr('Please enter a Request ID.')); return; }
-
-    const confirmMsg = reference
-      ? `Mark payout for Request #${requestId} as paid?\n\nReference: ${reference}`
-      : `Mark payout for Request #${requestId} as paid? (No reference provided)`;
-    if (!confirm(confirmMsg)) return;
-
-    setLoading(btn, true);
-    setResult(resultEl, '');
-
-    const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/payout/mark_paid`, {
-      method: 'POST',
-      body: { reference: reference || undefined },
-    });
-    setLoading(btn, false);
-
-    if (res.ok) {
-      setResult(resultEl, alertOk(`✅ Payout for Request #${requestId} marked as paid.${reference ? ` Reference: ${reference}` : ''}`));
-    } else {
-      setResult(resultEl, alertErr(res.error || 'Failed to mark payout as paid'));
-    }
-  });
-
-  document.getElementById('cronTickBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('cronTickBtn');
-    const resultEl = document.getElementById('cronResult');
-    const outEl = document.getElementById('cronOut');
-
-    if (!confirm('Run cron tick? This will auto-release any overdue pending-release escrows.')) return;
-
-    setLoading(btn, true);
-    setResult(resultEl, '');
-    if (outEl) outEl.style.display = 'none';
-
-    const res = await apiFetch('/admin/cron/tick', { method: 'POST' });
-    setLoading(btn, false);
-
-    if (res.ok) {
-      const msg = res.processed_count > 0
-        ? `✅ Released ${res.processed_count} escrow(s). Scanned ${res.scanned}.`
-        : `✅ Cron ran. Nothing to release (${res.scanned} scanned).`;
-      setResult(resultEl, alertOk(msg));
-      if (outEl) {
-        outEl.textContent = JSON.stringify({ scanned: res.scanned, processed: res.processed, skipped: res.skipped, errors: res.errors }, null, 2);
-        outEl.style.display = 'block';
-      }
-      // Refresh action items since state may have changed
-      loadActionItems();
-    } else {
-      setResult(resultEl, alertErr(res.error || 'Cron tick failed'));
-    }
-  });
-
-  // ── Sender Management ─────────────────────────────────────
-
-  let currentSenderUser = null;
-
-  async function searchSender() {
-    const phone = (document.getElementById('senderSearchPhone').value || '').trim();
-    const resultEl = document.getElementById('senderSearchResult');
-    const cardEl = document.getElementById('senderCard');
-    const cardInner = document.getElementById('senderCardInner');
-
-    if (!phone) { setResult(resultEl, alertErr('Please enter a phone number.')); return; }
-
-    const btn = document.getElementById('senderSearchBtn');
-    setLoading(btn, true);
-    setResult(resultEl, '');
-    cardEl.classList.add('hidden');
-
-    const res = await apiFetch(`/admin/senders/search?phone=${encodeURIComponent(phone)}`);
-    setLoading(btn, false);
-
-    if (!res.ok) {
-      setResult(resultEl, alertErr(res.error || 'Not found'));
-      return;
-    }
-
-    currentSenderUser = res.user;
-    renderSenderCard(res.user, cardInner);
-    cardEl.classList.remove('hidden');
-  }
-
-  function renderSenderCard(u, container) {
-    const enabled = u.sender_enabled !== false;
-    const statusBadge = enabled
-      ? `<span class="badge badge-approved">✅ Active</span>`
-      : `<span class="badge badge-disabled">🚫 Suspended</span>`;
-
-    container.className = `driver-card ${enabled ? 'approved' : 'disabled'}`;
-    container.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-            <div style="font-weight:700; font-size:16px;">${esc(u.full_name || '—')}</div>
-            ${statusBadge}
+      document.getElementById('tripGrid').innerHTML = trips.map(t => `
+        <div class="trip-card">
+          <div class="trip-route">
+            <span>${escHtml(t.from_city)}</span>
+            <span style="color:#94a3b8; font-size:18px;">→</span>
+            <span>${escHtml(t.to_city)}</span>
           </div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap:4px 16px; font-size:13px;">
-            <div><span class="muted">Phone:</span> ${esc(u.phone || '—')}</div>
-            <div><span class="muted">Email:</span> ${esc(u.email || '—')}</div>
-            <div><span class="muted">Open requests:</span> ${esc(String(u.open_request_count ?? 0))}</div>
-            <div><span class="muted">Active requests:</span> ${esc(String(u.active_request_count ?? 0))}</div>
-            <div><span class="muted">User ID:</span> #${esc(String(u.id))}</div>
-            <div><span class="muted">Member since:</span> ${esc(fmtDate(u.created_at))}</div>
+          <div class="trip-date">📅 ${formatDate(t.travel_date)}</div>
+          ${t.vehicle_type ? `<div class="trip-detail">🚗 ${escHtml(t.vehicle_type)}</div>` : ''}
+          ${t.boot_space ? `<div class="trip-detail">📦 ${escHtml(t.boot_space)}</div>` : ''}
+          <div class="poster-name">
+            Posted by ${escHtml(t.poster_name)}
+            ${t.is_verified ? `&nbsp;<span class="verified-badge">✓ Verified Driver</span>` : ''}
           </div>
-          ${u.open_request_count > 0 && enabled
-            ? `<div style="margin-top:10px; padding:8px 12px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:6px; font-size:13px; color:#92400e;">
-                ⚠️ Suspending will automatically cancel their <strong>${u.open_request_count}</strong> open request(s).
-               </div>`
-            : ''}
-        </div>
-        <div style="display:flex; flex-direction:column; gap:8px; min-width:140px;">
-          ${enabled
-            ? `<button class="btn" id="senderSuspendBtn"
-                 style="background:#dc2626; border-color:#dc2626;">🚫 Suspend</button>`
-            : `<button class="btn" id="senderReinstateBtn"
-                 style="background:#16a34a; border-color:#16a34a;">✅ Reinstate</button>`}
-        </div>
-      </div>
-
-      <!-- Suspend reason (shown when suspending) -->
-      <div id="senderSuspendReasonWrap" class="hidden" style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(0,0,0,.08);">
-        <label>Suspension reason <span class="muted">(optional — logged in audit trail)</span></label>
-        <input id="senderSuspendReason" placeholder="e.g. Fraudulent activity reported" />
-        <div class="btn-row" style="margin-top:10px; gap:8px;">
-          <button class="btn" id="senderSuspendConfirmBtn"
-            style="background:#dc2626; border-color:#dc2626;">Confirm Suspension</button>
-          <button class="btn ghost" id="senderSuspendCancelBtn">Cancel</button>
-        </div>
-      </div>
-
-      <div class="result mt-2" id="senderActionResult"></div>
-    `;
-
-    // Wire suspend button (shows reason box first)
-    const suspendBtn = document.getElementById('senderSuspendBtn');
-    if (suspendBtn) {
-      suspendBtn.addEventListener('click', () => {
-        document.getElementById('senderSuspendReasonWrap').classList.remove('hidden');
-        suspendBtn.disabled = true;
-      });
-    }
-
-    // Wire cancel
-    const cancelBtn = document.getElementById('senderSuspendCancelBtn');
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', () => {
-        document.getElementById('senderSuspendReasonWrap').classList.add('hidden');
-        if (suspendBtn) suspendBtn.disabled = false;
-      });
-    }
-
-    // Wire confirm suspend
-    const confirmBtn = document.getElementById('senderSuspendConfirmBtn');
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', () => applySenderAction(u.id, false));
-    }
-
-    // Wire reinstate
-    const reinstateBtn = document.getElementById('senderReinstateBtn');
-    if (reinstateBtn) {
-      reinstateBtn.addEventListener('click', () => {
-        if (!confirm(`Reinstate "${u.full_name || u.phone}" as an active sender?`)) return;
-        applySenderAction(u.id, true);
-      });
-    }
-  }
-
-  async function applySenderAction(userId, enable) {
-    const resultEl = document.getElementById('senderActionResult');
-    const reason = enable ? null : (document.getElementById('senderSuspendReason')?.value || '').trim() || null;
-    const btn = enable
-      ? document.getElementById('senderReinstateBtn')
-      : document.getElementById('senderSuspendConfirmBtn');
-
-    setLoading(btn, true);
-    setResult(resultEl, '');
-
-    const res = await apiFetch(`/admin/users/${userId}/sender`, {
-      method: 'PATCH',
-      body: { enabled: enable, reason },
-    });
-    setLoading(btn, false);
-
-    if (res.ok) {
-      const msg = enable
-        ? alertOk(`✅ ${res.message}`)
-        : alertOk(`✅ ${res.message}`);
-      setResult(resultEl, msg);
-      // Refresh the card after 1s
-      setTimeout(searchSender, 1200);
-    } else {
-      setResult(resultEl, alertErr(res.error || 'Action failed'));
-    }
-  }
-
-  document.getElementById('senderSearchBtn').addEventListener('click', searchSender);
-  document.getElementById('senderSearchPhone').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') searchSender();
-  });
-
-  // ── Driver Payouts ─────────────────────────────────────────
-
-  let currentPayouts = [];
-
-  async function loadPendingPayouts() {
-    const listEl = document.getElementById('payoutsList');
-    const summaryEl = document.getElementById('payoutSummaryLine');
-
-    listEl.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
-    if (summaryEl) summaryEl.textContent = 'Loading pending payouts…';
-
-    const res = await apiFetch('/admin/payouts/pending');
-    if (!res.ok) {
-      listEl.innerHTML = alertErr(res.error || 'Failed to load payouts');
-      if (summaryEl) summaryEl.textContent = 'Failed to load.';
-      return;
-    }
-
-    currentPayouts = Array.isArray(res.payouts) ? res.payouts : [];
-    const total = Number(res.total_nzd || 0);
-
-    if (summaryEl) {
-      summaryEl.textContent = currentPayouts.length
-        ? `${currentPayouts.length} pending payout${currentPayouts.length === 1 ? '' : 's'} · Total: NZD $${total.toFixed(2)}`
-        : 'No pending payouts.';
-    }
-
-    if (currentPayouts.length === 0) {
-      listEl.innerHTML = `<div style="color:#166534; background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25); border-radius:8px; padding:14px;">✅ No pending payouts. All drivers have been paid.</div>`;
-      return;
-    }
-
-    listEl.innerHTML = '';
-
-    for (const p of currentPayouts) {
-      const card = document.createElement('div');
-      card.className = 'driver-card pending';
-      card.style.marginBottom = '10px';
-
-      const amount = p.payout_amount_nzd ? `NZD $${Number(p.payout_amount_nzd).toFixed(2)}` : '—';
-      const bankDisplay = p.payout_bank_account
-        ? `${esc(p.payout_bank_name || '')} ${esc(p.payout_bank_account)}`.trim()
-        : p.payout_account_last4
-          ? `···${esc(p.payout_account_last4)}`
-          : '<span style="color:#dc2626;">⚠️ No bank details</span>';
-      const driverName = esc(p.driver_full_name || p.driver_name || '—');
-      const releasedAt = fmtDate(p.escrow_released_at);
-
-      card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:0;">
-            <div style="font-weight:700; font-size:15px; margin-bottom:8px;">
-              ${driverName}
-              <span style="font-size:20px; font-weight:800; color:#92400e; margin-left:12px;">${esc(amount)}</span>
-            </div>
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap:4px 16px; font-size:13px;">
-              <div><span class="muted">Phone:</span> ${esc(p.driver_phone || '—')}</div>
-              <div><span class="muted">Email:</span> ${esc(p.driver_email || '—')}</div>
-              <div><span class="muted">Account name:</span> ${esc(p.payout_account_name || '—')}</div>
-              <div><span class="muted">Bank account:</span> ${bankDisplay}</div>
-              <div><span class="muted">Request #:</span> ${esc(String(p.request_id))}</div>
-              <div><span class="muted">Route:</span> ${esc(p.pickup_suburb || '—')} → ${esc(p.dropoff_suburb || '—')}</div>
-              <div><span class="muted">Escrow released:</span> ${esc(releasedAt)}</div>
-              <div><span class="muted">Payout status:</span> <span class="pill pill-accepted">${esc(p.payout_status || '—')}</span></div>
-            </div>
-          </div>
-          <div style="min-width:160px;">
-            <label style="font-size:12px;">Reference <span class="muted">(optional)</span></label>
-            <input class="payoutRefInput" data-id="${esc(String(p.request_id))}" placeholder="e.g. ANZ-20240217" style="font-size:13px; padding:6px 8px;" />
-            <button class="btn payoutMarkBtn" data-id="${esc(String(p.request_id))}" data-name="${driverName}" data-amount="${esc(amount)}"
-              style="width:100%; margin-top:6px; background:#16a34a; border-color:#16a34a;">✅ Mark as Paid</button>
-          </div>
-        </div>
-        <div class="result mt-2 payoutCardResult" id="payoutResult-${esc(String(p.request_id))}"></div>
-      `;
-      listEl.appendChild(card);
-    }
-
-    // Event delegation for Mark as Paid buttons
-    listEl.onclick = async (e) => {
-      const btn = e.target.closest('.payoutMarkBtn');
-      if (!btn) return;
-
-      const requestId = btn.dataset.id;
-      const driverName = btn.dataset.name;
-      const amount = btn.dataset.amount;
-      const refInput = listEl.querySelector(`.payoutRefInput[data-id="${CSS.escape(requestId)}"]`);
-      const reference = (refInput?.value || '').trim() || undefined;
-      const resultEl = document.getElementById(`payoutResult-${requestId}`);
-
-      const msg = reference
-        ? `Mark payout for Request #${requestId} (${driverName}, ${amount}) as paid?\n\nReference: ${reference}`
-        : `Mark payout for Request #${requestId} (${driverName}, ${amount}) as paid?\n\nNo reference provided.`;
-      if (!confirm(msg)) return;
-
-      setLoading(btn, true);
-      if (resultEl) setResult(resultEl, '');
-
-      const res = await apiFetch(`/admin/requests/${encodeURIComponent(requestId)}/payout/mark_paid`, {
-        method: 'POST',
-        body: { reference },
-      });
-      setLoading(btn, false);
-
-      if (res.ok) {
-        if (resultEl) setResult(resultEl, alertOk(`✅ Marked as paid.${reference ? ` Ref: ${reference}` : ''}`));
-        btn.disabled = true;
-        btn.textContent = '✅ Paid';
-        btn.style.background = '#64748b';
-        btn.style.borderColor = '#64748b';
-        // Refresh summary line
-        setTimeout(loadPendingPayouts, 2000);
-      } else {
-        if (resultEl) setResult(resultEl, alertErr(res.error || 'Failed to mark as paid'));
-      }
-    };
-  }
-
-  document.getElementById('payoutsRefreshBtn').addEventListener('click', loadPendingPayouts);
-
-  document.getElementById('payoutsCopyBtn').addEventListener('click', () => {
-    if (!currentPayouts.length) {
-      alert('No pending payouts to copy.');
-      return;
-    }
-
-    // Build a clean, tab-separated payout list suitable for pasting into a spreadsheet or email
-    const header = ['Request #', 'Driver Name', 'Phone', 'Account Name', 'Bank Account', 'Bank', 'Amount (NZD)', 'Released Date'].join('\t');
-    const rows = currentPayouts.map(p => [
-      p.request_id,
-      p.driver_full_name || p.driver_name || '',
-      p.driver_phone || '',
-      p.payout_account_name || '',
-      p.payout_bank_account || '',
-      p.payout_bank_name || '',
-      p.payout_amount_nzd ? Number(p.payout_amount_nzd).toFixed(2) : '',
-      p.escrow_released_at ? fmtDate(p.escrow_released_at) : '',
-    ].join('\t'));
-
-    const total = currentPayouts.reduce((s, p) => s + Number(p.payout_amount_nzd || 0), 0);
-    const footer = `\nTotal pending:\t\t\t\t\t\tNZD $${total.toFixed(2)}`;
-
-    const text = [header, ...rows, footer].join('\n');
-
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = document.getElementById('payoutsCopyBtn');
-      const orig = btn.textContent;
-      btn.textContent = '✅ Copied!';
-      setTimeout(() => { btn.textContent = orig; }, 2000);
-    }).catch(() => {
-      alert('Copy failed — your browser may not support clipboard access. Try using HTTPS.');
-    });
-  });
-
-  // ── Going Anyway — Trip Board ──────────────────────────────
-
-  async function loadTrips() {
-    const listEl = document.getElementById('tripBoardList');
-    const countEl = document.getElementById('tripBoardCount');
-    listEl.innerHTML = '<span class="muted">Loading…</span>';
-    try {
-      const r = await fetch(`${API_BASE}/trips`, { headers: { 'X-Admin-Token': adminToken } });
-      const data = await r.json();
-      if (!data.ok) { listEl.innerHTML = `<span class="muted">Error: ${data.error}</span>`; return; }
-      const trips = data.trips || [];
-      countEl.textContent = `${trips.length} active post${trips.length !== 1 ? 's' : ''}`;
-      if (!trips.length) {
-        listEl.innerHTML = '<span class="muted">No active trip posts.</span>';
-        return;
-      }
-      listEl.innerHTML = trips.map(t => `
-        <div style="border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:10px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
-          <div style="flex:1;">
-            <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
-              ${escT(t.from_city)} → ${escT(t.to_city)}
-              ${t.is_verified ? '<span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;">✓ Verified</span>' : ''}
-            </div>
-            <div style="font-size:13px; color:#64748b; margin-bottom:4px;">
-              📅 ${fmtDate(t.travel_date)} &nbsp;·&nbsp; Posted by <strong>${escT(t.poster_name)}</strong> &nbsp;·&nbsp; ID #${t.id}
-            </div>
-            ${t.vehicle_type ? `<div style="font-size:13px; color:#475569;">🚗 ${escT(t.vehicle_type)}</div>` : ''}
-            ${t.boot_space ? `<div style="font-size:13px; color:#475569;">📦 ${escT(t.boot_space)}</div>` : ''}
-            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">
-              ${t.contact_phone ? `📞 ${escT(t.contact_phone)} &nbsp;` : ''}
-              ${t.contact_email ? `✉️ ${escT(t.contact_email)} &nbsp;` : ''}
-              ${t.contact_wechat ? `💬 ${escT(t.contact_wechat)}` : ''}
-            </div>
-          </div>
-          <button onclick="deleteTrip(${t.id}, this)" style="background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; white-space:nowrap; flex-shrink:0;">
-            🗑️ Delete
-          </button>
+          ${buildContact(t)}
         </div>
       `).join('');
-    } catch (e) {
-      listEl.innerHTML = `<span class="muted">Network error: ${e.message}</span>`;
     }
-  }
 
-  async function deleteTrip(id, btn) {
-    if (!confirm(`Delete trip post #${id}? This cannot be undone.`)) return;
-    btn.disabled = true; btn.textContent = 'Deleting…';
-    try {
-      const r = await fetch(`${API_BASE}/trips/${id}`, {
-        method: 'DELETE',
-        headers: { 'X-Admin-Token': adminToken },
-      });
-      const data = await r.json();
-      if (data.ok) {
-        loadTrips();
-      } else {
-        btn.disabled = false; btn.textContent = '🗑️ Delete';
-        alert(data.error || 'Could not delete.');
+    function buildContact(t) {
+      const parts = [];
+      if (t.contact_phone) parts.push(`📞 <a href="tel:${escHtml(t.contact_phone)}">${escHtml(t.contact_phone)}</a>`);
+      if (t.contact_wechat) parts.push(`💬 <strong>${escHtml(t.contact_wechat)}</strong>`);
+      if (t.contact_email) parts.push(`✉️ <a href="mailto:${escHtml(t.contact_email)}">${escHtml(t.contact_email)}</a>`);
+      if (!parts.length) return '';
+      return `<div class="trip-contact">${parts.join('<br>')}</div>`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      // Handle both "2026-04-02" and "2026-04-02T00:00:00.000Z"
+      const datePart = String(dateStr).substring(0, 10);
+      const d = new Date(datePart + 'T12:00:00');
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ===== Search =====
+    let searchActive = false;
+
+    function fuzzyMatch(haystack, needle) {
+      if (!needle) return true;
+      return haystack.toLowerCase().includes(needle.toLowerCase().trim());
+    }
+
+    function searchRoutes() {
+      const from = document.getElementById('searchFrom').value.trim();
+      const to = document.getElementById('searchTo').value.trim();
+      if (!from && !to) { clearSearch(); return; }
+
+      searchActive = true;
+
+      // Score each trip: exact city match scores higher than partial
+      const scored = allTrips.map(t => {
+        let score = 0;
+        if (from) {
+          if (t.from_city.toLowerCase() === from.toLowerCase()) score += 10;
+          else if (fuzzyMatch(t.from_city, from)) score += 5;
+          // partial match on route (e.g. Hamilton → Wellington matches Auckland → Wellington)
+          else if (fuzzyMatch(t.to_city, from)) score += 1;
+        }
+        if (to) {
+          if (t.to_city.toLowerCase() === to.toLowerCase()) score += 10;
+          else if (fuzzyMatch(t.to_city, to)) score += 5;
+          else if (fuzzyMatch(t.from_city, to)) score += 1;
+        }
+        return { trip: t, score };
+      })
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(a.trip.travel_date) - new Date(b.trip.travel_date));
+
+      const resultEl = document.getElementById('searchResult');
+      if (scored.length === 0) {
+        resultEl.innerHTML = `😕 No routes found from <strong>${escHtml(from)||'anywhere'}</strong> to <strong>${escHtml(to)||'anywhere'}</strong>. Try a nearby city, or check back later.`;
+        resultEl.style.display = 'block';
+        document.getElementById('tripGrid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🗺️</div>
+            <p>No matching routes — try broadening your search.</p>
+          </div>`;
+        document.getElementById('tripCount').textContent = '0 routes found';
+        return;
       }
-    } catch (e) {
-      btn.disabled = false; btn.textContent = '🗑️ Delete';
-      alert('Network error: ' + e.message);
+
+      resultEl.innerHTML = `✅ Found <strong>${scored.length}</strong> route${scored.length!==1?'s':''} — showing best matches first.`;
+      resultEl.style.display = 'block';
+
+      // Render only matching trips in score order
+      renderTripList(scored.map(s => s.trip));
     }
-  }
 
-  function escT(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+    function clearSearch() {
+      searchActive = false;
+      document.getElementById('searchFrom').value = '';
+      document.getElementById('searchTo').value = '';
+      document.getElementById('searchResult').style.display = 'none';
+      renderTrips();
+    }
 
-  // ── Load everything on dashboard show ─────────────────────
+    // Allow Enter key to trigger search
+    ['searchFrom','searchTo'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') searchRoutes();
+      });
+    });
 
-  function loadAll() {
-    loadDriverQueue('pending_review');
-    loadPendingPayouts();
-    loadSummary();
-    loadActionItems();
+    // ===== Google Maps Route Visualisation =====
+    let map = null;
+    let mapPolylines = [];
+    let mapMarkers = [];
+    let infoWindow = null;
+    const geocodeCache = {};
+
+    // Hardcoded NZ city coordinates — fast, no API calls needed
+    const NZ_CITIES = {
+      'auckland': { lat: -36.8509, lng: 174.7645 },
+      'wellington': { lat: -41.2865, lng: 174.7762 },
+      'christchurch': { lat: -43.5321, lng: 172.6362 },
+      'hamilton': { lat: -37.7870, lng: 175.2793 },
+      'tauranga': { lat: -37.6878, lng: 176.1651 },
+      'napier': { lat: -39.4928, lng: 176.9120 },
+      'hastings': { lat: -39.6386, lng: 176.8497 },
+      'dunedin': { lat: -45.8788, lng: 170.5028 },
+      'palmerston north': { lat: -40.3523, lng: 175.6082 },
+      'nelson': { lat: -41.2706, lng: 173.2840 },
+      'rotorua': { lat: -38.1368, lng: 176.2497 },
+      'new plymouth': { lat: -39.0556, lng: 174.0752 },
+      'whangarei': { lat: -35.7275, lng: 174.3166 },
+      'invercargill': { lat: -46.4132, lng: 168.3538 },
+      'queenstown': { lat: -45.0312, lng: 168.6626 },
+      'gisborne': { lat: -38.6623, lng: 178.0176 },
+      'blenheim': { lat: -41.5134, lng: 173.9612 },
+      'cambridge': { lat: -37.8894, lng: 175.4680 },
+      'whanganui': { lat: -39.9301, lng: 175.0479 },
+      'wanganui': { lat: -39.9301, lng: 175.0479 },
+      'pukekohe': { lat: -37.2004, lng: 174.9010 },
+      'upper hutt': { lat: -41.1244, lng: 175.0707 },
+      'lower hutt': { lat: -41.2127, lng: 174.9089 },
+      'porirua': { lat: -41.1344, lng: 174.8434 },
+      'kapiti': { lat: -40.8990, lng: 175.0076 },
+      'masterton': { lat: -40.9523, lng: 175.6575 },
+      'timaru': { lat: -44.3968, lng: 171.2497 },
+      'ashburton': { lat: -43.9036, lng: 171.7283 },
+      'oamaru': { lat: -45.0966, lng: 170.9714 },
+      'gore': { lat: -46.1003, lng: 168.9390 },
+      'te awamutu': { lat: -38.0094, lng: 175.3270 },
+      'matamata': { lat: -37.8080, lng: 175.7726 },
+      'thames': { lat: -37.1378, lng: 175.5418 },
+      'taupo': { lat: -38.6857, lng: 176.0702 },
+      'whakatane': { lat: -37.9530, lng: 176.9900 },
+      'levin': { lat: -40.6218, lng: 175.2857 },
+      'fielding': { lat: -40.2243, lng: 175.5646 },
+      'feilding': { lat: -40.2243, lng: 175.5646 },
+      'dannevirke': { lat: -40.2007, lng: 176.1003 },
+      'wairoa': { lat: -39.0367, lng: 177.4132 },
+      'dargaville': { lat: -35.9351, lng: 173.8839 },
+      'kaitaia': { lat: -35.1128, lng: 173.2667 },
+      'kerikeri': { lat: -35.2232, lng: 173.9487 },
+      'paihia': { lat: -35.2793, lng: 174.0897 },
+      'twizel': { lat: -44.2584, lng: 170.0997 },
+      'wanaka': { lat: -44.7032, lng: 169.1318 },
+      'cromwell': { lat: -45.0525, lng: 169.1946 },
+      'alexandra': { lat: -45.2479, lng: 169.3722 },
+      'greymouth': { lat: -42.4504, lng: 171.2108 },
+      'westport': { lat: -41.7538, lng: 171.5986 },
+      'hokitika': { lat: -42.7168, lng: 170.9646 },
+      'picton': { lat: -41.2954, lng: 173.9549 },
+      'motueka': { lat: -41.1199, lng: 173.0071 },
+      'richmond': { lat: -41.3368, lng: 173.1756 },
+    };
+
+    async function geocodeCity(city) {
+      const key = city.toLowerCase().trim();
+      if (geocodeCache[key]) return geocodeCache[key];
+
+      // Check hardcoded list first
+      if (NZ_CITIES[key]) {
+        geocodeCache[key] = NZ_CITIES[key];
+        return NZ_CITIES[key];
+      }
+
+      // Partial match in hardcoded list
+      for (const [name, coords] of Object.entries(NZ_CITIES)) {
+        if (name.includes(key) || key.includes(name)) {
+          geocodeCache[key] = coords;
+          return coords;
+        }
+      }
+
+      // Fallback to Google Geocoder for unknown cities
+      if (!window.google || !window.google.maps) return null;
+      return new Promise((resolve) => {
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode(
+          { address: city + ', New Zealand', region: 'NZ' },
+          (results, status) => {
+            if (status === 'OK' && results[0]) {
+              const loc = results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              geocodeCache[key] = coords;
+              resolve(coords);
+            } else {
+              resolve(null);
+            }
+          }
+        );
+      });
+    }
+
+    // Palette of colours for routes
+    const ROUTE_COLOURS = [
+      '#2563eb', '#dc2626', '#d97706', '#7c3aed',
+      '#0891b2', '#be185d', '#065f46', '#92400e',
+    ];
+
+    function initTripMap() {
+      infoWindow = new google.maps.InfoWindow();
+      map = new google.maps.Map(document.getElementById('routeMap'), {
+        center: { lat: -41.5, lng: 172.8 }, // Centre of NZ
+        zoom: 5,
+        mapTypeId: 'roadmap',
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        styles: [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+
+      document.getElementById('mapLoading').style.display = 'none';
+      document.getElementById('routeMap').style.display = 'block';
+      document.getElementById('mapLegend').style.display = 'flex';
+
+      // Draw routes if trips already loaded
+      if (allTrips.length > 0) drawRoutes(allTrips);
+    }
+
+    
+    async function drawRoutes(trips) {
+      if (!map) return;
+      console.log('[Going Anyway] drawRoutes called with', trips.length, 'trips');
+
+      // Clear old overlays
+      mapPolylines.forEach(p => p.setMap(null));
+      mapMarkers.forEach(m => m.setMap(null));
+      mapPolylines = [];
+      mapMarkers = [];
+
+      // Collect unique cities
+      const citySet = new Set();
+      trips.forEach(t => { citySet.add(t.from_city); citySet.add(t.to_city); });
+
+      // Geocode all cities
+      for (const city of citySet) {
+        await geocodeCity(city);
+      }
+
+      // Draw each trip as a curved line
+      let drawn = 0;
+      for (let i = 0; i < trips.length; i++) {
+        const t = trips[i];
+        const from = geocodeCache[t.from_city.toLowerCase().trim()];
+        const to = geocodeCache[t.to_city.toLowerCase().trim()];
+        console.log('[Going Anyway] Route', t.from_city, '→', t.to_city, 'coords:', from, to);
+        if (!from || !to) continue;
+
+        const colour = t.is_verified ? '#16a34a' : ROUTE_COLOURS[i % ROUTE_COLOURS.length];
+        // Slightly vary curvature so overlapping routes don't stack exactly
+        const curvature = 0.25 + (i % 4) * 0.07;
+
+        const path = buildCurvedPath(from, to, curvature);
+
+        // Single polyline with arrow at end
+        const arrowPoly = new google.maps.Polyline({
+          path,
+          geodesic: false,
+          strokeColor: colour,
+          strokeOpacity: 0.85,
+          strokeWeight: 3,
+          icons: [{
+            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
+            offset: '100%',
+          }],
+          map,
+        });
+
+        // Click on line → show info window
+        const tripInfo = t;
+        google.maps.event.addListener(arrowPoly, 'click', (e) => {
+          const content = `
+            <div style="font-family:sans-serif; min-width:200px; padding:4px;">
+              <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
+                ${escHtml(tripInfo.from_city)} → ${escHtml(tripInfo.to_city)}
+              </div>
+              <div style="font-size:13px; color:#64748b; margin-bottom:6px;">📅 ${formatDate(tripInfo.travel_date)}</div>
+              ${tripInfo.vehicle_type ? `<div style="font-size:13px;">🚗 ${escHtml(tripInfo.vehicle_type)}</div>` : ''}
+              ${tripInfo.boot_space ? `<div style="font-size:13px;">📦 ${escHtml(tripInfo.boot_space)}</div>` : ''}
+              <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
+                By ${escHtml(tripInfo.poster_name)}
+                ${tripInfo.is_verified ? '&nbsp;✅ Verified Driver' : ''}
+              </div>
+              ${tripInfo.contact_phone ? `<div style="font-size:13px; margin-top:6px;">📞 <a href="tel:${escHtml(tripInfo.contact_phone)}">${escHtml(tripInfo.contact_phone)}</a></div>` : ''}
+              ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
+              ${tripInfo.contact_email ? `<div style="font-size:13px;">✉️ <a href="mailto:${escHtml(tripInfo.contact_email)}">${escHtml(tripInfo.contact_email)}</a></div>` : ''}
+            </div>`;
+          infoWindow.setContent(content);
+          infoWindow.setPosition(e.latLng);
+          infoWindow.open(map);
+        });
+
+        mapPolylines.push(arrowPoly);
+
+        // City markers
+        [{ coords: from, label: t.from_city }, { coords: to, label: t.to_city }].forEach(({ coords, label }) => {
+          const existing = mapMarkers.find(m => Math.abs(m.getPosition().lat() - coords.lat) < 0.01);
+          if (!existing) {
+            const marker = new google.maps.Marker({
+              position: coords,
+              map,
+              title: label,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 6,
+                fillColor: '#fff',
+                fillOpacity: 1,
+                strokeColor: '#0f172a',
+                strokeWeight: 2,
+              },
+            });
+            mapMarkers.push(marker);
+          }
+        });
+
+        drawn++;
+      }
+
+      document.getElementById('mapRouteCount').textContent =
+        drawn === 0 ? 'No routes yet' : `${drawn} active route${drawn !== 1 ? 's' : ''}`;
+    }
+
     loadTrips();
-  }
   </script>
 </body>
 </html>
