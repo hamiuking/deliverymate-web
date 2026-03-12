@@ -247,6 +247,17 @@
         </details>
       </section>
 
+      <!-- Going Anyway — Trip Board Moderation -->
+      <section class="card" style="margin-bottom:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <div class="section-title">🚗 Going Anyway — Trip Board</div>
+          <button class="btn ghost" onclick="loadTrips()">↺ Refresh</button>
+        </div>
+        <div class="muted" style="margin-bottom:14px;">All active (non-expired) trip posts. You can delete any post.</div>
+        <div id="tripBoardCount" class="muted" style="margin-bottom:10px;"></div>
+        <div id="tripBoardList"></div>
+      </section>
+
     </div><!-- /adminDashboard -->
   </main>
 
@@ -1222,6 +1233,75 @@
     });
   });
 
+  // ── Going Anyway — Trip Board ──────────────────────────────
+
+  async function loadTrips() {
+    const listEl = document.getElementById('tripBoardList');
+    const countEl = document.getElementById('tripBoardCount');
+    listEl.innerHTML = '<span class="muted">Loading…</span>';
+    try {
+      const r = await fetch(`${API_BASE}/trips`, { headers: { 'X-Admin-Token': adminToken } });
+      const data = await r.json();
+      if (!data.ok) { listEl.innerHTML = `<span class="muted">Error: ${data.error}</span>`; return; }
+      const trips = data.trips || [];
+      countEl.textContent = `${trips.length} active post${trips.length !== 1 ? 's' : ''}`;
+      if (!trips.length) {
+        listEl.innerHTML = '<span class="muted">No active trip posts.</span>';
+        return;
+      }
+      listEl.innerHTML = trips.map(t => `
+        <div style="border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:10px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
+              ${escT(t.from_city)} → ${escT(t.to_city)}
+              ${t.is_verified ? '<span style="background:#dcfce7;color:#16a34a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;">✓ Verified</span>' : ''}
+            </div>
+            <div style="font-size:13px; color:#64748b; margin-bottom:4px;">
+              📅 ${fmtDate(t.travel_date)} &nbsp;·&nbsp; Posted by <strong>${escT(t.poster_name)}</strong> &nbsp;·&nbsp; ID #${t.id}
+            </div>
+            ${t.vehicle_type ? `<div style="font-size:13px; color:#475569;">🚗 ${escT(t.vehicle_type)}</div>` : ''}
+            ${t.boot_space ? `<div style="font-size:13px; color:#475569;">📦 ${escT(t.boot_space)}</div>` : ''}
+            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">
+              ${t.contact_phone ? `📞 ${escT(t.contact_phone)} &nbsp;` : ''}
+              ${t.contact_email ? `✉️ ${escT(t.contact_email)} &nbsp;` : ''}
+              ${t.contact_wechat ? `💬 ${escT(t.contact_wechat)}` : ''}
+            </div>
+          </div>
+          <button onclick="deleteTrip(${t.id}, this)" style="background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+            🗑️ Delete
+          </button>
+        </div>
+      `).join('');
+    } catch (e) {
+      listEl.innerHTML = `<span class="muted">Network error: ${e.message}</span>`;
+    }
+  }
+
+  async function deleteTrip(id, btn) {
+    if (!confirm(`Delete trip post #${id}? This cannot be undone.`)) return;
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    try {
+      const r = await fetch(`${API_BASE}/trips/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Admin-Token': adminToken },
+      });
+      const data = await r.json();
+      if (data.ok) {
+        loadTrips();
+      } else {
+        btn.disabled = false; btn.textContent = '🗑️ Delete';
+        alert(data.error || 'Could not delete.');
+      }
+    } catch (e) {
+      btn.disabled = false; btn.textContent = '🗑️ Delete';
+      alert('Network error: ' + e.message);
+    }
+  }
+
+  function escT(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
   // ── Load everything on dashboard show ─────────────────────
 
   function loadAll() {
@@ -1229,6 +1309,7 @@
     loadPendingPayouts();
     loadSummary();
     loadActionItems();
+    loadTrips();
   }
   </script>
 </body>
