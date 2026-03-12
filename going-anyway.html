@@ -533,7 +533,10 @@
 
     function formatDate(dateStr) {
       if (!dateStr) return '';
-      const d = new Date(dateStr + 'T12:00:00');
+      // Handle both "2026-04-02" and "2026-04-02T00:00:00.000Z"
+      const datePart = String(dateStr).substring(0, 10);
+      const d = new Date(datePart + 'T12:00:00');
+      if (isNaN(d.getTime())) return dateStr;
       return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
@@ -729,17 +732,8 @@
         const curvature = 0.25 + (i % 4) * 0.07;
 
         const path = buildCurvedPath(from, to, curvature);
-        const poly = new google.maps.Polyline({
-          path,
-          geodesic: false,
-          strokeColor: colour,
-          strokeOpacity: 0.85,
-          strokeWeight: 3,
-          map,
-        });
 
-        // Arrow symbol at end
-        poly.set('strokeOpacity', 0);
+        // Single polyline with arrow at end
         const arrowPoly = new google.maps.Polyline({
           path,
           geodesic: false,
