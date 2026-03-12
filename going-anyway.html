@@ -175,7 +175,7 @@
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
   </style>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&libraries=geocoding&loading=async&callback=initTripMap"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&loading=async&callback=initTripMap"></script>
 </head>
 
 <body>
@@ -186,7 +186,7 @@
       <a href="/driver.html">Driver</a>
       <a href="/about.html">About</a>
       <a href="/going-anyway.html" class="active">Going Anyway</a>
-      <a href="/admin.html" id="navAdmin">Admin</a>
+      <a href="/admin.html" id="navAdmin" style="display:none;">Admin</a>
     </nav>
   </header>
 
@@ -471,9 +471,16 @@
         const data = await r.json();
         allTrips = data.ok ? data.trips : [];
         renderTrips();
-        if (map) drawRoutes(allTrips);
+        const countEl = document.getElementById('mapRouteCount');
+        if (map) {
+          drawRoutes(allTrips);
+        } else {
+          // Map not ready yet — update count now, drawRoutes will be called from initTripMap
+          countEl.textContent = allTrips.length === 0 ? 'No routes yet' : `${allTrips.length} active route${allTrips.length !== 1 ? 's' : ''}`;
+        }
       } catch {
         document.getElementById('tripGrid').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load trips. Please refresh.</p></div>`;
+        document.getElementById('mapRouteCount').textContent = 'Could not load';
       }
     }
 
@@ -747,6 +754,7 @@
     
     async function drawRoutes(trips) {
       if (!map) return;
+      console.log('[Going Anyway] drawRoutes called with', trips.length, 'trips');
 
       // Clear old overlays
       mapPolylines.forEach(p => p.setMap(null));
@@ -769,6 +777,7 @@
         const t = trips[i];
         const from = geocodeCache[t.from_city.toLowerCase().trim()];
         const to = geocodeCache[t.to_city.toLowerCase().trim()];
+        console.log('[Going Anyway] Route', t.from_city, '→', t.to_city, 'coords:', from, to);
         if (!from || !to) continue;
 
         const colour = t.is_verified ? '#16a34a' : ROUTE_COLOURS[i % ROUTE_COLOURS.length];
@@ -782,10 +791,10 @@
           path,
           geodesic: false,
           strokeColor: colour,
-          strokeOpacity: 0.85,
-          strokeWeight: 3,
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
           icons: [{
-            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
+            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 4, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
             offset: '100%',
           }],
           map,
@@ -846,6 +855,13 @@
     }
 
     loadTrips();
+  </script>
+  <script>
+    // Show Admin nav only if logged in as admin
+    if (localStorage.getItem('adminToken')) {
+      const el = document.getElementById('navAdmin');
+      if (el) el.style.display = '';
+    }
   </script>
 </body>
 </html>
