@@ -475,8 +475,12 @@
         if (map) {
           drawRoutes(allTrips);
         } else {
-          // Map not ready yet — update count now, drawRoutes will be called from initTripMap
           countEl.textContent = allTrips.length === 0 ? 'No routes yet' : `${allTrips.length} active route${allTrips.length !== 1 ? 's' : ''}`;
+          // Map may not be ready yet — retry when it is
+          const waitForMap = setInterval(() => {
+            if (map) { clearInterval(waitForMap); drawRoutes(allTrips); }
+          }, 200);
+          setTimeout(() => clearInterval(waitForMap), 10000);
         }
       } catch {
         document.getElementById('tripGrid').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load trips. Please refresh.</p></div>`;
@@ -723,6 +727,38 @@
       });
     }
 
+
+
+    function buildCurvedPath(from, to, curvature = 0.25) {
+      const midLat = (from.lat + to.lat) / 2;
+      const midLng = (from.lng + to.lng) / 2;
+
+      const dx = to.lng - from.lng;
+      const dy = to.lat - from.lat;
+
+      const controlLat = midLat + dx * curvature;
+      const controlLng = midLng - dy * curvature;
+
+      const path = [];
+      const steps = 30;
+
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const lat =
+          (1 - t) * (1 - t) * from.lat +
+          2 * (1 - t) * t * controlLat +
+          t * t * to.lat;
+        const lng =
+          (1 - t) * (1 - t) * from.lng +
+          2 * (1 - t) * t * controlLng +
+          t * t * to.lng;
+
+        path.push({ lat, lng });
+      }
+
+      return path;
+    }
+
     // Palette of colours for routes
     const ROUTE_COLOURS = [
       '#2563eb', '#dc2626', '#d97706', '#7c3aed',
@@ -749,6 +785,9 @@
 
       // Draw routes if trips already loaded
       if (allTrips.length > 0) drawRoutes(allTrips);
+      // Safety: retry after 1s in case trips load after map
+      setTimeout(() => { if (allTrips.length > 0 && mapPolylines.length === 0) drawRoutes(allTrips); }, 1000);
+      setTimeout(() => { if (allTrips.length > 0 && mapPolylines.length === 0) drawRoutes(allTrips); }, 3000);
     }
 
     
@@ -756,102 +795,110 @@
       if (!map) return;
       console.log('[Going Anyway] drawRoutes called with', trips.length, 'trips');
 
-      // Clear old overlays
-      mapPolylines.forEach(p => p.setMap(null));
-      mapMarkers.forEach(m => m.setMap(null));
-      mapPolylines = [];
-      mapMarkers = [];
+      try {
+        // Clear old overlays
+        mapPolylines.forEach(p => p.setMap(null));
+        mapMarkers.forEach(m => m.setMap(null));
+        mapPolylines = [];
+        mapMarkers = [];
 
-      // Collect unique cities
-      const citySet = new Set();
-      trips.forEach(t => { citySet.add(t.from_city); citySet.add(t.to_city); });
+        // Collect unique cities
+        const citySet = new Set();
+        trips.forEach(t => { citySet.add(t.from_city); citySet.add(t.to_city); });
 
-      // Geocode all cities
-      for (const city of citySet) {
-        await geocodeCity(city);
+        // Geocode all cities
+        for (const city of citySet) {
+          await geocodeCity(city);
+        }
+
+        // Draw each trip as a curved line
+        let drawn = 0;
+        for (let i = 0; i < trips.length; i++) {
+          const t = trips[i];
+          const from = geocodeCache[t.from_city.toLowerCase().trim()];
+          const to = geocodeCache[t.to_city.toLowerCase().trim()];
+          console.log('[Going Anyway] Route', t.from_city, '→', t.to_city, 'coords:', from, to);
+          if (!from || !to) continue;
+
+          const colour = t.is_verified ? '#16a34a' : ROUTE_COLOURS[i % ROUTE_COLOURS.length];
+          // Slightly vary curvature so overlapping routes don't stack exactly
+          const curvature = 0.25 + (i % 4) * 0.07;
+
+          const path = buildCurvedPath(from, to, curvature);
+
+          // Single polyline with arrow at end
+          const arrowPoly = new google.maps.Polyline({
+            path,
+            geodesic: false,
+            strokeColor: colour,
+            strokeOpacity: 0.9,
+            strokeWeight: 5,
+            icons: [{
+              icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 4, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
+              offset: '100%',
+            }],
+            map,
+          });
+
+          // Click on line → show info window
+          const tripInfo = t;
+          google.maps.event.addListener(arrowPoly, 'click', (e) => {
+            const content = `
+              <div style="font-family:sans-serif; min-width:200px; padding:4px;">
+                <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
+                  ${escHtml(tripInfo.from_city)} → ${escHtml(tripInfo.to_city)}
+                </div>
+                <div style="font-size:13px; color:#64748b; margin-bottom:6px;">📅 ${formatDate(tripInfo.travel_date)}</div>
+                ${tripInfo.vehicle_type ? `<div style="font-size:13px;">🚗 ${escHtml(tripInfo.vehicle_type)}</div>` : ''}
+                ${tripInfo.boot_space ? `<div style="font-size:13px;">📦 ${escHtml(tripInfo.boot_space)}</div>` : ''}
+                <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
+                  By ${escHtml(tripInfo.poster_name)}
+                  ${tripInfo.is_verified ? '&nbsp;✅ Verified Driver' : ''}
+                </div>
+                ${tripInfo.contact_phone ? `<div style="font-size:13px; margin-top:6px;">📞 <a href="tel:${escHtml(tripInfo.contact_phone)}">${escHtml(tripInfo.contact_phone)}</a></div>` : ''}
+                ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
+                ${tripInfo.contact_email ? `<div style="font-size:13px;">✉️ <a href="mailto:${escHtml(tripInfo.contact_email)}">${escHtml(tripInfo.contact_email)}</a></div>` : ''}
+              </div>`;
+            infoWindow.setContent(content);
+            infoWindow.setPosition(e.latLng);
+            infoWindow.open(map);
+          });
+
+          mapPolylines.push(arrowPoly);
+
+          // City markers
+          [{ coords: from, label: t.from_city }, { coords: to, label: t.to_city }].forEach(({ coords, label }) => {
+            const existing = mapMarkers.find(m => (
+              Math.abs(m.getPosition().lat() - coords.lat) < 0.01 &&
+              Math.abs(m.getPosition().lng() - coords.lng) < 0.01
+            ));
+            if (!existing) {
+              const marker = new google.maps.Marker({
+                position: coords,
+                map,
+                title: label,
+                icon: {
+                  path: google.maps.SymbolPath.CIRCLE,
+                  scale: 6,
+                  fillColor: '#fff',
+                  fillOpacity: 1,
+                  strokeColor: '#0f172a',
+                  strokeWeight: 2,
+                },
+              });
+              mapMarkers.push(marker);
+            }
+          });
+
+          drawn++;
+        }
+
+        document.getElementById('mapRouteCount').textContent =
+          drawn === 0 ? 'No routes yet' : `${drawn} active route${drawn !== 1 ? 's' : ''}`;
+      } catch (err) {
+        console.error('[Going Anyway] drawRoutes failed:', err);
+        document.getElementById('mapRouteCount').textContent = 'Map failed to load routes';
       }
-
-      // Draw each trip as a curved line
-      let drawn = 0;
-      for (let i = 0; i < trips.length; i++) {
-        const t = trips[i];
-        const from = geocodeCache[t.from_city.toLowerCase().trim()];
-        const to = geocodeCache[t.to_city.toLowerCase().trim()];
-        console.log('[Going Anyway] Route', t.from_city, '→', t.to_city, 'coords:', from, to);
-        if (!from || !to) continue;
-
-        const colour = t.is_verified ? '#16a34a' : ROUTE_COLOURS[i % ROUTE_COLOURS.length];
-        // Slightly vary curvature so overlapping routes don't stack exactly
-        const curvature = 0.25 + (i % 4) * 0.07;
-
-        const path = buildCurvedPath(from, to, curvature);
-
-        // Single polyline with arrow at end
-        const arrowPoly = new google.maps.Polyline({
-          path,
-          geodesic: false,
-          strokeColor: colour,
-          strokeOpacity: 0.9,
-          strokeWeight: 5,
-          icons: [{
-            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 4, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
-            offset: '100%',
-          }],
-          map,
-        });
-
-        // Click on line → show info window
-        const tripInfo = t;
-        google.maps.event.addListener(arrowPoly, 'click', (e) => {
-          const content = `
-            <div style="font-family:sans-serif; min-width:200px; padding:4px;">
-              <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
-                ${escHtml(tripInfo.from_city)} → ${escHtml(tripInfo.to_city)}
-              </div>
-              <div style="font-size:13px; color:#64748b; margin-bottom:6px;">📅 ${formatDate(tripInfo.travel_date)}</div>
-              ${tripInfo.vehicle_type ? `<div style="font-size:13px;">🚗 ${escHtml(tripInfo.vehicle_type)}</div>` : ''}
-              ${tripInfo.boot_space ? `<div style="font-size:13px;">📦 ${escHtml(tripInfo.boot_space)}</div>` : ''}
-              <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
-                By ${escHtml(tripInfo.poster_name)}
-                ${tripInfo.is_verified ? '&nbsp;✅ Verified Driver' : ''}
-              </div>
-              ${tripInfo.contact_phone ? `<div style="font-size:13px; margin-top:6px;">📞 <a href="tel:${escHtml(tripInfo.contact_phone)}">${escHtml(tripInfo.contact_phone)}</a></div>` : ''}
-              ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
-              ${tripInfo.contact_email ? `<div style="font-size:13px;">✉️ <a href="mailto:${escHtml(tripInfo.contact_email)}">${escHtml(tripInfo.contact_email)}</a></div>` : ''}
-            </div>`;
-          infoWindow.setContent(content);
-          infoWindow.setPosition(e.latLng);
-          infoWindow.open(map);
-        });
-
-        mapPolylines.push(arrowPoly);
-
-        // City markers
-        [{ coords: from, label: t.from_city }, { coords: to, label: t.to_city }].forEach(({ coords, label }) => {
-          const existing = mapMarkers.find(m => Math.abs(m.getPosition().lat() - coords.lat) < 0.01);
-          if (!existing) {
-            const marker = new google.maps.Marker({
-              position: coords,
-              map,
-              title: label,
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 6,
-                fillColor: '#fff',
-                fillOpacity: 1,
-                strokeColor: '#0f172a',
-                strokeWeight: 2,
-              },
-            });
-            mapMarkers.push(marker);
-          }
-        });
-
-        drawn++;
-      }
-
-      document.getElementById('mapRouteCount').textContent =
-        drawn === 0 ? 'No routes yet' : `${drawn} active route${drawn !== 1 ? 's' : ''}`;
     }
 
     loadTrips();
