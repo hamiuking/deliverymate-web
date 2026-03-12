@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Going Anyway — Spare Boot Board | DeliveryMate NZ</title>
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <style>
+    .ga-hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+      color: white;
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .ga-hero h1 { margin: 0 0 8px; font-size: 2rem; }
+    .ga-hero p { margin: 0; color: #94a3b8; font-size: 1rem; max-width: 520px; margin: 8px auto 0; }
+    .ga-hero .tagline { color: #38bdf8; font-weight: 600; font-size: 1.1rem; margin-bottom: 8px; }
+
+    .trip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .trip-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+    }
+    .trip-card:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .trip-route {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .trip-date {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+    .trip-detail { font-size: 14px; color: #475569; margin-bottom: 4px; }
+    .trip-contact {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .trip-contact a { color: #2563eb; text-decoration: none; }
+    .verified-badge {
+      background: #dcfce7;
+      color: #16a34a;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .poster-name {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    /* Post form */
+    .post-form { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 32px; }
+    .post-form h2 { margin: 0 0 20px; font-size: 1.2rem; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-row .form-group { flex: 1; min-width: 160px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; box-sizing: border-box;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 9px 12px; font-size: 14px; font-family: inherit;
+      outline: none; transition: border .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .form-group .hint { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+    .optional-tag { font-weight: 400; color: #94a3b8; font-size: 11px; }
+
+    .cta-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .cta-box h3 { margin: 0 0 8px; color: #15803d; }
+    .cta-box p { margin: 0 0 16px; color: #166534; font-size: 14px; }
+
+    .empty-state { text-align: center; padding: 48px 24px; color: #94a3b8; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+    /* Manage panel */
+    #managePanel { display: none; }
+    .manage-card {
+      background: #fefce8;
+      border: 2px solid #fde047;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .filter-row input, .filter-row select {
+      border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 7px 12px; font-size: 14px; font-family: inherit;
+      outline: none;
+    }
+    .filter-row input:focus, .filter-row select:focus { border-color: #2563eb; }
+
+    /* Map */
+    #routeMapWrap {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    #routeMapHeader {
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    #routeMapHeader h3 { margin: 0; font-size: 1rem; color: #0f172a; }
+    #routeMapHeader span { font-size: 13px; color: #94a3b8; }
+    #routeMap { width: 100%; height: 420px; }
+    #mapLoading {
+      display: flex; align-items: center; justify-content: center;
+      height: 420px; color: #94a3b8; font-size: 14px; gap: 8px;
+    }
+    .map-legend {
+      padding: 10px 20px;
+      border-top: 1px solid #f1f5f9;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAy35Shnyn6Y1gMD-D-i1V-WHIxt67FcuQ&libraries=geocoding&loading=async&callback=initTripMap"></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <nav class="nav">
+      <a href="/index.html">Home</a>
+      <a href="/sender.html">Sender</a>
+      <a href="/driver.html">Driver</a>
+      <a href="/about.html">About</a>
+      <a href="/going-anyway.html" class="active">Going Anyway</a>
+      <a href="/admin.html" id="navAdmin">Admin</a>
+    </nav>
+  </header>
+
+  <main class="container">
+
+    <!-- Hero -->
+    <div class="ga-hero">
+      <div style="font-size:48px; margin-bottom:12px;">🚗</div>
+      <div class="tagline">Going Anyway</div>
+      <h1>Spare Boot Board</h1>
+      <p>Travelling across New Zealand and have empty boot space? Post your route — you might help someone ship something along the way. A community notice board for Kiwi drivers.</p>
+    </div>
+
+    <!-- Manage panel (shown when ?manage=token in URL) -->
+    <div id="managePanel">
+      <div class="manage-card">
+        <div style="font-size:32px; margin-bottom:8px;">⚙️</div>
+        <h2 style="margin:0 0 8px;" id="manageTitle">Manage your post</h2>
+        <p id="manageDesc" style="color:#713f12; margin-bottom:16px;"></p>
+        <button class="btn" id="btnDeletePost" style="background:#dc2626;" onclick="deleteMyPost()">🗑️ Delete my post</button>
+        <p style="font-size:12px; color:#92400e; margin-top:12px;">This will permanently remove your trip from the board.</p>
+      </div>
+    </div>
+
+    <!-- Post a trip -->
+    <div class="post-form" id="postForm">
+      <h2>📍 Post your route</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>From city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="fromCity" placeholder="e.g. Auckland" maxlength="100" />
+        </div>
+        <div class="form-group">
+          <label>To city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="toCity" placeholder="e.g. Wellington" maxlength="100" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Travel date <span style="color:#dc2626">*</span></label>
+          <input type="date" id="travelDate" />
+        </div>
+        <div class="form-group">
+          <label>Vehicle type <span class="optional-tag">optional</span></label>
+          <select id="vehicleType">
+            <option value="">— select —</option>
+            <option>Sedan</option>
+            <option>SUV / Wagon</option>
+            <option>Ute / Pickup</option>
+            <option>Van</option>
+            <option>Tesla / EV</option>
+            <option>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Boot space available <span class="optional-tag">optional</span></label>
+        <input type="text" id="bootSpace" placeholder="e.g. Half a boot, can fit a suitcase and a box" maxlength="200" />
+      </div>
+      <div class="form-group">
+        <label>Your name / nickname <span style="color:#dc2626">*</span></label>
+        <input type="text" id="posterName" placeholder="e.g. Alex" maxlength="80" />
+      </div>
+
+      <div style="background:#f8fafc; border-radius:8px; padding:16px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:10px;">Contact info <span class="optional-tag" style="font-size:12px;">— all optional, provide at least one so people can reach you</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone <span class="optional-tag">optional</span></label>
+            <input type="tel" id="contactPhone" placeholder="e.g. 021 123 4567" maxlength="40" />
+          </div>
+          <div class="form-group">
+            <label>WeChat ID <span class="optional-tag">optional</span></label>
+            <input type="text" id="contactWechat" placeholder="e.g. kiwi_alex" maxlength="80" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email <span class="optional-tag">optional — used to send you a manage link</span></label>
+          <input type="email" id="contactEmail" placeholder="e.g. alex@email.com" maxlength="120" />
+          <div class="hint">We'll email you a private link to delete your post. Not shown publicly.</div>
+        </div>
+      </div>
+
+      <div id="postError" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; color:#dc2626; font-size:14px; margin-bottom:12px;"></div>
+      <div id="postSuccess" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; color:#15803d; font-size:14px; margin-bottom:12px;"></div>
+
+      <button class="btn" id="btnPost" onclick="submitTrip()">🚗 Post my route</button>
+      <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Your post will automatically disappear after your travel date. No account needed.</p>
+    </div>
+
+    <!-- Route Map -->
+    <div id="routeMapWrap">
+      <div id="routeMapHeader">
+        <h3>🗺️ Live route map</h3>
+        <span id="mapRouteCount">Loading…</span>
+      </div>
+      <div id="mapLoading">⏳ &nbsp;Loading map…</div>
+      <div id="routeMap" style="display:none;"></div>
+      <div class="map-legend" id="mapLegend" style="display:none;">
+        <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> Active routes</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> Verified driver</div>
+        <div style="color:#94a3b8; margin-left:auto; font-size:11px;">Click a line to see trip details</div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div style="background:white; border:2px solid #2563eb; border-radius:12px; padding:20px; margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:700; color:#2563eb; margin-bottom:12px; text-transform:uppercase; letter-spacing:.05em;">🔍 Find a route</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">From</label>
+          <input type="text" id="searchFrom" placeholder="e.g. Auckland" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
+        </div>
+        <div style="flex:1; min-width:130px;">
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">To</label>
+          <input type="text" id="searchTo" placeholder="e.g. Wellington" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="searchRoutes()" style="white-space:nowrap;">Search</button>
+          <button onclick="clearSearch()" style="background:none; border:1px solid #e2e8f0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; color:#64748b; white-space:nowrap;">Clear</button>
+        </div>
+      </div>
+      <div id="searchResult" style="display:none; margin-top:12px; font-size:13px; color:#64748b;"></div>
+    </div>
+
+    <!-- Trip listings -->
+    <div class="section-title">🚗 Upcoming routes</div>
+
+    <div class="filter-row">
+      <input type="text" id="filterFrom" placeholder="Filter by from..." style="max-width:160px;" oninput="renderTrips()" />
+      <input type="text" id="filterTo" placeholder="Filter by to..." style="max-width:160px;" oninput="renderTrips()" />
+      <span style="font-size:13px; color:#94a3b8;" id="tripCount"></span>
+    </div>
+
+    <div id="tripGrid" class="trip-grid">
+      <div class="empty-state"><div class="icon">⏳</div><p>Loading routes…</p></div>
+    </div>
+
+    <!-- CTA box -->
+    <div class="cta-box">
+      <h3>Need a guaranteed delivery?</h3>
+      <p>Going Anyway is a casual community board. For a reliable, insured delivery with Stripe payment protection, post a formal delivery request on DeliveryMate.</p>
+      <a class="btn" href="/sender.html">Post a delivery request</a>
+      &nbsp;
+      <a class="btn" href="/driver.html" style="background:#f8fafc; color:#0f172a; border:1px solid #e2e8f0;">Register as a driver</a>
+    </div>
+
+  </main>
+
+  <footer class="topbar" style="margin-top:auto; padding:16px 0; text-align:center; font-size:13px;">
+    <span class="muted">© 2026 Small Bridge Ltd</span>
+    <span class="muted" style="margin:0 8px;">·</span>
+    <a href="/terms/privacy-policy.html" class="muted">Privacy Policy</a>
+    <span class="muted" style="margin:0 8px;">·</span>
+    <a href="/terms/cookie-policy.html" class="muted">Cookie Policy</a>
+  </footer>
+
+  <script>
+    const API = 'https://deliverymate.onrender.com';
+    let allTrips = [];
+    let manageToken = null;
+    let manageTripId = null;
+
+    // Set min date for travel date input
+    document.getElementById('travelDate').min = new Date().toISOString().split('T')[0];
+
+    // Check for manage token in URL
+    (function checkManage() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('manage');
+      if (!token) return;
+      manageToken = token;
+      document.getElementById('managePanel').style.display = 'block';
+
+      fetch(`${API}/trips/manage?token=${encodeURIComponent(token)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.ok) {
+            document.getElementById('manageTitle').textContent = 'Post not found';
+            document.getElementById('manageDesc').textContent = data.error || 'This post may have already been deleted or expired.';
+            document.getElementById('btnDeletePost').style.display = 'none';
+            return;
+          }
+          const t = data.trip;
+          manageTripId = t.id;
+          document.getElementById('manageTitle').textContent = `Your trip: ${t.from_city} → ${t.to_city}`;
+          document.getElementById('manageDesc').textContent = `Travel date: ${formatDate(t.travel_date)} · Posted by: ${t.poster_name}`;
+        })
+        .catch(() => {
+          document.getElementById('manageDesc').textContent = 'Could not load trip details.';
+        });
+    })();
+
+    async function deleteMyPost() {
+      if (!manageTripId || !manageToken) return;
+      if (!confirm('Are you sure you want to delete your trip post?')) return;
+      const btn = document.getElementById('btnDeletePost');
+      btn.disabled = true; btn.textContent = 'Deleting…';
+      try {
+        const r = await fetch(`${API}/trips/${manageTripId}/manage?token=${encodeURIComponent(manageToken)}`, { method: 'DELETE' });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('managePanel').innerHTML = `
+            <div class="manage-card" style="background:#f0fdf4; border-color:#86efac;">
+              <div style="font-size:32px;">✅</div>
+              <h2 style="color:#15803d;">Post deleted</h2>
+              <p style="color:#166534;">Your trip has been removed from the board.</p>
+            </div>`;
+          loadTrips();
+        } else {
+          btn.disabled = false; btn.textContent = '🗑️ Delete my post';
+          alert(data.error || 'Could not delete post.');
+        }
+      } catch {
+        btn.disabled = false; btn.textContent = '🗑️ Delete my post';
+        alert('Network error. Please try again.');
+      }
+    }
+
+    async function submitTrip() {
+      const btn = document.getElementById('btnPost');
+      const errEl = document.getElementById('postError');
+      const sucEl = document.getElementById('postSuccess');
+      errEl.style.display = 'none';
+      sucEl.style.display = 'none';
+
+      const fromCity = document.getElementById('fromCity').value.trim();
+      const toCity = document.getElementById('toCity').value.trim();
+      const travelDate = document.getElementById('travelDate').value;
+      const posterName = document.getElementById('posterName').value.trim();
+
+      if (!fromCity) return showErr('Please enter a departure city.');
+      if (!toCity) return showErr('Please enter a destination city.');
+      if (!travelDate) return showErr('Please select a travel date.');
+      if (!posterName) return showErr('Please enter your name or nickname.');
+
+      btn.disabled = true; btn.textContent = 'Posting…';
+
+      try {
+        const r = await fetch(`${API}/trips`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from_city: fromCity,
+            to_city: toCity,
+            travel_date: travelDate,
+            vehicle_type: document.getElementById('vehicleType').value,
+            boot_space: document.getElementById('bootSpace').value.trim(),
+            contact_phone: document.getElementById('contactPhone').value.trim(),
+            contact_wechat: document.getElementById('contactWechat').value.trim(),
+            contact_email: document.getElementById('contactEmail').value.trim(),
+            poster_name: posterName,
+          }),
+        });
+        const data = await r.json();
+        if (data.ok) {
+          sucEl.innerHTML = `✅ Your route has been posted! ${data.is_verified ? '<strong>Verified driver badge</strong> has been added to your post.' : ''} ${document.getElementById('contactEmail').value.trim() ? 'Check your email for a link to manage your post.' : ''}`;
+          sucEl.style.display = 'block';
+          // Clear form
+          ['fromCity','toCity','travelDate','bootSpace','posterName','contactPhone','contactWechat','contactEmail'].forEach(id => document.getElementById(id).value = '');
+          document.getElementById('vehicleType').value = '';
+          loadTrips();
+        } else {
+          showErr(data.error || 'Could not post trip. Please try again.');
+        }
+      } catch {
+        showErr('Network error. Please check your connection and try again.');
+      } finally {
+        btn.disabled = false; btn.textContent = '🚗 Post my route';
+      }
+
+      function showErr(msg) {
+        errEl.textContent = msg;
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = '🚗 Post my route';
+      }
+    }
+
+    async function loadTrips() {
+      try {
+        const r = await fetch(`${API}/trips`);
+        const data = await r.json();
+        allTrips = data.ok ? data.trips : [];
+        renderTrips();
+        if (map) drawRoutes(allTrips);
+      } catch {
+        document.getElementById('tripGrid').innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load trips. Please refresh.</p></div>`;
+      }
+    }
+
+    function renderTrips() {
+      if (searchActive) return; // don't override search results
+      const fromF = document.getElementById('filterFrom').value.trim().toLowerCase();
+      const toF = document.getElementById('filterTo').value.trim().toLowerCase();
+
+      let filtered = allTrips.filter(t => {
+        if (fromF && !t.from_city.toLowerCase().includes(fromF)) return false;
+        if (toF && !t.to_city.toLowerCase().includes(toF)) return false;
+        return true;
+      });
+
+      renderTripList(filtered);
+    }
+
+    function renderTripList(trips) {
+      document.getElementById('tripCount').textContent = trips.length === 0 ? 'No routes found' : `${trips.length} route${trips.length !== 1 ? 's' : ''}`;
+
+      if (trips.length === 0) {
+        document.getElementById('tripGrid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🗺️</div>
+            <p>No upcoming routes yet — be the first to post!</p>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('tripGrid').innerHTML = trips.map(t => `
+        <div class="trip-card">
+          <div class="trip-route">
+            <span>${escHtml(t.from_city)}</span>
+            <span style="color:#94a3b8; font-size:18px;">→</span>
+            <span>${escHtml(t.to_city)}</span>
+          </div>
+          <div class="trip-date">📅 ${formatDate(t.travel_date)}</div>
+          ${t.vehicle_type ? `<div class="trip-detail">🚗 ${escHtml(t.vehicle_type)}</div>` : ''}
+          ${t.boot_space ? `<div class="trip-detail">📦 ${escHtml(t.boot_space)}</div>` : ''}
+          <div class="poster-name">
+            Posted by ${escHtml(t.poster_name)}
+            ${t.is_verified ? `&nbsp;<span class="verified-badge">✓ Verified Driver</span>` : ''}
+          </div>
+          ${buildContact(t)}
+        </div>
+      `).join('');
+    }
+
+    function buildContact(t) {
+      const parts = [];
+      if (t.contact_phone) parts.push(`📞 <a href="tel:${escHtml(t.contact_phone)}">${escHtml(t.contact_phone)}</a>`);
+      if (t.contact_wechat) parts.push(`💬 WeChat: <strong>${escHtml(t.contact_wechat)}</strong>`);
+      if (t.contact_email) parts.push(`✉️ <a href="mailto:${escHtml(t.contact_email)}">${escHtml(t.contact_email)}</a>`);
+      if (!parts.length) return '';
+      return `<div class="trip-contact">${parts.join('<br>')}</div>`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T12:00:00');
+      return d.toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ===== Search =====
+    let searchActive = false;
+
+    function fuzzyMatch(haystack, needle) {
+      if (!needle) return true;
+      return haystack.toLowerCase().includes(needle.toLowerCase().trim());
+    }
+
+    function searchRoutes() {
+      const from = document.getElementById('searchFrom').value.trim();
+      const to = document.getElementById('searchTo').value.trim();
+      if (!from && !to) { clearSearch(); return; }
+
+      searchActive = true;
+
+      // Score each trip: exact city match scores higher than partial
+      const scored = allTrips.map(t => {
+        let score = 0;
+        if (from) {
+          if (t.from_city.toLowerCase() === from.toLowerCase()) score += 10;
+          else if (fuzzyMatch(t.from_city, from)) score += 5;
+          // partial match on route (e.g. Hamilton → Wellington matches Auckland → Wellington)
+          else if (fuzzyMatch(t.to_city, from)) score += 1;
+        }
+        if (to) {
+          if (t.to_city.toLowerCase() === to.toLowerCase()) score += 10;
+          else if (fuzzyMatch(t.to_city, to)) score += 5;
+          else if (fuzzyMatch(t.from_city, to)) score += 1;
+        }
+        return { trip: t, score };
+      })
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score || new Date(a.trip.travel_date) - new Date(b.trip.travel_date));
+
+      const resultEl = document.getElementById('searchResult');
+      if (scored.length === 0) {
+        resultEl.innerHTML = `😕 No routes found from <strong>${escHtml(from)||'anywhere'}</strong> to <strong>${escHtml(to)||'anywhere'}</strong>. Try a nearby city, or check back later.`;
+        resultEl.style.display = 'block';
+        document.getElementById('tripGrid').innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🗺️</div>
+            <p>No matching routes — try broadening your search.</p>
+          </div>`;
+        document.getElementById('tripCount').textContent = '0 routes found';
+        return;
+      }
+
+      resultEl.innerHTML = `✅ Found <strong>${scored.length}</strong> route${scored.length!==1?'s':''} — showing best matches first.`;
+      resultEl.style.display = 'block';
+
+      // Render only matching trips in score order
+      renderTripList(scored.map(s => s.trip));
+    }
+
+    function clearSearch() {
+      searchActive = false;
+      document.getElementById('searchFrom').value = '';
+      document.getElementById('searchTo').value = '';
+      document.getElementById('searchResult').style.display = 'none';
+      renderTrips();
+    }
+
+    // Allow Enter key to trigger search
+    ['searchFrom','searchTo'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') searchRoutes();
+      });
+    });
+
+    // ===== Google Maps Route Visualisation =====
+    let map = null;
+    let geocoder = null;
+    let mapPolylines = [];
+    let mapMarkers = [];
+    let infoWindow = null;
+    const geocodeCache = {}; // city name → {lat, lng}
+
+    // Palette of colours for routes (cycles if more routes than colours)
+    const ROUTE_COLOURS = [
+      '#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed',
+      '#0891b2', '#be185d', '#065f46', '#92400e', '#1e3a5f',
+    ];
+
+    function initTripMap() {
+      // Called by Google Maps callback
+      geocoder = new google.maps.Geocoder();
+      infoWindow = new google.maps.InfoWindow();
+
+      map = new google.maps.Map(document.getElementById('routeMap'), {
+        center: { lat: -41.5, lng: 172.8 }, // Centre of NZ
+        zoom: 5,
+        mapTypeId: 'roadmap',
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        styles: [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+
+      document.getElementById('mapLoading').style.display = 'none';
+      document.getElementById('routeMap').style.display = 'block';
+      document.getElementById('mapLegend').style.display = 'flex';
+
+      // Draw routes if trips already loaded
+      if (allTrips.length > 0) drawRoutes(allTrips);
+    }
+
+    async function geocodeCity(city) {
+      const key = city.toLowerCase().trim();
+      if (geocodeCache[key]) return geocodeCache[key];
+
+      return new Promise((resolve) => {
+        geocoder.geocode(
+          { address: city + ', New Zealand', region: 'NZ' },
+          (results, status) => {
+            if (status === 'OK' && results[0]) {
+              const loc = results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              geocodeCache[key] = coords;
+              resolve(coords);
+            } else {
+              resolve(null);
+            }
+          }
+        );
+      });
+    }
+
+    // Draw a curved arc between two lat/lng points using intermediate waypoints
+    function buildCurvedPath(from, to, curvature = 0.3) {
+      const points = [];
+      const steps = 30;
+
+      // Midpoint offset perpendicular to the route for the curve
+      const midLat = (from.lat + to.lat) / 2;
+      const midLng = (from.lng + to.lng) / 2;
+      const dLat = to.lat - from.lat;
+      const dLng = to.lng - from.lng;
+
+      // Perpendicular offset
+      const offsetLat = -dLng * curvature;
+      const offsetLng = dLat * curvature;
+
+      const cp = { lat: midLat + offsetLat, lng: midLng + offsetLng };
+
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Quadratic Bezier
+        const lat = (1-t)*(1-t)*from.lat + 2*(1-t)*t*cp.lat + t*t*to.lat;
+        const lng = (1-t)*(1-t)*from.lng + 2*(1-t)*t*cp.lng + t*t*to.lng;
+        points.push({ lat, lng });
+      }
+      return points;
+    }
+
+    async function drawRoutes(trips) {
+      if (!map || !geocoder) return;
+
+      // Clear old overlays
+      mapPolylines.forEach(p => p.setMap(null));
+      mapMarkers.forEach(m => m.setMap(null));
+      mapPolylines = [];
+      mapMarkers = [];
+
+      // Collect unique cities
+      const citySet = new Set();
+      trips.forEach(t => { citySet.add(t.from_city); citySet.add(t.to_city); });
+
+      // Geocode all cities (with small delay to avoid rate limit)
+      for (const city of citySet) {
+        await geocodeCity(city);
+        await new Promise(r => setTimeout(r, 80));
+      }
+
+      // Draw each trip as a curved line
+      let drawn = 0;
+      for (let i = 0; i < trips.length; i++) {
+        const t = trips[i];
+        const from = geocodeCache[t.from_city.toLowerCase().trim()];
+        const to = geocodeCache[t.to_city.toLowerCase().trim()];
+        if (!from || !to) continue;
+
+        const colour = t.is_verified ? '#16a34a' : ROUTE_COLOURS[i % ROUTE_COLOURS.length];
+        // Slightly vary curvature so overlapping routes don't stack exactly
+        const curvature = 0.25 + (i % 4) * 0.07;
+
+        const path = buildCurvedPath(from, to, curvature);
+        const poly = new google.maps.Polyline({
+          path,
+          geodesic: false,
+          strokeColor: colour,
+          strokeOpacity: 0.85,
+          strokeWeight: 3,
+          map,
+        });
+
+        // Arrow symbol at end
+        poly.set('strokeOpacity', 0);
+        const arrowPoly = new google.maps.Polyline({
+          path,
+          geodesic: false,
+          strokeColor: colour,
+          strokeOpacity: 0.85,
+          strokeWeight: 3,
+          icons: [{
+            icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, fillColor: colour, fillOpacity: 1, strokeWeight: 0 },
+            offset: '100%',
+          }],
+          map,
+        });
+
+        // Click on line → show info window
+        const tripInfo = t;
+        google.maps.event.addListener(arrowPoly, 'click', (e) => {
+          const content = `
+            <div style="font-family:sans-serif; min-width:200px; padding:4px;">
+              <div style="font-weight:700; font-size:15px; margin-bottom:4px;">
+                ${escHtml(tripInfo.from_city)} → ${escHtml(tripInfo.to_city)}
+              </div>
+              <div style="font-size:13px; color:#64748b; margin-bottom:6px;">📅 ${formatDate(tripInfo.travel_date)}</div>
+              ${tripInfo.vehicle_type ? `<div style="font-size:13px;">🚗 ${escHtml(tripInfo.vehicle_type)}</div>` : ''}
+              ${tripInfo.boot_space ? `<div style="font-size:13px;">📦 ${escHtml(tripInfo.boot_space)}</div>` : ''}
+              <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
+                By ${escHtml(tripInfo.poster_name)}
+                ${tripInfo.is_verified ? '&nbsp;✅ Verified Driver' : ''}
+              </div>
+              ${tripInfo.contact_phone ? `<div style="font-size:13px; margin-top:6px;">📞 <a href="tel:${escHtml(tripInfo.contact_phone)}">${escHtml(tripInfo.contact_phone)}</a></div>` : ''}
+              ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 WeChat: <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
+              ${tripInfo.contact_email ? `<div style="font-size:13px;">✉️ <a href="mailto:${escHtml(tripInfo.contact_email)}">${escHtml(tripInfo.contact_email)}</a></div>` : ''}
+            </div>`;
+          infoWindow.setContent(content);
+          infoWindow.setPosition(e.latLng);
+          infoWindow.open(map);
+        });
+
+        mapPolylines.push(arrowPoly);
+
+        // City markers
+        [{ coords: from, label: t.from_city }, { coords: to, label: t.to_city }].forEach(({ coords, label }) => {
+          const existing = mapMarkers.find(m => Math.abs(m.getPosition().lat() - coords.lat) < 0.01);
+          if (!existing) {
+            const marker = new google.maps.Marker({
+              position: coords,
+              map,
+              title: label,
+              icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 6,
+                fillColor: '#fff',
+                fillOpacity: 1,
+                strokeColor: '#0f172a',
+                strokeWeight: 2,
+              },
+            });
+            mapMarkers.push(marker);
+          }
+        });
+
+        drawn++;
+      }
+
+      document.getElementById('mapRouteCount').textContent =
+        drawn === 0 ? 'No routes yet' : `${drawn} active route${drawn !== 1 ? 's' : ''}`;
+    }
+
+    loadTrips();
+  </script>
+</body>
+</html>
