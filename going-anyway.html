@@ -259,8 +259,8 @@
             <input type="tel" id="contactPhone" placeholder="e.g. 021 123 4567" maxlength="40" />
           </div>
           <div class="form-group">
-            <label>WeChat ID <span class="optional-tag">optional</span></label>
-            <input type="text" id="contactWechat" placeholder="e.g. kiwi_alex" maxlength="80" />
+            <label>Other contact <span class="optional-tag">optional</span></label>
+            <input type="text" id="contactWechat" placeholder="e.g. WeChat: kiwi_alex, LINE: alex123" maxlength="80" />
           </div>
         </div>
         <div class="form-group">
@@ -525,7 +525,7 @@
     function buildContact(t) {
       const parts = [];
       if (t.contact_phone) parts.push(`📞 <a href="tel:${escHtml(t.contact_phone)}">${escHtml(t.contact_phone)}</a>`);
-      if (t.contact_wechat) parts.push(`💬 WeChat: <strong>${escHtml(t.contact_wechat)}</strong>`);
+      if (t.contact_wechat) parts.push(`💬 <strong>${escHtml(t.contact_wechat)}</strong>`);
       if (t.contact_email) parts.push(`✉️ <a href="mailto:${escHtml(t.contact_email)}">${escHtml(t.contact_email)}</a>`);
       if (!parts.length) return '';
       return `<div class="trip-contact">${parts.join('<br>')}</div>`;
@@ -615,23 +615,115 @@
 
     // ===== Google Maps Route Visualisation =====
     let map = null;
-    let geocoder = null;
     let mapPolylines = [];
     let mapMarkers = [];
     let infoWindow = null;
-    const geocodeCache = {}; // city name → {lat, lng}
+    const geocodeCache = {};
 
-    // Palette of colours for routes (cycles if more routes than colours)
+    // Hardcoded NZ city coordinates — fast, no API calls needed
+    const NZ_CITIES = {
+      'auckland': { lat: -36.8509, lng: 174.7645 },
+      'wellington': { lat: -41.2865, lng: 174.7762 },
+      'christchurch': { lat: -43.5321, lng: 172.6362 },
+      'hamilton': { lat: -37.7870, lng: 175.2793 },
+      'tauranga': { lat: -37.6878, lng: 176.1651 },
+      'napier': { lat: -39.4928, lng: 176.9120 },
+      'hastings': { lat: -39.6386, lng: 176.8497 },
+      'dunedin': { lat: -45.8788, lng: 170.5028 },
+      'palmerston north': { lat: -40.3523, lng: 175.6082 },
+      'nelson': { lat: -41.2706, lng: 173.2840 },
+      'rotorua': { lat: -38.1368, lng: 176.2497 },
+      'new plymouth': { lat: -39.0556, lng: 174.0752 },
+      'whangarei': { lat: -35.7275, lng: 174.3166 },
+      'invercargill': { lat: -46.4132, lng: 168.3538 },
+      'queenstown': { lat: -45.0312, lng: 168.6626 },
+      'gisborne': { lat: -38.6623, lng: 178.0176 },
+      'blenheim': { lat: -41.5134, lng: 173.9612 },
+      'cambridge': { lat: -37.8894, lng: 175.4680 },
+      'whanganui': { lat: -39.9301, lng: 175.0479 },
+      'wanganui': { lat: -39.9301, lng: 175.0479 },
+      'pukekohe': { lat: -37.2004, lng: 174.9010 },
+      'upper hutt': { lat: -41.1244, lng: 175.0707 },
+      'lower hutt': { lat: -41.2127, lng: 174.9089 },
+      'porirua': { lat: -41.1344, lng: 174.8434 },
+      'kapiti': { lat: -40.8990, lng: 175.0076 },
+      'masterton': { lat: -40.9523, lng: 175.6575 },
+      'timaru': { lat: -44.3968, lng: 171.2497 },
+      'ashburton': { lat: -43.9036, lng: 171.7283 },
+      'oamaru': { lat: -45.0966, lng: 170.9714 },
+      'gore': { lat: -46.1003, lng: 168.9390 },
+      'te awamutu': { lat: -38.0094, lng: 175.3270 },
+      'matamata': { lat: -37.8080, lng: 175.7726 },
+      'thames': { lat: -37.1378, lng: 175.5418 },
+      'taupo': { lat: -38.6857, lng: 176.0702 },
+      'whakatane': { lat: -37.9530, lng: 176.9900 },
+      'levin': { lat: -40.6218, lng: 175.2857 },
+      'fielding': { lat: -40.2243, lng: 175.5646 },
+      'feilding': { lat: -40.2243, lng: 175.5646 },
+      'dannevirke': { lat: -40.2007, lng: 176.1003 },
+      'wairoa': { lat: -39.0367, lng: 177.4132 },
+      'dargaville': { lat: -35.9351, lng: 173.8839 },
+      'kaitaia': { lat: -35.1128, lng: 173.2667 },
+      'kerikeri': { lat: -35.2232, lng: 173.9487 },
+      'paihia': { lat: -35.2793, lng: 174.0897 },
+      'twizel': { lat: -44.2584, lng: 170.0997 },
+      'wanaka': { lat: -44.7032, lng: 169.1318 },
+      'cromwell': { lat: -45.0525, lng: 169.1946 },
+      'alexandra': { lat: -45.2479, lng: 169.3722 },
+      'greymouth': { lat: -42.4504, lng: 171.2108 },
+      'westport': { lat: -41.7538, lng: 171.5986 },
+      'hokitika': { lat: -42.7168, lng: 170.9646 },
+      'picton': { lat: -41.2954, lng: 173.9549 },
+      'motueka': { lat: -41.1199, lng: 173.0071 },
+      'richmond': { lat: -41.3368, lng: 173.1756 },
+    };
+
+    async function geocodeCity(city) {
+      const key = city.toLowerCase().trim();
+      if (geocodeCache[key]) return geocodeCache[key];
+
+      // Check hardcoded list first
+      if (NZ_CITIES[key]) {
+        geocodeCache[key] = NZ_CITIES[key];
+        return NZ_CITIES[key];
+      }
+
+      // Partial match in hardcoded list
+      for (const [name, coords] of Object.entries(NZ_CITIES)) {
+        if (name.includes(key) || key.includes(name)) {
+          geocodeCache[key] = coords;
+          return coords;
+        }
+      }
+
+      // Fallback to Google Geocoder for unknown cities
+      if (!window.google || !window.google.maps) return null;
+      return new Promise((resolve) => {
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode(
+          { address: city + ', New Zealand', region: 'NZ' },
+          (results, status) => {
+            if (status === 'OK' && results[0]) {
+              const loc = results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              geocodeCache[key] = coords;
+              resolve(coords);
+            } else {
+              resolve(null);
+            }
+          }
+        );
+      });
+    }
+
+    // Palette of colours for routes
     const ROUTE_COLOURS = [
-      '#2563eb', '#16a34a', '#dc2626', '#d97706', '#7c3aed',
-      '#0891b2', '#be185d', '#065f46', '#92400e', '#1e3a5f',
+      '#2563eb', '#dc2626', '#d97706', '#7c3aed',
+      '#0891b2', '#be185d', '#065f46', '#92400e',
     ];
 
     function initTripMap() {
-      // Called by Google Maps callback
-      geocoder = new google.maps.Geocoder();
       infoWindow = new google.maps.InfoWindow();
-
       map = new google.maps.Map(document.getElementById('routeMap'), {
         center: { lat: -41.5, lng: 172.8 }, // Centre of NZ
         zoom: 5,
@@ -652,56 +744,9 @@
       if (allTrips.length > 0) drawRoutes(allTrips);
     }
 
-    async function geocodeCity(city) {
-      const key = city.toLowerCase().trim();
-      if (geocodeCache[key]) return geocodeCache[key];
-
-      return new Promise((resolve) => {
-        geocoder.geocode(
-          { address: city + ', New Zealand', region: 'NZ' },
-          (results, status) => {
-            if (status === 'OK' && results[0]) {
-              const loc = results[0].geometry.location;
-              const coords = { lat: loc.lat(), lng: loc.lng() };
-              geocodeCache[key] = coords;
-              resolve(coords);
-            } else {
-              resolve(null);
-            }
-          }
-        );
-      });
-    }
-
-    // Draw a curved arc between two lat/lng points using intermediate waypoints
-    function buildCurvedPath(from, to, curvature = 0.3) {
-      const points = [];
-      const steps = 30;
-
-      // Midpoint offset perpendicular to the route for the curve
-      const midLat = (from.lat + to.lat) / 2;
-      const midLng = (from.lng + to.lng) / 2;
-      const dLat = to.lat - from.lat;
-      const dLng = to.lng - from.lng;
-
-      // Perpendicular offset
-      const offsetLat = -dLng * curvature;
-      const offsetLng = dLat * curvature;
-
-      const cp = { lat: midLat + offsetLat, lng: midLng + offsetLng };
-
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        // Quadratic Bezier
-        const lat = (1-t)*(1-t)*from.lat + 2*(1-t)*t*cp.lat + t*t*to.lat;
-        const lng = (1-t)*(1-t)*from.lng + 2*(1-t)*t*cp.lng + t*t*to.lng;
-        points.push({ lat, lng });
-      }
-      return points;
-    }
-
+    
     async function drawRoutes(trips) {
-      if (!map || !geocoder) return;
+      if (!map) return;
 
       // Clear old overlays
       mapPolylines.forEach(p => p.setMap(null));
@@ -713,10 +758,9 @@
       const citySet = new Set();
       trips.forEach(t => { citySet.add(t.from_city); citySet.add(t.to_city); });
 
-      // Geocode all cities (with small delay to avoid rate limit)
+      // Geocode all cities
       for (const city of citySet) {
         await geocodeCity(city);
-        await new Promise(r => setTimeout(r, 80));
       }
 
       // Draw each trip as a curved line
@@ -763,7 +807,7 @@
                 ${tripInfo.is_verified ? '&nbsp;✅ Verified Driver' : ''}
               </div>
               ${tripInfo.contact_phone ? `<div style="font-size:13px; margin-top:6px;">📞 <a href="tel:${escHtml(tripInfo.contact_phone)}">${escHtml(tripInfo.contact_phone)}</a></div>` : ''}
-              ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 WeChat: <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
+              ${tripInfo.contact_wechat ? `<div style="font-size:13px;">💬 <b>${escHtml(tripInfo.contact_wechat)}</b></div>` : ''}
               ${tripInfo.contact_email ? `<div style="font-size:13px;">✉️ <a href="mailto:${escHtml(tripInfo.contact_email)}">${escHtml(tripInfo.contact_email)}</a></div>` : ''}
             </div>`;
           infoWindow.setContent(content);
