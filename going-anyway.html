@@ -141,6 +141,15 @@
     }
     .filter-row input:focus, .filter-row select:focus { border-color: #2563eb; }
 
+    /* Language switcher */
+    .lang-btn {
+      background: none; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 3px 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+      color: #64748b; transition: all .15s;
+    }
+    .lang-btn:hover { border-color: #94a3b8; color: #0f172a; }
+    .lang-btn.active-lang { background: #0f172a; color: white; border-color: #0f172a; }
+
     /* Map */
     #routeMapWrap {
       background: white;
@@ -181,13 +190,19 @@
 <body>
   <header class="topbar">
     <nav class="nav">
-      <a href="/index.html">Home</a>
-      <a href="/sender.html">Sender</a>
-      <a href="/driver.html">Driver</a>
-      <a href="/about.html">About</a>
-      <a href="/going-anyway.html" class="active">Going Anyway</a>
+      <a href="/index.html" data-i18n="nav_home">Home</a>
+      <a href="/sender.html" data-i18n="nav_sender">Sender</a>
+      <a href="/driver.html" data-i18n="nav_driver">Driver</a>
+      <a href="/about.html" data-i18n="nav_about">About</a>
+      <a href="/going-anyway.html" class="active" data-i18n="nav_going">Going Anyway</a>
       <a href="/admin.html" id="navAdmin" style="display:none;">Admin</a>
     </nav>
+    <div style="display:flex; gap:4px; align-items:center; padding:0 16px;">
+      <button onclick="setLang('en')"  id="langBtn_en"  class="lang-btn active-lang">EN</button>
+      <button onclick="setLang('zh')"  id="langBtn_zh"  class="lang-btn">中</button>
+      <button onclick="setLang('ja')"  id="langBtn_ja"  class="lang-btn">日</button>
+      <button onclick="setLang('ko')"  id="langBtn_ko"  class="lang-btn">한</button>
+    </div>
   </header>
 
   <main class="container">
@@ -195,9 +210,9 @@
     <!-- Hero -->
     <div class="ga-hero">
       <div style="font-size:48px; margin-bottom:12px;">🚗</div>
-      <div class="tagline">Going Anyway</div>
-      <h1>Spare Boot Board</h1>
-      <p>Travelling across New Zealand and have empty boot space? Post your route — you might help someone ship something along the way. A community notice board for Kiwi drivers.</p>
+      <div class="tagline" data-i18n="hero_tagline">Going Anyway</div>
+      <h1 data-i18n="hero_title">Spare Boot Board</h1>
+      <p data-i18n="hero_desc">Travelling across New Zealand and have empty boot space? Post your route — you might help someone ship something along the way. A community notice board for Kiwi drivers.</p>
     </div>
 
     <!-- Manage panel (shown when ?manage=token in URL) -->
@@ -213,111 +228,111 @@
 
     <!-- Post a trip -->
     <div class="post-form" id="postForm">
-      <h2>📍 Post your route</h2>
+      <h2 data-i18n="form_title">📍 Post your route</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>From city / town <span style="color:#dc2626">*</span></label>
-          <input type="text" id="fromCity" placeholder="e.g. Auckland" maxlength="100" />
+          <label data-i18n="form_from">From city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="fromCity" data-i18n-placeholder="ph_from" placeholder="e.g. Auckland" maxlength="100" />
         </div>
         <div class="form-group">
-          <label>To city / town <span style="color:#dc2626">*</span></label>
-          <input type="text" id="toCity" placeholder="e.g. Wellington" maxlength="100" />
+          <label data-i18n="form_to">To city / town <span style="color:#dc2626">*</span></label>
+          <input type="text" id="toCity" data-i18n-placeholder="ph_to" placeholder="e.g. Wellington" maxlength="100" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Travel date <span style="color:#dc2626">*</span></label>
+          <label data-i18n="form_date">Travel date <span style="color:#dc2626">*</span></label>
           <input type="date" id="travelDate" />
         </div>
         <div class="form-group">
-          <label>Vehicle type <span class="optional-tag">optional</span></label>
+          <label data-i18n="form_vehicle">Vehicle type <span class="optional-tag" data-i18n="optional">optional</span></label>
           <select id="vehicleType">
-            <option value="">— select —</option>
+            <option value="" data-i18n="vehicle_select">— select —</option>
             <option>Sedan</option>
             <option>SUV / Wagon</option>
             <option>Ute / Pickup</option>
             <option>Van</option>
             <option>Tesla / EV</option>
-            <option>Other</option>
+            <option data-i18n="vehicle_other">Other</option>
           </select>
         </div>
       </div>
       <div class="form-group">
-        <label>Boot space available <span class="optional-tag">optional</span></label>
-        <input type="text" id="bootSpace" placeholder="e.g. Half a boot, can fit a suitcase and a box" maxlength="200" />
+        <label data-i18n="form_boot">Boot space available <span class="optional-tag" data-i18n="optional">optional</span></label>
+        <input type="text" id="bootSpace" data-i18n-placeholder="ph_boot" placeholder="e.g. Half a boot, can fit a suitcase and a box" maxlength="200" />
       </div>
       <div class="form-group">
-        <label>Your name / nickname <span style="color:#dc2626">*</span></label>
-        <input type="text" id="posterName" placeholder="e.g. Alex" maxlength="80" />
+        <label data-i18n="form_name">Your name / nickname <span style="color:#dc2626">*</span></label>
+        <input type="text" id="posterName" data-i18n-placeholder="ph_name" placeholder="e.g. Alex" maxlength="80" />
       </div>
 
       <div style="background:#f8fafc; border-radius:8px; padding:16px; margin-bottom:16px;">
-        <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:10px;">Contact info <span class="optional-tag" style="font-size:12px;">— all optional, provide at least one so people can reach you</span></div>
+        <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:10px;" data-i18n="form_contact">Contact info <span class="optional-tag" style="font-size:12px;">— all optional, provide at least one so people can reach you</span></div>
         <div class="form-row">
           <div class="form-group">
-            <label>Phone <span class="optional-tag">optional</span></label>
+            <label data-i18n="form_phone">Phone <span class="optional-tag" data-i18n="optional">optional</span></label>
             <input type="tel" id="contactPhone" placeholder="e.g. 021 123 4567" maxlength="40" />
           </div>
           <div class="form-group">
-            <label>Other contact <span class="optional-tag">optional</span></label>
-            <input type="text" id="contactWechat" placeholder="e.g. WeChat: kiwi_alex, LINE: alex123" maxlength="80" />
+            <label data-i18n="form_other">Other contact <span class="optional-tag" data-i18n="optional">optional</span></label>
+            <input type="text" id="contactWechat" data-i18n-placeholder="ph_other" placeholder="e.g. WeChat: kiwi_alex, LINE: alex123" maxlength="80" />
           </div>
         </div>
         <div class="form-group">
-          <label>Email <span class="optional-tag">optional — used to send you a manage link</span></label>
+          <label data-i18n="form_email">Email <span class="optional-tag" data-i18n="optional">optional — used to send you a manage link</span></label>
           <input type="email" id="contactEmail" placeholder="e.g. alex@email.com" maxlength="120" />
-          <div class="hint">We'll email you a private link to delete your post. Not shown publicly.</div>
+          <div class="hint" data-i18n="form_email_hint">We'll email you a private link to delete your post. Not shown publicly.</div>
         </div>
       </div>
 
       <div id="postError" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; color:#dc2626; font-size:14px; margin-bottom:12px;"></div>
       <div id="postSuccess" style="display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; color:#15803d; font-size:14px; margin-bottom:12px;"></div>
 
-      <button class="btn" id="btnPost" onclick="submitTrip()">🚗 Post my route</button>
-      <p style="font-size:12px; color:#94a3b8; margin-top:10px;">Your post will automatically disappear after your travel date. No account needed.</p>
+      <button class="btn" id="btnPost" onclick="submitTrip()" data-i18n="btn_post">🚗 Post my route</button>
+      <p style="font-size:12px; color:#94a3b8; margin-top:10px;" data-i18n="form_note">Your post will automatically disappear after your travel date. No account needed.</p>
     </div>
 
     <!-- Route Map -->
     <div id="routeMapWrap">
       <div id="routeMapHeader">
-        <h3>🗺️ Live route map</h3>
+        <h3 data-i18n="map_title">🗺️ Live route map</h3>
         <span id="mapRouteCount">Loading…</span>
       </div>
-      <div id="mapLoading">⏳ &nbsp;Loading map…</div>
+      <div id="mapLoading" data-i18n="map_loading">⏳ &nbsp;Loading map…</div>
       <div id="routeMap" style="display:none;"></div>
       <div class="map-legend" id="mapLegend" style="display:none;">
-        <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> Active routes</div>
-        <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> Verified driver</div>
-        <div style="color:#94a3b8; margin-left:auto; font-size:11px;">Click a line to see trip details</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span> <span data-i18n="legend_active">Active routes</span></div>
+        <div class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span> <span data-i18n="legend_verified">Verified driver</span></div>
+        <div style="color:#94a3b8; margin-left:auto; font-size:11px;" data-i18n="legend_hint">Click a line to see trip details</div>
       </div>
     </div>
 
     <!-- Search -->
     <div style="background:white; border:2px solid #2563eb; border-radius:12px; padding:20px; margin-bottom:24px;">
-      <div style="font-size:13px; font-weight:700; color:#2563eb; margin-bottom:12px; text-transform:uppercase; letter-spacing:.05em;">🔍 Find a route</div>
+      <div style="font-size:13px; font-weight:700; color:#2563eb; margin-bottom:12px; text-transform:uppercase; letter-spacing:.05em;" data-i18n="search_title">🔍 Find a route</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
         <div style="flex:1; min-width:130px;">
-          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">From</label>
-          <input type="text" id="searchFrom" placeholder="e.g. Auckland" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;" data-i18n="search_from">From</label>
+          <input type="text" id="searchFrom" data-i18n-placeholder="ph_from" placeholder="e.g. Auckland" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
         </div>
         <div style="flex:1; min-width:130px;">
-          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;">To</label>
-          <input type="text" id="searchTo" placeholder="e.g. Wellington" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
+          <label style="font-size:12px; font-weight:600; color:#374151; display:block; margin-bottom:4px;" data-i18n="search_to">To</label>
+          <input type="text" id="searchTo" data-i18n-placeholder="ph_to" placeholder="e.g. Wellington" style="width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; font-size:14px; font-family:inherit; outline:none;" />
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="btn" onclick="searchRoutes()" style="white-space:nowrap;">Search</button>
-          <button onclick="clearSearch()" style="background:none; border:1px solid #e2e8f0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; color:#64748b; white-space:nowrap;">Clear</button>
+          <button class="btn" onclick="searchRoutes()" style="white-space:nowrap;" data-i18n="btn_search">Search</button>
+          <button onclick="clearSearch()" style="background:none; border:1px solid #e2e8f0; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; color:#64748b; white-space:nowrap;" data-i18n="btn_clear">Clear</button>
         </div>
       </div>
       <div id="searchResult" style="display:none; margin-top:12px; font-size:13px; color:#64748b;"></div>
     </div>
 
     <!-- Trip listings -->
-    <div class="section-title">🚗 Upcoming routes</div>
+    <div class="section-title" data-i18n="section_upcoming">🚗 Upcoming routes</div>
 
     <div class="filter-row">
-      <input type="text" id="filterFrom" placeholder="Filter by from..." style="max-width:160px;" oninput="renderTrips()" />
-      <input type="text" id="filterTo" placeholder="Filter by to..." style="max-width:160px;" oninput="renderTrips()" />
+      <input type="text" id="filterFrom" data-i18n-placeholder="filter_from" placeholder="Filter by from..." style="max-width:160px;" oninput="renderTrips()" />
+      <input type="text" id="filterTo" data-i18n-placeholder="filter_to" placeholder="Filter by to..." style="max-width:160px;" oninput="renderTrips()" />
       <span style="font-size:13px; color:#94a3b8;" id="tripCount"></span>
     </div>
 
@@ -327,11 +342,11 @@
 
     <!-- CTA box -->
     <div class="cta-box">
-      <h3>Need a guaranteed delivery?</h3>
-      <p>Going Anyway is a casual community board. For a reliable, insured delivery with Stripe payment protection, post a formal delivery request on DeliveryMate.</p>
-      <a class="btn" href="/sender.html">Post a delivery request</a>
+      <h3 data-i18n="cta_title">Need a guaranteed delivery?</h3>
+      <p data-i18n="cta_desc">Going Anyway is a casual community board. For a reliable, insured delivery with Stripe payment protection, post a formal delivery request on DeliveryMate.</p>
+      <a class="btn" href="/sender.html" data-i18n="cta_btn1">Post a delivery request</a>
       &nbsp;
-      <a class="btn" href="/driver.html" style="background:#f8fafc; color:#0f172a; border:1px solid #e2e8f0;">Register as a driver</a>
+      <a class="btn" href="/driver.html" style="background:#f8fafc; color:#0f172a; border:1px solid #e2e8f0;" data-i18n="cta_btn2">Register as a driver</a>
     </div>
 
   </main>
@@ -901,10 +916,139 @@
       }
     }
 
+    // ===== i18n Translation System =====
+    const TRANSLATIONS = {
+      en: {
+        nav_home:'Home', nav_sender:'Sender', nav_driver:'Driver', nav_about:'About', nav_going:'Going Anyway',
+        hero_tagline:'Going Anyway', hero_title:'Spare Boot Board',
+        hero_desc:'Travelling across New Zealand and have empty boot space? Post your route — you might help someone ship something along the way. A community notice board for Kiwi drivers.',
+        form_title:'📍 Post your route',
+        form_from:'From city / town *', form_to:'To city / town *',
+        form_date:'Travel date *', form_vehicle:'Vehicle type', form_boot:'Boot space available',
+        form_name:'Your name / nickname *',
+        form_contact:'Contact info — all optional, provide at least one so people can reach you',
+        form_phone:'Phone', form_other:'Other contact', form_email:'Email',
+        form_email_hint:"We'll email you a private link to delete your post. Not shown publicly.",
+        form_note:'Your post will automatically disappear after your travel date. No account needed.',
+        btn_post:'🚗 Post my route',
+        optional:'optional', vehicle_select:'— select —', vehicle_other:'Other',
+        ph_from:'e.g. Auckland', ph_to:'e.g. Wellington',
+        ph_boot:'e.g. Half a boot, can fit a suitcase and a box',
+        ph_name:'e.g. Alex', ph_other:'e.g. WeChat: kiwi_alex, LINE: alex123',
+        map_title:'🗺️ Live route map', map_loading:'⏳  Loading map…',
+        legend_active:'Active routes', legend_verified:'Verified driver', legend_hint:'Click a line to see trip details',
+        search_title:'🔍 Find a route', search_from:'From', search_to:'To',
+        btn_search:'Search', btn_clear:'Clear',
+        section_upcoming:'🚗 Upcoming routes',
+        filter_from:'Filter by from...', filter_to:'Filter by to...',
+        cta_title:'Need a guaranteed delivery?',
+        cta_desc:'Going Anyway is a casual community board. For a reliable delivery with Stripe payment protection, post a formal request on DeliveryMate.',
+        cta_btn1:'Post a delivery request', cta_btn2:'Register as a driver',
+      },
+      zh: {
+        nav_home:'首页', nav_sender:'寄件方', nav_driver:'司机', nav_about:'关于', nav_going:'顺风车公告栏',
+        hero_tagline:'顺风车公告栏', hero_title:'空余车厢共享平台',
+        hero_desc:'正在穿越新西兰，车后备厢还有空间？发布你的路线，顺便帮别人运送物品。专为新西兰司机打造的社区公告栏。',
+        form_title:'📍 发布你的路线',
+        form_from:'出发城市 *', form_to:'目的城市 *',
+        form_date:'出行日期 *', form_vehicle:'车辆类型', form_boot:'可用后备厢空间',
+        form_name:'你的名字或昵称 *',
+        form_contact:'联系方式 — 均为可选，请至少填写一项以便他人联系你',
+        form_phone:'电话', form_other:'其他联系方式', form_email:'电子邮件',
+        form_email_hint:'我们将发送一个私密链接到你的邮箱，用于删除帖子。不会公开显示。',
+        form_note:'帖子将在出行日期后自动消失。无需注册账号。',
+        btn_post:'🚗 发布路线',
+        optional:'可选', vehicle_select:'— 请选择 —', vehicle_other:'其他',
+        ph_from:'例如：奥克兰', ph_to:'例如：惠灵顿',
+        ph_boot:'例如：半个后备厢，可放一个行李箱和一个纸箱',
+        ph_name:'例如：小明', ph_other:'例如：微信：kiwi_alex',
+        map_title:'🗺️ 实时路线地图', map_loading:'⏳  地图加载中…',
+        legend_active:'当前路线', legend_verified:'认证司机', legend_hint:'点击线条查看行程详情',
+        search_title:'🔍 查找路线', search_from:'出发地', search_to:'目的地',
+        btn_search:'搜索', btn_clear:'清除',
+        section_upcoming:'🚗 即将出发的路线',
+        filter_from:'按出发地筛选...', filter_to:'按目的地筛选...',
+        cta_title:'需要有保障的配送服务？',
+        cta_desc:'顺风车公告栏是一个非正式社区平台。如需可靠的配送并享有Stripe支付保障，请在DeliveryMate发布正式配送请求。',
+        cta_btn1:'发布配送请求', cta_btn2:'注册成为司机',
+      },
+      ja: {
+        nav_home:'ホーム', nav_sender:'送り主', nav_driver:'ドライバー', nav_about:'について', nav_going:'ついでに運びます',
+        hero_tagline:'ついでに運びます', hero_title:'空きトランク掲示板',
+        hero_desc:'ニュージーランドを移動中で、トランクに空きがありますか？ルートを投稿して、誰かの荷物を一緒に運んでみませんか。ニュージーランドのドライバーのためのコミュニティ掲示板です。',
+        form_title:'📍 ルートを投稿する',
+        form_from:'出発地 *', form_to:'目的地 *',
+        form_date:'移動日 *', form_vehicle:'車の種類', form_boot:'利用可能なトランクスペース',
+        form_name:'お名前またはニックネーム *',
+        form_contact:'連絡先 — すべて任意ですが、少なくとも一つご入力ください',
+        form_phone:'電話番号', form_other:'その他の連絡先', form_email:'メールアドレス',
+        form_email_hint:'投稿を削除するためのプライベートリンクをメールでお送りします。公開されません。',
+        form_note:'投稿は移動日の後に自動的に削除されます。アカウント不要。',
+        btn_post:'🚗 ルートを投稿',
+        optional:'任意', vehicle_select:'— 選択 —', vehicle_other:'その他',
+        ph_from:'例：オークランド', ph_to:'例：ウェリントン',
+        ph_boot:'例：トランク半分、スーツケース1個と段ボール1箱が入ります',
+        ph_name:'例：タロウ', ph_other:'例：WeChat: kiwi_alex、LINE: alex123',
+        map_title:'🗺️ リアルタイムルートマップ', map_loading:'⏳  マップ読み込み中…',
+        legend_active:'現在のルート', legend_verified:'認証ドライバー', legend_hint:'線をクリックして詳細を確認',
+        search_title:'🔍 ルートを探す', search_from:'出発地', search_to:'目的地',
+        btn_search:'検索', btn_clear:'クリア',
+        section_upcoming:'🚗 近日出発のルート',
+        filter_from:'出発地で絞り込み...', filter_to:'目的地で絞り込み...',
+        cta_title:'確実な配送が必要ですか？',
+        cta_desc:'この掲示板は非公式のコミュニティです。Stripe決済保護付きの信頼できる配送をご希望の場合は、DeliveryMateで正式な配送リクエストを投稿してください。',
+        cta_btn1:'配送リクエストを投稿', cta_btn2:'ドライバーとして登録',
+      },
+      ko: {
+        nav_home:'홈', nav_sender:'발송인', nav_driver:'드라이버', nav_about:'소개', nav_going:'어차피 가는 길',
+        hero_tagline:'어차피 가는 길', hero_title:'빈 트렁크 공유 게시판',
+        hero_desc:'뉴질랜드를 이동 중이고 트렁크에 여유 공간이 있나요? 경로를 등록하면 누군가의 물건을 함께 운반할 수 있어요. 뉴질랜드 드라이버를 위한 커뮤니티 게시판입니다.',
+        form_title:'📍 경로 등록하기',
+        form_from:'출발 도시 *', form_to:'도착 도시 *',
+        form_date:'이동 날짜 *', form_vehicle:'차량 종류', form_boot:'이용 가능한 트렁크 공간',
+        form_name:'이름 또는 닉네임 *',
+        form_contact:'연락처 — 모두 선택 사항이지만 최소 하나는 입력해 주세요',
+        form_phone:'전화번호', form_other:'기타 연락처', form_email:'이메일',
+        form_email_hint:'게시물 삭제를 위한 개인 링크를 이메일로 보내드립니다. 공개되지 않습니다.',
+        form_note:'게시물은 이동 날짜 이후 자동으로 삭제됩니다. 계정 불필요.',
+        btn_post:'🚗 경로 등록',
+        optional:'선택', vehicle_select:'— 선택 —', vehicle_other:'기타',
+        ph_from:'예: 오클랜드', ph_to:'예: 웰링턴',
+        ph_boot:'예: 트렁크 절반, 여행 가방 1개와 상자 1개 가능',
+        ph_name:'예: 민준', ph_other:'예: 위챗: kiwi_alex, 카카오: alex123',
+        map_title:'🗺️ 실시간 경로 지도', map_loading:'⏳  지도 로딩 중…',
+        legend_active:'현재 경로', legend_verified:'인증 드라이버', legend_hint:'선을 클릭하면 여행 세부 정보 확인',
+        search_title:'🔍 경로 찾기', search_from:'출발지', search_to:'목적지',
+        btn_search:'검색', btn_clear:'지우기',
+        section_upcoming:'🚗 예정된 경로',
+        filter_from:'출발지 필터...', filter_to:'도착지 필터...',
+        cta_title:'확실한 배송이 필요하신가요?',
+        cta_desc:'이 게시판은 비공식 커뮤니티입니다. Stripe 결제 보호가 있는 신뢰할 수 있는 배송을 원하시면 DeliveryMate에 공식 배송 요청을 등록하세요.',
+        cta_btn1:'배송 요청 등록', cta_btn2:'드라이버로 등록',
+      },
+    };
+
+    let currentLang = 'en';
+
+    function setLang(lang) {
+      currentLang = lang;
+      const t = TRANSLATIONS[lang];
+      if (!t) return;
+      ['en','zh','ja','ko'].forEach(l => {
+        const btn = document.getElementById('langBtn_' + l);
+        if (btn) btn.classList.toggle('active-lang', l === lang);
+      });
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key] !== undefined) el.textContent = t[key];
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (t[key] !== undefined) el.placeholder = t[key];
+      });
+    }
+
     loadTrips();
-  </script>
-  <script>
-    // Show Admin nav only if logged in as admin
     if (localStorage.getItem('adminToken')) {
       const el = document.getElementById('navAdmin');
       if (el) el.style.display = '';
