@@ -2446,6 +2446,30 @@ function initializeJobMap() {
   }
 }
 
+// Cache geocoded addresses to avoid repeat API calls within a session
+const geocodeCache = {};
+
+function geocodeAddress(address) {
+  return new Promise((resolve) => {
+    if (!address) return resolve(null);
+    const key = address.toLowerCase().trim();
+    if (geocodeCache[key]) return resolve(geocodeCache[key]);
+    if (!window.google || !window.google.maps) return resolve(null);
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode({ address: address + ', New Zealand', region: 'NZ' }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        const loc = results[0].geometry.location;
+        const coords = { lat: loc.lat(), lng: loc.lng() };
+        geocodeCache[key] = coords;
+        resolve(coords);
+      } else {
+        console.warn('[Job Map] Geocode failed for:', address, status);
+        resolve(null);
+      }
+    });
+  });
+}
+
 async function loadJobsOntoMap() {
   if (!jobMap) {
     console.warn('[Job Map] Map not initialized yet');
@@ -2453,7 +2477,7 @@ async function loadJobsOntoMap() {
   }
 
   console.log('[Job Map] Rendering jobs on map...');
-  
+
   // Use already-loaded data
   const openJobs = openJobsData.filter(r => r.status === 'open');
 
@@ -2461,31 +2485,44 @@ async function loadJobsOntoMap() {
   jobMarkers.forEach(m => m.setMap(null));
   jobMarkers = [];
 
-  // Group jobs by location (lat/lng rounded to 2 decimals for clustering)
+  // Resolve coordinates for every job — use stored lat/lng if available,
+  // otherwise fall back to geocoding the pickup address/suburb
+  const jobsWithCoords = await Promise.all(openJobs.map(async (job) => {
+    let lat = job.pickup_lat ? Number(job.pickup_lat) : NaN;
+    let lng = job.pickup_lng ? Number(job.pickup_lng) : NaN;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      // Fallback: geocode using the best available address text
+      const addressText = job.pickup_address_full || job.pickup_suburb || null;
+      if (addressText) {
+        console.log('[Job Map] No coords for job #' + job.id + ', geocoding: ' + addressText);
+        const coords = await geocodeAddress(addressText);
+        if (coords) { lat = coords.lat; lng = coords.lng; }
+      }
+    }
+
+    if (isNaN(lat) || isNaN(lng)) return null; // Still no coords — skip
+    return { ...job, _lat: lat, _lng: lng };
+  }));
+
+  // Group jobs by location (lat/lng rounded to 2 decimals for ~1km clustering)
   const locationGroups = {};
-  
-  openJobs.forEach(job => {
-    // Only show jobs with coordinates on map
-    if (!job.pickup_lat || !job.pickup_lng) return;
-    
-    // Convert to numbers (they come as strings from database)
-    const lat = Number(job.pickup_lat);
-    const lng = Number(job.pickup_lng);
-    
-    if (isNaN(lat) || isNaN(lng)) return; // Skip invalid coordinates
-    
-    // Round to ~1km precision for clustering
+
+  jobsWithCoords.forEach(job => {
+    if (!job) return;
+    const lat = job._lat;
+    const lng = job._lng;
     const clusterKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-    
+
     if (!locationGroups[clusterKey]) {
       locationGroups[clusterKey] = {
-        lat: lat,
-        lng: lng,
+        lat,
+        lng,
         suburb: job.pickup_suburb || 'Unknown',
         jobs: [],
       };
     }
-    
+
     locationGroups[clusterKey].jobs.push(job);
   });
 
