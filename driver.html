@@ -9,6 +9,85 @@
   <link rel="stylesheet" href="/css/layout.css" />
   <link rel="stylesheet" href="/css/mobile.css" />
   <script type="module" src="/js/app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+
+    /* ── Page hero strip ── */
+    .driver-hero {
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%);
+      color: white;
+      padding: 36px 32px 32px;
+      border-radius: 0 0 24px 24px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .driver-hero::before {
+      content: ''; position: absolute; right: -40px; top: -40px;
+      width: 220px; height: 220px; border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .driver-hero::after {
+      content: ''; position: absolute; right: 60px; bottom: -60px;
+      width: 160px; height: 160px; border-radius: 50%;
+      background: rgba(16,185,129,0.15);
+    }
+    .driver-hero h1 {
+      font-family: 'Sora', sans-serif; font-size: 1.7rem; font-weight: 800;
+      margin: 0 0 6px; color: white;
+    }
+    .driver-hero p { font-size: 14px; color: #a7f3d0; margin: 0; }
+    .driver-hero-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .driver-hero-badge {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 100px; padding: 4px 14px; font-size: 12px;
+      font-weight: 600; color: #a7f3d0; display: inline-block;
+    }
+
+    /* ── Section headings ── */
+    .card h2 { font-family: 'Sora', sans-serif; font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+    .card h3 { font-family: 'Sora', sans-serif; font-weight: 700; }
+
+    /* ── Journey steps ── */
+    .journey-step {
+      flex: 1; min-width: 160px; background: white; border-radius: 14px;
+      padding: 24px 18px; text-align: center; border: 1px solid #e2e8f0;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .journey-step:hover { box-shadow: 0 8px 24px rgba(0,0,0,.07); transform: translateY(-2px); }
+    .journey-step-icon { font-size: 36px; margin-bottom: 12px; display: block; }
+    .journey-step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 800;
+      color: white; margin-bottom: 10px;
+    }
+    .journey-step-title { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 6px; }
+    .journey-step-desc { font-size: 13px; color: #64748b; line-height: 1.5; }
+
+    /* ── Auth cards ── */
+    #driverRegisterSection { border-top: 3px solid #2563eb; }
+    #driverLoginSection    { border-top: 3px solid #16a34a; }
+
+    /* ── Dashboard logout bar ── */
+    .dash-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 12px 18px; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+    }
+
+    /* ── Status badges ── */
+    .badge-blue   { background: #0ea5e9; color: white; border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .badge-green  { background: #16a34a; color: white; border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 600; display: inline-block; }
+    .badge-muted  { background: #f1f5f9; color: #64748b; border-radius: 6px; padding: 3px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
+    /* ── Profile section ── */
+    #driverProfileSection { border-top: 3px solid #f59e0b !important; }
+  </style>
   
   <!-- Google Maps for job availability map -->
   <script>
@@ -41,7 +120,16 @@
   </header>
 
   <main class="container">
-    <h1>Driver Dashboard</h1>
+
+    <!-- Page hero -->
+    <div class="driver-hero">
+      <h1>🚗 Driver Dashboard</h1>
+      <p>Browse delivery jobs, make offers, and get paid for every completed delivery.</p>
+      <div class="driver-hero-badges">
+        <span class="driver-hero-badge">Keep 90.5% of every job</span>
+        <span class="driver-hero-badge">NZ-wide marketplace</span>
+      </div>
+    </div>
 
     <!-- =============================================
          AUTH AREA (visible when not logged in)
@@ -107,36 +195,39 @@
       </div>
 
       <section class="card">
-        <h2 style="text-align:center; margin-bottom:24px;">Driver Journey</h2>
+        <h2 style="text-align:center; margin-bottom:24px;">Your Driver Journey</h2>
         <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">
 
-          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
-            <div style="font-size:40px; margin-bottom:10px;">📋</div>
-            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">① Apply</div>
-            <p style="margin:0; color:#64748b; font-size:13px;">Submit your licence photos and vehicle details. Admin approves you usually within 24 hours.</p>
+          <div class="journey-step">
+            <span class="journey-step-num" style="background:#2563eb;">1</span>
+            <span class="journey-step-icon">📋</span>
+            <div class="journey-step-title">Apply</div>
+            <div class="journey-step-desc">Submit your licence photos and vehicle details. Admin approves you usually within 24 hours.</div>
           </div>
 
-          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
-            <div style="font-size:40px; margin-bottom:10px;">🗺️</div>
-            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">② Browse &amp; offer</div>
-            <p style="margin:0; color:#64748b; font-size:13px;">Browse open delivery jobs on the map or list. Submit your price — sender picks the best offer.</p>
+          <div class="journey-step">
+            <span class="journey-step-num" style="background:#0891b2;">2</span>
+            <span class="journey-step-icon">🗺️</span>
+            <div class="journey-step-title">Browse &amp; offer</div>
+            <div class="journey-step-desc">Browse open delivery jobs on the map or list. Submit your price — sender picks the best offer.</div>
           </div>
 
-          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
-            <div style="font-size:40px; margin-bottom:10px;">🚚</div>
-            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">③ Pick up &amp; deliver</div>
-            <div style="background:#0ea5e9; color:white; border-radius:6px; padding:4px 10px; display:inline-block; font-size:12px; font-weight:600; margin-bottom:6px;">Mark Picked Up</div>
-            <p style="margin:0; color:#64748b; font-size:13px;">Once the sender pays escrow, pick up the item. When delivered, upload a proof photo to complete the job.</p>
+          <div class="journey-step">
+            <span class="journey-step-num" style="background:#0ea5e9;">3</span>
+            <span class="journey-step-icon">🚚</span>
+            <div class="journey-step-title">Pick up &amp; deliver</div>
+            <div class="journey-step-desc">Once escrow is funded, collect the item and deliver it. Upload a proof photo to complete the job.</div>
+            <span class="badge-blue" style="margin-top:8px;">Mark Picked Up</span>
           </div>
 
-          <div style="flex:1; min-width:160px; background:#f8fafc; border-radius:12px; padding:20px; text-align:center; border:1px solid #e2e8f0;">
-            <div style="font-size:40px; margin-bottom:10px;">💰</div>
-            <div style="font-weight:700; margin-bottom:6px; color:#1e293b;">④ Get paid</div>
-            <div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px; flex-wrap:wrap;">
-              <div style="background:#16a34a; color:white; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600;">Funds Released</div>
-              <div style="font-size:12px; color:#64748b; display:flex; align-items:center; gap:4px;"><span>⏱️</span> 24H Auto</div>
+          <div class="journey-step">
+            <span class="journey-step-num" style="background:#16a34a;">4</span>
+            <span class="journey-step-icon">💰</span>
+            <div class="journey-step-title">Get paid</div>
+            <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:8px;">
+              <span class="badge-green">Funds Released</span>
+              <span class="badge-muted">⏱️ 24H Auto</span>
             </div>
-            <p style="margin:0; color:#64748b; font-size:13px;">Sender confirms delivery and releases payment to your bank account.</p>
           </div>
 
         </div>
@@ -149,7 +240,7 @@
     <div id="driverDashboard" class="hidden">
 
       <!-- Top bar: auth status + logout -->
-      <div class="btn-row" style="align-items:center; gap:10px; margin:8px 0 18px;">
+      <div class="dash-topbar">
         <div class="muted" id="driverAuthStatusDash"></div>
         <button class="btn ghost" type="button" id="driverLogoutBtn">Log out</button>
       </div>
@@ -177,7 +268,7 @@
       <section class="card requires-driver" style="border-top:3px solid #0ea5e9;">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
           <div style="width:4px; height:24px; background:#0ea5e9; border-radius:2px;"></div>
-          <h2 style="margin:0;">My Active Jobs</h2>
+          <h2 style="margin:0;">🚚 My Active Jobs</h2>
         </div>
         <div class="muted" id="driverActiveJobsCount" style="margin-top:6px;">Loading…</div>
         <div id="driverActiveJobsList" style="margin-top:10px;"></div>
@@ -235,7 +326,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
           <div style="display:flex; align-items:center; gap:8px;">
             <div style="width:4px; height:24px; background:#10b981; border-radius:2px;"></div>
-            <h2 style="margin:0;">Available Jobs</h2>
+            <h2 style="margin:0;">🗺️ Available Jobs</h2>
           </div>
           <div style="display:flex; gap:8px;">
             <button class="btn ghost" id="driverToggleMapBtn" type="button">🗺️ View Map</button>
@@ -291,7 +382,7 @@
       <section class="card requires-driver">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
           <div style="width:4px; height:24px; background:#6366f1; border-radius:2px;"></div>
-          <h2 style="margin:0;">Update Job Status</h2>
+          <h2 style="margin:0;">🔄 Update Job Status</h2>
         </div>
         <p class="muted">Use the buttons in My Active Jobs above, or enter a Request ID manually here.</p>
 
@@ -333,9 +424,9 @@
       </div>
 
       <!-- ── VIEW JOB DETAILS ───────────────────────────────── -->
-      <section class="card requires-driver">
+      <section class="card requires-driver" style="border-top:3px solid #6366f1;">
         <details>
-          <summary style="cursor:pointer; font-weight:600; font-size:18px;">View Job Details</summary>
+          <summary style="cursor:pointer; font-weight:600; font-size:18px;">🔍 View Job Details</summary>
           <div style="margin-top:12px;">
             <p class="muted">Load a specific job to see full details and activity history.</p>
 
@@ -360,7 +451,7 @@
       <!-- ── PAYOUTS ─────────────────────────────────────────
            Bank details + jobs ready for payout + history.
       ──────────────────────────────────────────────────────── -->
-      <section class="card requires-driver">
+      <section class="card requires-driver" style="border-top:3px solid #16a34a;">
         <h2>💰 My Payouts</h2>
         <p class="muted">Completed deliveries where escrow has been released are listed here. We transfer to your saved bank account within 1–3 business days.</p>
 
