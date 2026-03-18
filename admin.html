@@ -66,7 +66,71 @@
     pre.admin-pre { background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.08);
                     border-radius: 6px; padding: 12px; font-size: 12px;
                     white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+
+    /* ── Visual polish ── */
+    body { font-family: 'Inter', sans-serif; }
+
+    .admin-hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%);
+      color: white; padding: 32px; border-radius: 0 0 24px 24px;
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .admin-hero::before {
+      content: ''; position: absolute; right: -40px; top: -40px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .admin-hero::after {
+      content: ''; position: absolute; right: 80px; bottom: -50px;
+      width: 140px; height: 140px; border-radius: 50%;
+      background: rgba(99,102,241,0.2);
+    }
+    .admin-hero h1 {
+      font-family: 'Sora', sans-serif; font-size: 1.6rem;
+      font-weight: 800; margin: 0 0 6px; color: white;
+    }
+    .admin-hero p { font-size: 13px; color: #a5b4fc; margin: 0; }
+    .admin-hero-badge {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 100px; padding: 4px 14px; font-size: 12px;
+      font-weight: 600; color: #c7d2fe; display: inline-block; margin-top: 12px;
+    }
+
+    .admin-gate { max-width: 420px; margin: 60px auto; }
+    .admin-gate .card {
+      border-top: 4px solid #4338ca;
+      text-align: center; padding: 36px 32px;
+    }
+    .admin-gate .card h2 {
+      font-family: 'Sora', sans-serif; font-size: 1.3rem;
+      font-weight: 800; color: #1e1b4b;
+    }
+    .admin-gate-icon { font-size: 44px; margin-bottom: 16px; display: block; }
+
+    .dash-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 12px 18px; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-family: 'Sora', sans-serif; font-size: 16px;
+      font-weight: 700; color: #0f172a;
+    }
+    .card h2 { font-family: 'Sora', sans-serif; font-weight: 700; }
+
+    /* Section accent borders */
+    #adminDashboard > section:nth-of-type(1) { border-top: 3px solid #f59e0b; }
+    #adminDashboard > section:nth-of-type(2) { border-top: 3px solid #2563eb; }
+    #adminDashboard > section:nth-of-type(3) { border-top: 3px solid #16a34a; }
+    #adminDashboard > section:nth-of-type(4) { border-top: 3px solid #0891b2; }
+    #adminDashboard > section:nth-of-type(5) { border-top: 3px solid #ef4444; }
+    #adminDashboard > section:nth-of-type(6) { border-top: 3px solid #6366f1; }
+    #adminDashboard > section:nth-of-type(7) { border-top: 3px solid #10b981; }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 
 <body data-page="admin">
@@ -81,11 +145,18 @@
   </header>
 
   <main class="container">
-    <h1>Admin Dashboard</h1>
+
+    <!-- Page hero -->
+    <div class="admin-hero">
+      <h1>🔐 Admin Dashboard</h1>
+      <p>Manage drivers, payouts, and platform operations.</p>
+      <span class="admin-hero-badge">Internal access only</span>
+    </div>
 
     <!-- ── AUTH GATE ──────────────────────────────────────── -->
     <div id="adminGate" class="admin-gate">
       <div class="card">
+        <span class="admin-gate-icon">🔐</span>
         <h2 style="margin-top:0;">Admin Sign In</h2>
         <p class="muted">Enter your admin token to access the dashboard.</p>
         <label>Admin Token</label>
@@ -101,7 +172,7 @@
     <div id="adminDashboard" class="hidden">
 
       <!-- Top bar -->
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div class="dash-topbar">
         <div class="muted" id="adminWelcome"></div>
         <button class="btn ghost" id="adminSignOutBtn">Sign out</button>
       </div>
@@ -112,7 +183,7 @@
       ══════════════════════════════════════════════════════ -->
       <section class="card" style="margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-          <div class="section-title">Driver Queue</div>
+          <div class="section-title">👥 Driver Queue</div>
           <button class="btn ghost" id="driversRefreshBtn">↺ Refresh</button>
         </div>
 
@@ -133,7 +204,7 @@
       ══════════════════════════════════════════════════════ -->
       <section class="card" style="margin-bottom:20px;">
         <div style="margin-bottom:16px;">
-          <div class="section-title">Sender Management</div>
+          <div class="section-title">📱 Sender Management</div>
           <div class="muted" style="margin-top:4px;">Search a sender by phone number to view their status or suspend their account.</div>
         </div>
 
@@ -160,7 +231,7 @@
       <section class="card" style="margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
           <div>
-            <div class="section-title">Driver Payouts</div>
+            <div class="section-title">💰 Driver Payouts</div>
             <div class="muted" style="margin-top:4px;" id="payoutSummaryLine">Loading pending payouts…</div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -177,7 +248,7 @@
       ══════════════════════════════════════════════════════ -->
       <section class="card" style="margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <div class="section-title">Platform Summary</div>
+          <div class="section-title">📊 Platform Summary</div>
           <button class="btn ghost" id="summaryRefreshBtn">↺ Refresh</button>
         </div>
         <div id="summaryContent"><div class="muted">Loading…</div></div>
@@ -189,7 +260,7 @@
       ══════════════════════════════════════════════════════ -->
       <section class="card" style="margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-          <div class="section-title">Action Items</div>
+          <div class="section-title">🚨 Action Items</div>
           <button class="btn ghost" id="actionItemsRefreshBtn">↺ Refresh</button>
         </div>
         <div id="actionItemsContent"><div class="muted">Loading…</div></div>
@@ -201,7 +272,7 @@
       ══════════════════════════════════════════════════════ -->
       <section class="card" style="margin-bottom:20px;">
         <details>
-          <summary style="cursor:pointer; font-weight:700; font-size:18px;">Request Tools</summary>
+          <summary style="cursor:pointer; font-weight:700; font-size:18px; font-family:'Sora',sans-serif;">🛠️ Request Tools</summary>
           <div style="margin-top:16px;">
 
             <!-- Ledger viewer -->
