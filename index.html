@@ -146,13 +146,13 @@
       height: 2px; background: linear-gradient(90deg, #e2e8f0, #2563eb, #e2e8f0);
     }
     @media (max-width: 640px) { .steps::before { display: none; } }
-    .step { text-align: center; padding: 0 20px; position: relative; }
+    .step { text-align: center; padding: 0 24px; position: relative; }
     .step-num {
-      width: 56px; height: 56px; border-radius: 50%; display: flex;
+      width: 52px; height: 52px; border-radius: 50%; display: flex;
       align-items: center; justify-content: center; font-family: 'Sora', sans-serif;
-      font-size: 20px; font-weight: 800; color: white; margin: 0 auto 20px; position: relative; z-index: 1;
+      font-size: 22px; font-weight: 800; color: white; margin: 0 auto 18px;
+      position: relative; z-index: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    .step-icon { font-size: 28px; margin-bottom: 14px; display: block; }
     .step h3 { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
     .step p { font-size: 13px; color: #64748b; margin: 0; line-height: 1.6; }
 
@@ -203,7 +203,7 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-badge">New Zealand's peer-to-peer delivery platform</div>
-    <h1>Ship anything, anywhere<br><span>across New Zealand</span></h1>
+    <h1>Post a job. Pick a driver.<br><span>Done.</span></h1>
     <p class="hero-sub">Connect with verified Kiwi drivers going your way. Secure Stripe escrow protects every delivery — funds only release when you confirm arrival.</p>
     <div class="hero-cta">
       <a class="btn-hero-primary" href="/sender.html">📦 Send something</a>
@@ -259,19 +259,16 @@
       <div class="steps">
         <div class="step">
           <div class="step-num" style="background:#0f172a;">1</div>
-          <span class="step-icon">📦</span>
           <h3>Post your request</h3>
           <p>Add pickup and drop-off addresses, item details and your budget. No account needed.</p>
         </div>
         <div class="step">
           <div class="step-num" style="background:#2563eb;">2</div>
-          <span class="step-icon">🛡️</span>
           <h3>Choose a driver &amp; pay</h3>
           <p>Pick the best offer from verified drivers. Pay securely via Stripe — funds held in escrow until delivery.</p>
         </div>
         <div class="step">
           <div class="step-num" style="background:#16a34a;">3</div>
-          <span class="step-icon">🎉</span>
           <h3>Delivered &amp; done</h3>
           <p>Confirm delivery to release payment. Auto-releases after 24 hours if you don't respond.</p>
         </div>
