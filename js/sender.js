@@ -1222,16 +1222,11 @@ function setupSenderAuth() {
       e.preventDefault();
       const fd = getFormData(regForm);
       const phone = String(fd.phone || "").trim();
-      const invite_code = String(fd.invite_code || "").trim();
       const full_name = String(fd.full_name || "").trim();
       const email = String(fd.email || "").trim() || undefined;
 
       if (!phone) {
         if (regResult) setResult(regResult, alertError("Phone is required."));
-        return;
-      }
-      if (!invite_code) {
-        if (regResult) setResult(regResult, alertError("Invite code is required."));
         return;
       }
 
@@ -1241,7 +1236,7 @@ function setupSenderAuth() {
       const res = await api("/users/register", {
         method: "POST",
         role: "sender",
-        body: { phone, invite_code, full_name, ...(email && { email }) },
+        body: { phone, full_name, ...(email && { email }) },
       });
 
       done(!!res.ok);
