@@ -67,6 +67,43 @@
                     border-radius: 6px; padding: 12px; font-size: 12px;
                     white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
 
+    .job-card {
+      border: 1px solid rgba(0,0,0,.1); border-radius: 10px; padding: 16px;
+      margin: 10px 0; background: #fff; transition: box-shadow .15s;
+    }
+    .job-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    .job-card.status-open      { border-left: 4px solid #3b82f6; }
+    .job-card.status-accepted  { border-left: 4px solid #f59e0b; }
+    .job-card.status-picked_up { border-left: 4px solid #8b5cf6; }
+    .job-card.status-delivered { border-left: 4px solid #22c55e; }
+    .job-card.status-cancelled { border-left: 4px solid #ef4444; opacity: .7; }
+
+    .job-card-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .job-id { font-size: 18px; font-weight: 800; font-family: 'Sora', sans-serif; color: #0f172a; }
+    .job-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+    .job-field { font-size: 13px; }
+    .job-field-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
+    .job-field-value { color: #0f172a; font-weight: 500; word-break: break-word; }
+    .job-field-value.missing { color: #dc2626; font-style: italic; }
+    .job-field-value a { color: #0284c7; text-decoration: none; }
+    .job-field-value a:hover { text-decoration: underline; }
+
+    .sender-box {
+      background: rgba(2,132,199,.04); border: 1px solid rgba(2,132,199,.15);
+      border-radius: 8px; padding: 12px 14px; margin-top: 12px;
+    }
+    .sender-box-title { font-size: 11px; text-transform: uppercase; font-weight: 700;
+      color: #0284c7; margin-bottom: 8px; letter-spacing: .05em; }
+
+    .missing-badge {
+      display: inline-block; background: rgba(239,68,68,.1); color: #b91c1c;
+      border: 1px solid rgba(239,68,68,.25); border-radius: 4px;
+      font-size: 11px; font-weight: 700; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+    }
+
     /* ── Visual polish ── */
     body { font-family: 'Inter', sans-serif; }
 
@@ -123,10 +160,11 @@
     #adminDashboard > section:nth-of-type(1) { border-top: 3px solid #f59e0b; }
     #adminDashboard > section:nth-of-type(2) { border-top: 3px solid #2563eb; }
     #adminDashboard > section:nth-of-type(3) { border-top: 3px solid #16a34a; }
-    #adminDashboard > section:nth-of-type(4) { border-top: 3px solid #0891b2; }
-    #adminDashboard > section:nth-of-type(5) { border-top: 3px solid #ef4444; }
-    #adminDashboard > section:nth-of-type(6) { border-top: 3px solid #6366f1; }
-    #adminDashboard > section:nth-of-type(7) { border-top: 3px solid #10b981; }
+    #adminDashboard > section:nth-of-type(4) { border-top: 3px solid #3b82f6; }
+    #adminDashboard > section:nth-of-type(5) { border-top: 3px solid #0891b2; }
+    #adminDashboard > section:nth-of-type(6) { border-top: 3px solid #ef4444; }
+    #adminDashboard > section:nth-of-type(7) { border-top: 3px solid #6366f1; }
+    #adminDashboard > section:nth-of-type(8) { border-top: 3px solid #10b981; }
   </style>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -240,6 +278,30 @@
           </div>
         </div>
         <div id="payoutsList"></div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════
+           SECTION: AVAILABLE JOBS
+           Full details of all open requests incl. sender info.
+      ══════════════════════════════════════════════════════ -->
+      <section class="card" id="availableJobsSection" style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+          <div class="section-title">📦 Available Jobs</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <select id="jobStatusFilter" style="padding:6px 10px; border:1px solid #e2e8f0; border-radius:6px; font-size:13px; background:#fff;">
+              <option value="open">Open</option>
+              <option value="accepted">Accepted</option>
+              <option value="picked_up">Picked Up</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="all">All</option>
+            </select>
+            <button class="btn ghost" id="jobsRefreshBtn">↺ Refresh</button>
+          </div>
+        </div>
+        <div class="muted" style="margin-bottom:12px; font-size:13px;">Full job details including sender info. Use this to follow up with senders who have missing address or contact details.</div>
+        <div id="jobsCount" class="muted" style="margin-bottom:10px;"></div>
+        <div id="jobsList"></div>
       </section>
 
       <!-- ══════════════════════════════════════════════════
@@ -1373,11 +1435,194 @@
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Available Jobs ────────────────────────────────────────
+
+  async function loadJobs() {
+    const el = document.getElementById('jobsList');
+    const countEl = document.getElementById('jobsCount');
+    if (!el) return;
+    el.innerHTML = `<div class="muted"><span class="spinner"></span> Loading…</div>`;
+    if (countEl) countEl.textContent = '';
+
+    const filterStatus = (document.getElementById('jobStatusFilter') || {}).value || 'open';
+
+    // Fetch all requests (admin endpoint returns full data incl. sender info)
+    const res = await apiFetch('/requests');
+    if (!res.ok) {
+      el.innerHTML = alertErr(res.error || 'Failed to load jobs');
+      return;
+    }
+
+    // Admin token: fetch individually to get sender info (GET /requests returns public view).
+    // Instead, use admin bulk-fetch via trial summary + iterate individual requests.
+    // Better approach: fetch all via admin-aware endpoint
+    const allRes = await apiFetch('/admin/trial/summary');
+    if (!allRes.ok) {
+      el.innerHTML = alertErr(allRes.error || 'Failed to load job details');
+      return;
+    }
+
+    // Get the IDs from summary, then fetch each one fully
+    const recentIds = (allRes.recent_requests || []).map(r => r.id);
+
+    // Fetch all requests with full admin detail
+    const detailPromises = recentIds.map(id => apiFetch(`/requests/${id}`));
+    const details = await Promise.all(detailPromises);
+    let jobs = details.filter(d => d.ok && d.request).map(d => d.request);
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+      jobs = jobs.filter(j => j.status === filterStatus);
+    }
+
+    if (countEl) {
+      countEl.textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'} shown (filtered from last 20)`;
+    }
+
+    if (!jobs.length) {
+      el.innerHTML = `<div class="empty-state">No jobs found with status "${filterStatus}".</div>`;
+      return;
+    }
+
+    // Sort: open first, then by id desc
+    const statusOrder = { open: 0, accepted: 1, picked_up: 2, delivered: 3, cancelled: 4 };
+    jobs.sort((a, b) => {
+      const oa = statusOrder[a.status] ?? 9;
+      const ob = statusOrder[b.status] ?? 9;
+      if (oa !== ob) return oa - ob;
+      return b.id - a.id;
+    });
+
+    function missingWarning(val, label) {
+      if (!val || String(val).trim() === '') {
+        return `<span class="job-field-value missing">⚠ Missing ${label}</span>`;
+      }
+      return `<span class="job-field-value">${esc(String(val))}</span>`;
+    }
+
+    function phoneLink(phone) {
+      if (!phone) return `<span class="job-field-value missing">⚠ No phone</span>`;
+      const cleaned = String(phone).replace(/\s/g, '');
+      return `<span class="job-field-value"><a href="tel:${esc(cleaned)}">${esc(phone)}</a> <a href="sms:${esc(cleaned)}" title="Send SMS" style="font-size:11px; margin-left:4px; color:#0284c7;">💬 SMS</a></span>`;
+    }
+
+    function addressField(full, suburb) {
+      if (full && String(full).trim()) {
+        return `<span class="job-field-value">${esc(full)}</span>`;
+      }
+      if (suburb && String(suburb).trim()) {
+        return `<span class="job-field-value">${esc(suburb)} <span class="missing-badge">suburb only</span></span>`;
+      }
+      return `<span class="job-field-value missing">⚠ No address</span>`;
+    }
+
+    function hasMissingInfo(job) {
+      return !job.sender_name || !job.sender_phone ||
+             (!job.pickup_address_full && job.pickup_suburb) ||
+             (!job.dropoff_address_full && job.dropoff_suburb);
+    }
+
+    el.innerHTML = jobs.map(job => {
+      const incomplete = hasMissingInfo(job);
+      return `
+        <div class="job-card status-${esc(job.status || 'open')}">
+          <div class="job-card-header">
+            <div>
+              <span class="job-id">#${esc(String(job.id))}</span>
+              ${statusPill(job.status)}
+              ${incomplete ? `<span class="missing-badge" style="margin-left:8px;">⚠ Incomplete info</span>` : ''}
+            </div>
+            <div style="font-size:12px; color:#94a3b8;">${esc(fmtDateTime(job.created_at))}</div>
+          </div>
+
+          <div class="job-meta">
+            <div class="job-field">
+              <div class="job-field-label">📍 Pickup</div>
+              ${addressField(job.pickup_address_full, job.pickup_suburb)}
+            </div>
+            <div class="job-field">
+              <div class="job-field-label">🏁 Drop-off</div>
+              ${addressField(job.dropoff_address_full, job.dropoff_suburb)}
+            </div>
+            <div class="job-field">
+              <div class="job-field-label">📦 Item</div>
+              ${missingWarning(job.item_description, 'description')}
+            </div>
+            <div class="job-field">
+              <div class="job-field-label">⚖ Weight</div>
+              <span class="job-field-value">${job.weight_kg ? esc(String(job.weight_kg)) + ' kg' : '—'}</span>
+            </div>
+            <div class="job-field">
+              <div class="job-field-label">💵 Suggested Price</div>
+              <span class="job-field-value">${job.suggested_price_nzd ? 'NZD $' + Number(job.suggested_price_nzd).toFixed(2) : '—'}</span>
+            </div>
+            <div class="job-field">
+              <div class="job-field-label">💰 Agreed Price</div>
+              <span class="job-field-value">${job.agreed_price_nzd ? 'NZD $' + Number(job.agreed_price_nzd).toFixed(2) : '—'}</span>
+            </div>
+            ${job.driver_name ? `
+            <div class="job-field">
+              <div class="job-field-label">🚗 Driver</div>
+              <span class="job-field-value">${esc(job.driver_name)}${job.driver_phone ? ' · ' + esc(job.driver_phone) : ''}</span>
+            </div>` : ''}
+          </div>
+
+          <!-- Sender info box -->
+          <div class="sender-box">
+            <div class="sender-box-title">👤 Sender Information</div>
+            <div class="job-meta">
+              <div class="job-field">
+                <div class="job-field-label">Name</div>
+                ${missingWarning(job.sender_name, 'name')}
+              </div>
+              <div class="job-field">
+                <div class="job-field-label">Phone</div>
+                ${phoneLink(job.sender_phone)}
+              </div>
+              ${job.escrow_status && job.escrow_status !== 'none' ? `
+              <div class="job-field">
+                <div class="job-field-label">Escrow</div>
+                ${escrowPill(job.escrow_status)}
+              </div>` : ''}
+            </div>
+
+            ${incomplete && job.status === 'open' ? `
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(2,132,199,.15);">
+              <div style="font-size:12px; color:#64748b; margin-bottom:6px;">⚠ This job is missing complete information. You may want to remind the sender to update their request.</div>
+              ${job.sender_phone ? `
+              <a href="sms:${esc(String(job.sender_phone).replace(/\s/g,''))}&body=${encodeURIComponent('Hi, this is DeliveryMate admin. Your delivery request #' + job.id + ' is missing some details (full pickup/drop-off address). Please update your request so drivers can find you. Thanks!')}"
+                 style="display:inline-block; background:#0284c7; color:#fff; padding:7px 14px; border-radius:6px; font-size:12px; font-weight:600; text-decoration:none; margin-right:6px;">
+                💬 Send SMS Reminder
+              </a>` : ''}
+              <button class="btn ghost" style="font-size:12px; padding:6px 12px;" onclick="copyReminderText(${job.id})">📋 Copy reminder text</button>
+              <textarea id="reminder-copy-${job.id}" style="position:absolute; opacity:0; pointer-events:none;"
+                >Hi, this is DeliveryMate admin. Your delivery request #${job.id} (${esc(job.pickup_suburb || '')} → ${esc(job.dropoff_suburb || '')}) is missing some information. Please log in and update your request with your full pickup and drop-off address so drivers can find you. Thanks!</textarea>
+            </div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function copyReminderText(jobId) {
+    const ta = document.getElementById('reminder-copy-' + jobId);
+    if (!ta) return;
+    ta.style.position = 'static';
+    ta.style.opacity = '1';
+    ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    ta.style.position = 'absolute';
+    ta.style.opacity = '0';
+  }
+
+  document.getElementById('jobsRefreshBtn').addEventListener('click', loadJobs);
+  document.getElementById('jobStatusFilter').addEventListener('change', loadJobs);
+
   // ── Load everything on dashboard show ─────────────────────
 
   function loadAll() {
     loadDriverQueue('pending_review');
     loadPendingPayouts();
+    loadJobs();
     loadSummary();
     loadActionItems();
     loadTrips();
